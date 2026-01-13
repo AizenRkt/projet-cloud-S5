@@ -26,16 +26,10 @@ Route::get('/about', function () {
     return view('about');
 });
 
-
-// Route pour lister les catégories avec recherche et pagination
-//Route::get('/categories', [CategoryController::class, 'index'])->name('categories.index');
-
-
 Route::get('/contact', function () {
     $email = 'contact@example.com';
     return view('contact', ['email' => $email]);
 });
 
 
-Route::resource('categories',CategoryController::class);
-Route::resource('products', ProductController::class);
+
