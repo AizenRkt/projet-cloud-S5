@@ -1,35 +1,45 @@
 version: '3.8'
 
-name: laravel_app
-
 services:
-  # PHP-FPM
   app:
     build: .
-    image: php:8.2-fpm
     container_name: laravel_app
     volumes:
-      - ./myapp:/var/www/html
+      - ./:/var/www/html
     networks:
       - laravel
 
-  # Nginx
+
   nginx:
     image: nginx:alpine
     container_name: laravel_nginx
     ports:
       - "8000:80"
     volumes:
-      - ./myapp:/var/www/html
-      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
-    depends_on:
-      - app
+      - ./:/var/www/html
+      - ./nginx.conf/nginx.conf:/etc/nginx/conf.d/default.conf
     networks:
       - laravel
 
-volumes:
-  db_data:
+
+  mysql:
+    image: mysql:8.0
+    container_name: laravel_mysql
+    environment:
+      MYSQL_DATABASE: laravel
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_PASSWORD: secret
+      MYSQL_USER: laravel
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - laravel
 
 networks:
   laravel:
     driver: bridge
+
+volumes:
+  mysql_data:
