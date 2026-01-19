@@ -30,6 +30,8 @@ COPY . .
 # Installer Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
+WORKDIR /var/www/html/road-check
+
 RUN composer install
 
 CMD ["php-fpm"]

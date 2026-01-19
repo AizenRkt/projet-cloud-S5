@@ -24,6 +24,16 @@ services:
     depends_on:
       - app
 
+  tileserver:
+    image: maptiler/tileserver-gl
+    container_name: laravel_tileserver
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./map-data:/data
+    networks:
+      - laravel
+
   postgres:
     image: postgres:15
     container_name: laravel_postgres
