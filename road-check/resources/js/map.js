@@ -12,20 +12,25 @@ L.Icon.Default.mergeOptions({
 document.addEventListener('DOMContentLoaded', () => {
     const mapElement = document.getElementById('map');
     if (mapElement) {
-        // Center on Antananarivo city center
-        // Coordinates from generated MBTiles: -18.906286, 47.515869
-        const map = L.map('map').setView([-18.906286, 47.515869], 14);
+        const map = L.map('map', {
+            zoomControl: true,
+            attributionControl: true
+        }).setView([-18.9369, 47.4481], 12);
 
-        // Tile layer from local tileserver
+        // Tile layer from local tileserver (Raster tiles with style-baked labels)
         const tileUrl = 'http://localhost:8081/styles/Basic/{z}/{x}/{y}.png';
 
         L.tileLayer(tileUrl, {
-            attribution: '&copy; <a href="https://www.maptiler.com/">MapTiler</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            attribution: '&copy; <a href="https://openmaptiles.org/">OpenMapTiles</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
             maxZoom: 18
         }).addTo(map);
 
-        L.marker([-18.906286, 47.515869]).addTo(map)
-            .bindPopup('Antananarivo')
+        // Add Scale
+        L.control.scale({ imperial: false, position: 'bottomleft' }).addTo(map);
+
+        // Add Marker
+        L.marker([-18.9369, 47.4481]).addTo(map)
+            .bindPopup('<b>Antananarivo Center</b>')
             .openPopup();
     }
 });

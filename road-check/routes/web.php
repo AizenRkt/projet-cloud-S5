@@ -5,6 +5,11 @@ use App\Models\Category;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\ProductController;
 
+Route::get('/map', function () {
+    return view('map');
+});
+
+
 Route::get('/', function () {
     return view('welcome');
 });
