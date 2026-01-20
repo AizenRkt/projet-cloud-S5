@@ -8,7 +8,7 @@ CREATE TABLE role (
 CREATE TABLE utilisateur (
     id_utilisateur SERIAL PRIMARY KEY,
     email VARCHAR(100) UNIQUE NOT NULL,
-    mot_de_passe VARCHAR(255) NOT NULL,
+    firebase_uid VARCHAR(128) UNIQUE NOT NULL
     nom VARCHAR(100),
     prenom VARCHAR(100),
     id_role INT NOT NULL REFERENCES role(id_role),
