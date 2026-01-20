@@ -1,10 +1,17 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Models\Category;
-use App\Http\Controllers\CategoryController;
-use App\Http\Controllers\ProductController;
+use App\Http\Controllers\Api\FirebaseAuthController;
 
+// 🔹 Routes Firebase (API test dans web.php)
+Route::post('/firebase/register', [FirebaseAuthController::class, 'register']);
+Route::post('/firebase/login', [FirebaseAuthController::class, 'login']);
+
+Route::middleware('firebase.auth')->group(function () {
+    Route::put('/firebase/profile', [FirebaseAuthController::class, 'update']);
+});
+
+// 🔹 Routes Web / Views
 Route::get('/', function () {
     return view('welcome');
 });
@@ -13,15 +20,12 @@ Route::get('/hello', function () {
     return 'Bonjour Laravel!';
 });
 
-Route::get('/user/{name}', function ($name) {
-    return "Bonjour, $name!";
-});
-
+// 🔹 Route user optionnelle (éviter conflit)
 Route::get('/user/{name?}', function ($name = 'Invité') {
     return "Bonjour, $name!";
 });
 
-// Route retournant une view
+// 🔹 Pages
 Route::get('/about', function () {
     return view('about');
 });
@@ -30,6 +34,3 @@ Route::get('/contact', function () {
     $email = 'contact@example.com';
     return view('contact', ['email' => $email]);
 });
-
-
-
