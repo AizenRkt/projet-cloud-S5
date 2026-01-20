@@ -25,7 +25,7 @@ services:
       - app
 
   postgres:
-    image: postgres:15
+    image: postgres:17
     container_name: laravel_postgres
     environment:
       POSTGRES_DB: laravel
