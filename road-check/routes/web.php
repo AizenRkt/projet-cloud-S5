@@ -3,13 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\FirebaseAuthController;
 
-// 🔹 Routes Firebase (API test dans web.php)
-Route::post('/firebase/register', [FirebaseAuthController::class, 'register']);
-Route::post('/firebase/login', [FirebaseAuthController::class, 'login']);
 
-Route::middleware('firebase.auth')->group(function () {
-    Route::put('/firebase/profile', [FirebaseAuthController::class, 'update']);
-});
 
 // 🔹 Routes Web / Views
 Route::get('/', function () {
