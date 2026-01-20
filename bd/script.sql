@@ -8,7 +8,7 @@ CREATE TABLE role (
 CREATE TABLE utilisateur (
     id_utilisateur SERIAL PRIMARY KEY,
     email VARCHAR(100) UNIQUE NOT NULL,
-    firebase_uid VARCHAR(128) UNIQUE NOT NULL
+    firebase_uid VARCHAR(128) UNIQUE NOT NULL,
     nom VARCHAR(100),
     prenom VARCHAR(100),
     id_role INT NOT NULL REFERENCES role(id_role),
@@ -23,7 +23,7 @@ CREATE TABLE session (
     date_creation TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     date_expiration TIMESTAMP NOT NULL
 );
- 
+
 CREATE TABLE tentative_connexion (
     id_tentative SERIAL PRIMARY KEY,
     id_utilisateur INT REFERENCES utilisateur(id_utilisateur),
@@ -32,6 +32,7 @@ CREATE TABLE tentative_connexion (
 );
 
 -- Module Web / Mobile
+
 CREATE TABLE entreprise (
     id_entreprise SERIAL PRIMARY KEY,
     nom VARCHAR(150) NOT NULL
@@ -50,4 +51,5 @@ CREATE TABLE signalement (
     budget DOUBLE PRECISION,
     id_entreprise INT REFERENCES entreprise(id_entreprise)
 );
+
 
