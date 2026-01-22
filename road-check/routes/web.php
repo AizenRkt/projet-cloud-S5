@@ -31,5 +31,6 @@ Route::get('/contact', function () {
     return view('contact', ['email' => $email]);
 });
 
-
-
+Route::get('/users', function () {
+    return view('users.index');
+});

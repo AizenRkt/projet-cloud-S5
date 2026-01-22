@@ -11,13 +11,15 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('users', function (Blueprint $table) {
-            $table->id();
-            $table->string('name');
-            $table->string('email')->unique();
-            $table->timestamp('email_verified_at')->nullable();
-            $table->string('password');
-            $table->rememberToken();
+        Schema::create('utilisateur', function (Blueprint $table) {
+            $table->id('id_utilisateur');
+            $table->string('email', 100)->unique();
+            $table->string('firebase_uid', 128)->unique();
+            $table->string('nom', 100)->nullable();
+            $table->string('prenom', 100)->nullable();
+            $table->foreignId('id_role')->constrained('role', 'id_role');
+            $table->boolean('bloque')->default(false);
+            $table->timestamp('date_creation')->useCurrent();
             $table->timestamps();
         });
 
@@ -42,7 +44,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('users');
+        Schema::dropIfExists('utilisateur');
         Schema::dropIfExists('password_reset_tokens');
         Schema::dropIfExists('sessions');
     }
