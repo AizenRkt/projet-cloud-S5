@@ -14,6 +14,8 @@ Route::post('/login', [FirebaseWebController::class, 'login'])->name('login.subm
 
 Route::middleware('firebase.auth')->group(function () {
     Route::get('/profile', [FirebaseWebController::class, 'profile'])->name('profile');
+    Route::get('/profile/edit', [FirebaseWebController::class, 'edit'])->name('profile.edit');
+    Route::post('/profile/update', [FirebaseWebController::class, 'update'])->name('profile.update');
 });
 
 // Pages classiques

@@ -59,6 +59,12 @@ class FirebaseAuthController extends Controller
             'password' => 'required|string'
         ]);
 
+        // Vérifier si le compte est bloqué AVANT Firebase
+        $utilisateur = Utilisateur::where('email', $data['email'])->first();
+        if ($utilisateur && $utilisateur->bloque) {
+            return response()->json(['error' => 'Compte bloqué.'], 423);
+        }
+
         try {
             // Authentification via Firebase
             $signIn = $this->auth->signInWithEmailAndPassword($data['email'], $data['password']);
@@ -78,6 +84,11 @@ class FirebaseAuthController extends Controller
                 'id_role' => 1,
                 'bloque' => false
             ]);
+        }
+
+        // Vérifier à nouveau le blocage (si le compte a été bloqué entre temps)
+        if ($utilisateur->bloque) {
+            return response()->json(['error' => 'Compte bloqué.'], 423);
         }
 
         return response()->json([

@@ -1,6 +1,8 @@
 <?php
 
 return [
+    // Limite de tentatives de connexion (modifiable via env)
+    'login_attempts_limit' => (int) env('LOGIN_ATTEMPTS_LIMIT', 3),
 
     /*
     |--------------------------------------------------------------------------

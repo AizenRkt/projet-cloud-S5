@@ -8,5 +8,6 @@ class Kernel extends HttpKernel
     protected $routeMiddleware = [
         // tes middlewares existants...
         'firebase.auth' => \App\Http\Middleware\FirebaseAuthMiddleware::class,
+        'login.attempt.limiter' => \App\Http\Middleware\LoginAttemptLimiter::class,
     ];
 }
