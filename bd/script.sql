@@ -52,4 +52,8 @@ CREATE TABLE signalement (
     id_entreprise INT REFERENCES entreprise(id_entreprise)
 );
 
+INSERT INTO role (nom) VALUES ('Administrateur');
+INSERT INTO role (nom) VALUES ('Utilisateur');
+INSERT INTO role (nom) VALUES ('Moderateur');
+
 
