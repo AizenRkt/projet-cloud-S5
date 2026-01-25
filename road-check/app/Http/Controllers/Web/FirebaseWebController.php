@@ -9,6 +9,7 @@ use Kreait\Firebase\Auth as FirebaseAuth;
 use Kreait\Firebase\Exception\AuthException;
 use Kreait\Firebase\Exception\FirebaseException;
 use App\Models\Role;
+use App\Models\TentativeConnexion;
 
 class FirebaseWebController extends Controller
 {
@@ -75,6 +76,21 @@ class FirebaseWebController extends Controller
             'password' => 'required|min:6'
         ]);
 
+        $utilisateur = Utilisateur::where('email', $data['email'])->first();
+        $tentativeSucces = false;
+        $limit = config('app.login_attempts_limit', 3);
+        // Blocage si trop d'échecs récents
+        if ($utilisateur) {
+            $tentatives = \App\Models\TentativeConnexion::where('id_utilisateur', $utilisateur->id_utilisateur)
+                ->where('succes', false)
+                ->where('date_tentative', '>=', now()->subMinutes(30))
+                ->count();
+            if ($utilisateur->bloque || $tentatives >= $limit) {
+                $utilisateur->bloque = true;
+                $utilisateur->save();
+                return back()->withErrors(['error' => 'Compte bloqué. Trop de tentatives.']);
+            }
+        }
         try {
             $signIn = $this->auth->signInWithEmailAndPassword($data['email'], $data['password']);
             $firebaseUser = $this->auth->getUserByEmail($data['email']);
@@ -97,13 +113,23 @@ class FirebaseWebController extends Controller
                 'firebase_id_token' => $signIn->idToken(),
                 'utilisateur' => $utilisateur
             ]);
-
-
-            return redirect()->route('profile');
-
+            $tentativeSucces = true;
         } catch (AuthException | FirebaseException $e) {
-            return back()->withErrors(['error' => 'Erreur Firebase : ' . $e->getMessage()]);
+            // ...
         } catch (\Exception $e) {
+            // ...
+        }
+        // Enregistrer la tentative (échec ou succès)
+        if ($utilisateur) {
+            TentativeConnexion::create([
+                'id_utilisateur' => $utilisateur->id_utilisateur,
+                'date_tentative' => now(),
+                'succes' => $tentativeSucces
+            ]);
+        }
+        if ($tentativeSucces) {
+            return redirect()->route('profile');
+        } else {
             return back()->withErrors(['error' => 'Email ou mot de passe invalide']);
         }
     }
