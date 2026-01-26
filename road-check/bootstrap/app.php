@@ -15,6 +15,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->alias([
             'firebase.auth' => FirebaseAuthMiddleware::class,
+            'login.attempt.limiter' => \App\Http\Middleware\LoginAttemptLimiter::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

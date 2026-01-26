@@ -80,7 +80,7 @@ class FirebaseWebController extends Controller
 
         $utilisateur = Utilisateur::where('email', $data['email'])->first();
         $tentativeSucces = false;
-        $limit = config('app.login_attempts_limit', 3);
+        $limit = config('app.login_attempts_limit', 1);
         $minutesLimit = config('app.login_attempts_minutes', 1);
 
         if ($utilisateur) {

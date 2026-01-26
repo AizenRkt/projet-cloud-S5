@@ -8,6 +8,9 @@ use App\Models\Utilisateur;
 use Kreait\Firebase\Auth as FirebaseAuth;
 use Kreait\Firebase\Exception\AuthException;
 use Kreait\Firebase\Exception\FirebaseException;
+use App\Models\TentativeConnexion;
+use Illuminate\Support\Facades\Config;
+use Carbon\Carbon;
 
 class FirebaseAuthController extends Controller
 {
@@ -60,31 +63,95 @@ class FirebaseAuthController extends Controller
         ]);
 
         // Vérifier si le compte est bloqué AVANT Firebase
+        // Vérifier si le compte est bloqué AVANT Firebase (Middleware le fait aussi, mais double sécurité)
         $utilisateur = Utilisateur::where('email', $data['email'])->first();
+        
+        $limit = Config::get('app.login_attempts_limit', 1);
+        $minutesLimit = Config::get('app.login_attempts_minutes', 30);
+        $now = Carbon::now('UTC');
+
         if ($utilisateur && $utilisateur->bloque) {
-            return response()->json(['error' => 'Compte bloqué.'], 423);
+            // Vérifier si le temps de blocage est expiré
+            $derniereTentative = TentativeConnexion::where('id_utilisateur', $utilisateur->id_utilisateur)
+                ->where('succes', false)
+                ->orderBy('date_tentative', 'desc')
+                ->first();
+
+            if ($derniereTentative) {
+                 $dateTentative = Carbon::parse($derniereTentative->date_tentative)->setTimezone('UTC');
+                 if ($dateTentative->diffInMinutes($now) < $minutesLimit) {
+                     return response()->json(['error' => 'Compte bloqué.'], 423);
+                 } else {
+                     // Auto-déblocage si le temps est passé
+                     $utilisateur->bloque = false;
+                     $utilisateur->save();
+                 }
+            }
         }
 
         try {
             // Authentification via Firebase
             $signIn = $this->auth->signInWithEmailAndPassword($data['email'], $data['password']);
             $firebaseUser = $this->auth->getUserByEmail($data['email']);
+            
+            // Si authentification réussie, on gère l'utilisateur local
+            $utilisateur = Utilisateur::where('firebase_uid', $firebaseUser->uid)->first();
+            
+            // Création si n'existe pas
+            if (!$utilisateur) {
+                $utilisateur = Utilisateur::create([
+                    'email' => $firebaseUser->email,
+                    'firebase_uid' => $firebaseUser->uid,
+                    'nom' => $firebaseUser->displayName ?? '',
+                    'prenom' => '', 
+                    'id_role' => 1,
+                    'bloque' => false
+                ]);
+            }
+            
+            // Enregistrer tentative réussie
+            TentativeConnexion::create([
+                'id_utilisateur' => $utilisateur->id_utilisateur,
+                'succes' => true,
+                'date_tentative' => $now
+            ]);
+
+            // Réinitialiser le blocage au cas où
+            if ($utilisateur->bloque) {
+                $utilisateur->bloque = false;
+                $utilisateur->save();
+            }
+
         } catch (AuthException | FirebaseException $e) {
+            
+            // Enregistrer tentative échouée si l'utilisateur existe
+            $utilisateur = Utilisateur::where('email', $data['email'])->first();
+            
+            if ($utilisateur) {
+                TentativeConnexion::create([
+                    'id_utilisateur' => $utilisateur->id_utilisateur,
+                    'succes' => false,
+                    'date_tentative' => $now
+                ]);
+
+                // Compter les échecs récents
+                $failures = TentativeConnexion::where('id_utilisateur', $utilisateur->id_utilisateur)
+                    ->where('succes', false)
+                    ->where('date_tentative', '>=', $now->copy()->subMinutes($minutesLimit))
+                    ->count();
+
+                if ($failures >= $limit) {
+                    $utilisateur->bloque = true;
+                    $utilisateur->save();
+                    return response()->json(['error' => "Compte bloqué. Trop de tentatives."], 423);
+                }
+            }
+            
             return response()->json(['error' => 'Erreur Firebase: ' . $e->getMessage()], 400);
         }
 
-        // Vérifier si l'utilisateur existe localement, sinon l'ajouter
-        $utilisateur = Utilisateur::where('firebase_uid', $firebaseUser->uid)->first();
-        if (!$utilisateur) {
-            $utilisateur = Utilisateur::create([
-                'email' => $firebaseUser->email,
-                'firebase_uid' => $firebaseUser->uid,
-                'nom' => $firebaseUser->displayName ?? '',
-                'prenom' => '', // Firebase n'a pas prénom/nom séparés
-                'id_role' => 1,
-                'bloque' => false
-            ]);
-        }
+        // Logic moved inside try block to ensure we have user for recording attempt
+
 
         // Vérifier à nouveau le blocage (si le compte a été bloqué entre temps)
         if ($utilisateur->bloque) {
