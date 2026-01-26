@@ -10,6 +10,8 @@ use Kreait\Firebase\Exception\AuthException;
 use Kreait\Firebase\Exception\FirebaseException;
 use App\Models\Role;
 use App\Models\TentativeConnexion;
+use Carbon\Carbon;
+
 
 class FirebaseWebController extends Controller
 {
@@ -79,24 +81,39 @@ class FirebaseWebController extends Controller
         $utilisateur = Utilisateur::where('email', $data['email'])->first();
         $tentativeSucces = false;
         $limit = config('app.login_attempts_limit', 3);
-        // Blocage si trop d'échecs récents
+        $minutesLimit = config('app.login_attempts_minutes', 1);
+
         if ($utilisateur) {
+            // Récupérer toutes les tentatives échouées récentes
             $tentatives = \App\Models\TentativeConnexion::where('id_utilisateur', $utilisateur->id_utilisateur)
                 ->where('succes', false)
-                ->where('date_tentative', '>=', now()->subMinutes(30))
-                ->count();
-            if ($utilisateur->bloque || $tentatives >= $limit) {
-                $utilisateur->bloque = true;
-                $utilisateur->save();
-                return back()->withErrors(['error' => 'Compte bloqué. Trop de tentatives.']);
+                ->orderBy('date_tentative', 'desc')
+                ->get();
+
+            // Vérifier si le compte est bloqué et si le temps écoulé depuis la dernière tentative a dépassé la limite
+            if ($utilisateur->bloque && $tentatives->isNotEmpty()) {
+                $derniereTentative = Carbon::parse($tentatives->first()->date_tentative)->setTimezone('UTC');
+                $now = Carbon::now('UTC');
+                $tempsEcoule = $derniereTentative->diffInMinutes($now);
+
+                if ($tempsEcoule >= $minutesLimit) {
+                    // Débloquer le compte et supprimer les anciennes tentatives
+                    $utilisateur->bloque = false;
+                    $utilisateur->save();
+                    \App\Models\TentativeConnexion::where('id_utilisateur', $utilisateur->id_utilisateur)->delete();
+                } else {
+                    return back()->withErrors([
+                        'error' => "Compte bloqué. Réessayez dans " . ($minutesLimit - $tempsEcoule) . " minute(s)."
+                    ]);
+                }
             }
         }
+
         try {
             $signIn = $this->auth->signInWithEmailAndPassword($data['email'], $data['password']);
             $firebaseUser = $this->auth->getUserByEmail($data['email']);
 
             // Vérifier si l'utilisateur existe localement, sinon l'ajouter
-            $utilisateur = Utilisateur::where('firebase_uid', $firebaseUser->uid)->first();
             if (!$utilisateur) {
                 $utilisateur = Utilisateur::create([
                     'email' => $firebaseUser->email,
@@ -114,25 +131,29 @@ class FirebaseWebController extends Controller
                 'utilisateur' => $utilisateur
             ]);
             $tentativeSucces = true;
+
         } catch (AuthException | FirebaseException $e) {
-            // ...
+            // Gestion Firebase
         } catch (\Exception $e) {
-            // ...
+            // Gestion autres erreurs
         }
+
         // Enregistrer la tentative (échec ou succès)
         if ($utilisateur) {
-            TentativeConnexion::create([
+            \App\Models\TentativeConnexion::create([
                 'id_utilisateur' => $utilisateur->id_utilisateur,
-                'date_tentative' => now(),
+                'date_tentative' => Carbon::now('UTC'),
                 'succes' => $tentativeSucces
             ]);
         }
+
         if ($tentativeSucces) {
             return redirect()->route('profile');
         } else {
             return back()->withErrors(['error' => 'Email ou mot de passe invalide']);
         }
     }
+
 
     // 🔹 PROFIL
     public function profile()
