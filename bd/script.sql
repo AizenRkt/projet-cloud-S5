@@ -1,5 +1,6 @@
 -- Module Authentication
 
+
 CREATE TABLE role (
     id_role SERIAL PRIMARY KEY,
     nom VARCHAR(20) UNIQUE NOT NULL

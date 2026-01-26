@@ -3,7 +3,7 @@
 return [
     // Limite de tentatives de connexion (modifiable via env)
     'login_attempts_limit' => (int) env('LOGIN_ATTEMPTS_LIMIT', 1),
-    'login_attempts_minutes' => (int) env('LOGIN_ATTEMPTS_MINUTES', 1),
+    'login_attempts_minutes' => (int) env('LOGIN_ATTEMPTS_MINUTES', 10),
 
     /*
     |--------------------------------------------------------------------------
