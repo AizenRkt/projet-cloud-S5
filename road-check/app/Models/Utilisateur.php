@@ -4,18 +4,14 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Support\Facades\DB;
 
 class Utilisateur extends Authenticatable
 {
     use HasFactory;
 
-    // Table PostgreSQL
     protected $table = 'utilisateur';
-
-    // Clé primaire
     protected $primaryKey = 'id_utilisateur';
-
-    // Champs autorisés pour insert/update
     protected $fillable = [
         'email',
         'firebase_uid',
@@ -24,7 +20,15 @@ class Utilisateur extends Authenticatable
         'id_role',
         'bloque'
     ];
-
-    // Désactiver timestamps si tu utilises `date_creation`
     public $timestamps = false;
+
+    public function unblock(): void
+    {
+        $this->bloque = false;
+        $this->save();
+
+        DB::table('tentative_connexion')
+            ->where('id_utilisateur', $this->id_utilisateur)
+            ->delete();
+    }
 }
