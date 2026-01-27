@@ -44,8 +44,7 @@ return [
                  * Absolute paths to directory containing the swagger annotations are stored.
                  */
                 'annotations' => [
-                    base_path('app'),
-                ],
+                    base_path('app/Http/Controllers'),                ],
             ],
         ],
     ],
@@ -98,9 +97,7 @@ return [
              * @deprecated Please use `scanOptions.exclude`
              * `scanOptions.exclude` overwrites this
              */
-            'annotations' => [
-                base_path('app/Http/Controllers/Api'), // tes controllers
-            ],
+            'excludes' => [],
         ],
 
         'scanOptions' => [
