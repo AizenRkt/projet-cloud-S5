@@ -45,15 +45,8 @@ RUN mkdir -p storage \
     && chown -R www-data:www-data /var/www/html \
     && chmod -R 775 storage bootstrap/cache
 
-# =========================
-# Installer dépendances
-# =========================
-RUN composer install --no-dev --optimize-autoloader
-# Installer Composer
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
-
 WORKDIR /var/www/html/road-check
 
-RUN composer install
+RUN composer install --no-dev --optimize-autoloader
 
 CMD ["php-fpm"]

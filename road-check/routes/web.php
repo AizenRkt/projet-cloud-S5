@@ -3,7 +3,11 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\FirebaseAuthController;
 use App\Http\Controllers\Web\FirebaseWebController;
+use App\Http\Controllers\SignalementController;
 
+
+Route::get('/signalements', [SignalementController::class, 'index']);
+Route::post('/signalements', [SignalementController::class, 'store']);
 Route::get('/map', function () {
     return view('map');
 });
