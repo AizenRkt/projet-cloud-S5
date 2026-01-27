@@ -1,0 +1,92 @@
+openapi: 3.0.0
+info:
+  title: RoadCheck API
+  version: 1.0.0
+  description: API pour gestion utilisateurs, sessions, tentatives et déblocage
+servers:
+  - url: http://localhost/api
+paths:
+  /firebase/register:
+    post:
+      summary: Inscription utilisateur
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+                nom:
+                  type: string
+                prenom:
+                  type: string
+      responses:
+        '201':
+          description: Utilisateur créé
+  /firebase/login:
+    post:
+      summary: Connexion utilisateur
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Connexion réussie
+        '423':
+          description: Compte bloqué
+  /firebase/profile:
+    put:
+      summary: Mise à jour du profil utilisateur
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                nom:
+                  type: string
+                prenom:
+                  type: string
+      responses:
+        '200':
+          description: Profil mis à jour
+  /unblock:
+    post:
+      summary: Débloquer un utilisateur
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+      responses:
+        '200':
+          description: Utilisateur débloqué
+        '404':
+          description: Utilisateur non trouvé
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

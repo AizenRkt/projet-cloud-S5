@@ -14,7 +14,7 @@
     <!-- NAVBAR -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container-fluid">
-            <a class="navbar-brand" href="/">Laravel CRUD</a>
+            <a class="navbar-brand" href="/">Laravel</a>
         </div>
     </nav>
 
@@ -38,7 +38,7 @@
 
     <!-- FOOTER -->
     <footer class="bg-dark text-white text-center py-3 mt-auto">
-        <p class="mb-0">© {{ date('Y') }} — Laravel CRUD Project</p>
+        <p class="mb-0">© {{ date('Y') }} — Laravel  Project</p>
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
