@@ -20,6 +20,7 @@ class ComposerStaticInit59feb58bfac2b32e38b41126015d2654
         'b067bc7112e384b61c701452d53a14a8' => __DIR__ . '/..' . '/mtdowling/jmespath.php/src/JmesPath.php',
         '23c18046f52bef3eea034657bafda50f' => __DIR__ . '/..' . '/symfony/polyfill-php81/bootstrap.php',
         '72579e7bd17821bb1321b87411366eae' => __DIR__ . '/..' . '/illuminate/support/helpers.php',
+        '0ccdf99b8f62f02c52cba55802e0c2e7' => __DIR__ . '/..' . '/zircote/swagger-php/src/functions.php',
     );
 
     public static $prefixLengthsPsr4 = array (
@@ -37,7 +38,9 @@ class ComposerStaticInit59feb58bfac2b32e38b41126015d2654
             'Symfony\\Contracts\\Cache\\' => 24,
             'Symfony\\Component\\VarExporter\\' => 30,
             'Symfony\\Component\\Translation\\' => 30,
+            'Symfony\\Component\\Finder\\' => 25,
             'Symfony\\Component\\Cache\\' => 24,
+            'Swagger\\' => 8,
             'StellaMaris\\Clock\\' => 18,
         ),
         'R' =>
@@ -120,6 +123,10 @@ class ComposerStaticInit59feb58bfac2b32e38b41126015d2654
         'D' =>
         array (
             'Doctrine\\Inflector\\' => 19,
+            'Doctrine\\Deprecations\\' => 22,
+            'Doctrine\\Common\\Lexer\\' => 22,
+            'Doctrine\\Common\\Annotations\\' => 28,
+            'Darkaonline\\L5Swagger\\' => 22,
         ),
         'C' =>
         array (
@@ -169,9 +176,17 @@ class ComposerStaticInit59feb58bfac2b32e38b41126015d2654
         array (
             0 => __DIR__ . '/..' . '/symfony/translation',
         ),
+        'Symfony\\Component\\Finder\\' =>
+        array (
+            0 => __DIR__ . '/..' . '/symfony/finder',
+        ),
         'Symfony\\Component\\Cache\\' =>
         array (
             0 => __DIR__ . '/..' . '/symfony/cache',
+        ),
+        'Swagger\\' =>
+        array (
+            0 => __DIR__ . '/..' . '/zircote/swagger-php/src',
         ),
         'StellaMaris\\Clock\\' =>
         array (
@@ -383,6 +398,22 @@ class ComposerStaticInit59feb58bfac2b32e38b41126015d2654
         'Doctrine\\Inflector\\' =>
         array (
             0 => __DIR__ . '/..' . '/doctrine/inflector/src',
+        ),
+        'Doctrine\\Deprecations\\' =>
+        array (
+            0 => __DIR__ . '/..' . '/doctrine/deprecations/src',
+        ),
+        'Doctrine\\Common\\Lexer\\' =>
+        array (
+            0 => __DIR__ . '/..' . '/doctrine/lexer/src',
+        ),
+        'Doctrine\\Common\\Annotations\\' =>
+        array (
+            0 => __DIR__ . '/..' . '/doctrine/annotations/lib/Doctrine/Common/Annotations',
+        ),
+        'Darkaonline\\L5Swagger\\' =>
+        array (
+            0 => __DIR__ . '/..' . '/darkaonline/l5-swagger/src',
         ),
         'Carbon\\Doctrine\\' =>
         array (

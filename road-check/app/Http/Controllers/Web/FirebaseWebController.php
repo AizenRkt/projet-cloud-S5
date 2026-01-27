@@ -72,83 +72,82 @@ class FirebaseWebController extends Controller
 
     // 🔹 LOGIN
     public function login(Request $request)
-{
-    $data = $request->validate([
-        'email' => 'required|email',
-        'password' => 'required|min:6'
-    ]);
-
-    $limit = config('app.login_attempts_limit', 1);
-
-    $utilisateur = Utilisateur::where('email', $data['email'])->first();
-
-    if ($utilisateur && $utilisateur->bloque) {
-        return back()->withErrors([
-            'error' => 'Compte bloqué. Contactez un administrateur.'
-        ]);
-    }
-
-    $tentativeSucces = false;
-
-    try {
-        $signIn = $this->auth->signInWithEmailAndPassword(
-            $data['email'],
-            $data['password']
-        );
-
-        $firebaseUser = $this->auth->getUserByEmail($data['email']);
-
-        if (!$utilisateur) {
-            $utilisateur = Utilisateur::create([
-                'email' => $firebaseUser->email,
-                'firebase_uid' => $firebaseUser->uid,
-                'nom' => $firebaseUser->displayName ?? '',
-                'prenom' => '',
-                'id_role' => 2,
-                'bloque' => false
-            ]);
-        }
-
-        session([
-            'firebase_id_token' => $signIn->idToken(),
-            'utilisateur' => $utilisateur
+    {
+        $data = $request->validate([
+            'email' => 'required|email',
+            'password' => 'required|min:6'
         ]);
 
-        $tentativeSucces = true;
+        $limit = config('app.login_attempts_limit', 1);
 
-    } catch (\Exception $e) {}
+        $utilisateur = Utilisateur::where('email', $data['email'])->first();
 
-    // ❌ On n'enregistre que les échecs
-    if (!$tentativeSucces && $utilisateur) {
-        $nbTentatives = \App\Models\TentativeConnexion::where('id_utilisateur', $utilisateur->id_utilisateur)
-            ->where('succes', false)
-            ->count();
-
-        \App\Models\TentativeConnexion::create([
-            'id_utilisateur' => $utilisateur->id_utilisateur,
-            'date_tentative' => now(),
-            'succes' => false
-        ]);
-
-        if ($nbTentatives + 1 >= $limit) {
-            $utilisateur->bloque = true;
-            $utilisateur->save();
-
+        if ($utilisateur && $utilisateur->bloque) {
             return back()->withErrors([
-                'error' => 'Tentative échouée. Compte bloqué.'
+                'error' => 'Compte bloqué. Contactez un administrateur.'
             ]);
         }
-    }
 
-    // 🔓 Auto-unblock si succès ET utilisateur pas bloqué
-    if ($tentativeSucces && $utilisateur && !$utilisateur->bloque) {
-        $utilisateur->unblock();
-    }
+        $tentativeSucces = false;
 
-    return $tentativeSucces
-        ? redirect()->route('profile')
-        : back()->withErrors(['error' => 'Email ou mot de passe invalide']);
-}
+        try {
+            $signIn = $this->auth->signInWithEmailAndPassword(
+                $data['email'],
+                $data['password']
+            );
+
+            $firebaseUser = $this->auth->getUserByEmail($data['email']);
+
+            if (!$utilisateur) {
+                $utilisateur = Utilisateur::create([
+                    'email' => $firebaseUser->email,
+                    'firebase_uid' => $firebaseUser->uid,
+                    'nom' => $firebaseUser->displayName ?? '',
+                    'prenom' => '',
+                    'id_role' => 2,
+                    'bloque' => false
+                ]);
+            }
+
+            session([
+                'firebase_id_token' => $signIn->idToken(),
+                'utilisateur' => $utilisateur
+            ]);
+
+            $tentativeSucces = true;
+
+        } catch (\Exception $e) {}
+
+        // ❌ On n'enregistre que les échecs
+        if (!$tentativeSucces && $utilisateur) {
+            $nbTentatives = \App\Models\TentativeConnexion::where('id_utilisateur', $utilisateur->id_utilisateur)
+                ->where('succes', false)
+                ->count();
+
+            \App\Models\TentativeConnexion::create([
+                'id_utilisateur' => $utilisateur->id_utilisateur,
+                'date_tentative' => now(),
+                'succes' => false
+            ]);
+
+            if ($nbTentatives + 1 >= $limit) {
+                $utilisateur->bloque = true;
+                $utilisateur->save();
+
+                return back()->withErrors([
+                    'error' => 'Tentative échouée. Compte bloqué.'
+                ]);
+            }
+        }
+
+        if ($tentativeSucces && $utilisateur && !$utilisateur->bloque) {
+            $utilisateur->unblock();
+        }
+
+        return $tentativeSucces
+            ? redirect()->route('profile')
+            : back()->withErrors(['error' => 'Email ou mot de passe invalide']);
+    }
 
 
     // 🔹 PROFIL

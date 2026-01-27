@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y \
     libonig-dev \
     libxml2-dev \
     libpq-dev \
+    libzip-dev \
     zip \
     unzip \
     git \
@@ -22,6 +23,7 @@ RUN apt-get update && apt-get install -y \
         pcntl \
         bcmath \
         xml \
+        zip \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -38,15 +40,14 @@ WORKDIR /var/www/html
 COPY . .
 
 # =========================
-# Créer dossiers Laravel AVANT chmod
+# Créer dossiers Laravel et permissions
 # =========================
-RUN mkdir -p storage \
-    bootstrap/cache \
+RUN mkdir -p storage bootstrap/cache \
     && chown -R www-data:www-data /var/www/html \
     && chmod -R 775 storage bootstrap/cache
 
 # =========================
-# Installer dépendances
+# Installer dépendances Composer
 # =========================
 RUN composer install --no-dev --optimize-autoloader
 
