@@ -1,9 +1,9 @@
 <?php
 
+use App\Http\Middleware\RoleMiddleware;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
-use App\Http\Middleware\FirebaseAuthMiddleware;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -12,12 +12,16 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
-    ->withMiddleware(function (Middleware $middleware) {
+    ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
-            'firebase.auth' => FirebaseAuthMiddleware::class,
-            'login.attempt.limiter' => \App\Http\Middleware\LoginAttemptLimiter::class,
+            'role' => RoleMiddleware::class,
+            'firebase.auth' => \App\Http\Middleware\FirebaseAuthMiddleware::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
-    })->create();
+    })
+    ->withProviders([
+        \App\Providers\FirebaseServiceProvider::class,
+    ])
+    ->create();

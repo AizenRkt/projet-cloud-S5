@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "544ce2a29ab9be207ef19276dd5bf688",
+    "content-hash": "0866efc9a09ffff41c9b8aa52a0c8376",
     "packages": [
         {
             "name": "brick/math",
@@ -1409,12 +1409,12 @@
             "version": "5.26.5",
             "source": {
                 "type": "git",
-                "url": "https://github.com/kreait/firebase-php.git",
+                "url": "https://github.com/beste/firebase-php.git",
                 "reference": "dd915017e0a33532deb5e2b82c0a6536dd408123"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/kreait/firebase-php/zipball/dd915017e0a33532deb5e2b82c0a6536dd408123",
+                "url": "https://api.github.com/repos/beste/firebase-php/zipball/dd915017e0a33532deb5e2b82c0a6536dd408123",
                 "reference": "dd915017e0a33532deb5e2b82c0a6536dd408123",
                 "shasum": ""
             },

@@ -146,7 +146,7 @@ class FirebaseWebController extends Controller
     }
 
     return $tentativeSucces
-        ? redirect()->route('profile')
+        ? redirect()->route('profiles.manage')
         : back()->withErrors(['error' => 'Email ou mot de passe invalide']);
 }
 
@@ -215,7 +215,7 @@ class FirebaseWebController extends Controller
             // MAJ session
             session(['utilisateur' => $utilisateur]);
 
-            return redirect()->route('profile')->with('success', 'Profil mis à jour !');
+            return redirect()->route('profiles.manage')->with('success', 'Profil mis à jour !');
         } catch (AuthException | FirebaseException $e) {
             return back()->withErrors(['error' => 'Erreur Firebase : ' . $e->getMessage()]);
         } catch (\Exception $e) {
