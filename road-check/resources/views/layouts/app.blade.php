@@ -25,7 +25,7 @@
         @include('layouts.sidebar')
 
         <!-- CONTENU PRINCIPAL -->
-        <main class="flex-grow-1 p-4">
+        <main class="">
 
             @if(session('success'))
             <div class="alert alert-success">{{ session('success') }}</div>
