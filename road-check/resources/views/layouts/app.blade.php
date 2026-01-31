@@ -11,30 +11,6 @@
 
 <body class="d-flex flex-column min-vh-100">
 
-    <!-- NAVBAR -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="/">Laravel</a>
-        </div>
-    </nav>
-
-    <!-- LAYOUT AVEC SIDEBAR -->
-    <div class="d-flex" style="min-height: calc(100vh - 56px);">
-
-        <!-- SIDEBAR -->
-        @include('layouts.sidebar')
-
-        <!-- CONTENU PRINCIPAL -->
-        <main class="">
-
-            @if(session('success'))
-            <div class="alert alert-success">{{ session('success') }}</div>
-            @endif
-
-            @yield('content')
-        </main>
-
-    </div>
 
     <!-- FOOTER -->
     <footer class="bg-dark text-white text-center py-3 mt-auto">
