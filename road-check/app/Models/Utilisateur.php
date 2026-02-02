@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Utilisateur extends Authenticatable
 {
@@ -30,5 +31,10 @@ class Utilisateur extends Authenticatable
         DB::table('tentative_connexion')
             ->where('id_utilisateur', $this->id_utilisateur)
             ->delete();
+    }
+
+    public function role(): BelongsTo
+    {
+        return $this->belongsTo(Role::class, 'id_role', 'id_role');
     }
 }

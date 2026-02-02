@@ -18,6 +18,9 @@ Route::middleware('firebase.auth')->group(function () {
     Route::post('/profile/update', [FirebaseWebController::class, 'update'])->name('profile.update');
     Route::get('/unblock', function() { return view('firebase.unblock'); })->name('unblock.form');
     Route::post('/unblock', [\App\Http\Controllers\Api\UnblockUserController::class, 'unblock'])->name('unblock.submit');
+
+    // Page React de gestion des profils (affichage)
+    Route::get('/profiles', [FirebaseWebController::class, 'profile'])->name('profiles.manage');
 });
 
 // Pages classiques

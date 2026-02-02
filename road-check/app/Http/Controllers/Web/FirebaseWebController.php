@@ -57,7 +57,7 @@ class FirebaseWebController extends Controller
                 'firebase_uid' => $firebaseUser->uid,
                 'nom' => $data['nom'],
                 'prenom' => $data['prenom'],
-                'id_role' => 2,
+                'id_role' => 1,
                 'bloque' => false
             ]);
 
@@ -72,128 +72,83 @@ class FirebaseWebController extends Controller
 
     // 🔹 LOGIN
     public function login(Request $request)
-    {
-        $data = $request->validate([
-            'email' => 'required|email',
-            'password' => 'required|min:6'
+{
+    $data = $request->validate([
+        'email' => 'required|email',
+        'password' => 'required|min:6'
+    ]);
+
+    $limit = config('app.login_attempts_limit', 1);
+
+    $utilisateur = Utilisateur::where('email', $data['email'])->first();
+
+    if ($utilisateur && $utilisateur->bloque) {
+        return back()->withErrors([
+            'error' => 'Compte bloqué. Contactez un administrateur.'
+        ]);
+    }
+
+    $tentativeSucces = false;
+
+    try {
+        $signIn = $this->auth->signInWithEmailAndPassword(
+            $data['email'],
+            $data['password']
+        );
+
+        $firebaseUser = $this->auth->getUserByEmail($data['email']);
+
+        if (!$utilisateur) {
+            $utilisateur = Utilisateur::create([
+                'email' => $firebaseUser->email,
+                'firebase_uid' => $firebaseUser->uid,
+                'nom' => $firebaseUser->displayName ?? '',
+                'prenom' => '',
+                'id_role' => 2,
+                'bloque' => false
+            ]);
+        }
+
+        session([
+            'firebase_id_token' => $signIn->idToken(),
+            'utilisateur' => $utilisateur
         ]);
 
-        $limit = config('app.login_attempts_limit', 1);
-        $minutesWindow = config('app.login_attempts_minutes', 1);
-        $nowUtc = Carbon::now('UTC');
+        $tentativeSucces = true;
 
-        $firebaseUser = null;
-        try {
-            $firebaseUser = $this->auth->getUserByEmail($data['email']);
-        } catch (AuthException | FirebaseException $e) {
-        }
+    } catch (\Exception $e) {}
 
-        $utilisateur = Utilisateur::where('email', $data['email'])->first();
+    // ❌ On n'enregistre que les échecs
+    if (!$tentativeSucces && $utilisateur) {
+        $nbTentatives = \App\Models\TentativeConnexion::where('id_utilisateur', $utilisateur->id_utilisateur)
+            ->where('succes', false)
+            ->count();
 
-        if ($utilisateur && $utilisateur->bloque) {
-            if ($firebaseUser) {
-                $claims = $firebaseUser->customClaims ?? [];
-                $firstAttempt = isset($claims['first_attempt_at'])
-                    ? Carbon::parse($claims['first_attempt_at'])->setTimezone('UTC')
-                    : null;
-                $windowExpired = !$firstAttempt || $firstAttempt->diffInMinutes($nowUtc) >= $minutesWindow;
+        \App\Models\TentativeConnexion::create([
+            'id_utilisateur' => $utilisateur->id_utilisateur,
+            'date_tentative' => now(),
+            'succes' => false
+        ]);
 
-                if ($windowExpired) {
-                    $utilisateur->unblock();
-                    $claims['attempts'] = 0;
-                    $claims['first_attempt_at'] = $nowUtc->toIso8601String();
-                    $this->auth->setCustomUserClaims($firebaseUser->uid, $claims);
-                } else {
-                    return back()->withErrors([
-                        'error' => 'Compte bloqué. Contactez un administrateur.'
-                    ]);
-                }
-            } else {
-                return back()->withErrors([
-                    'error' => 'Compte bloqué. Contactez un administrateur.'
-                ]);
-            }
-        }
+        if ($nbTentatives + 1 >= $limit) {
+            $utilisateur->bloque = true;
+            $utilisateur->save();
 
-        $tentativeSucces = false;
-
-        try {
-            $signIn = $this->auth->signInWithEmailAndPassword(
-                $data['email'],
-                $data['password']
-            );
-
-            $firebaseUser = $this->auth->getUserByEmail($data['email']);
-
-            if (!$utilisateur) {
-                $utilisateur = Utilisateur::create([
-                    'email' => $firebaseUser->email,
-                    'firebase_uid' => $firebaseUser->uid,
-                    'nom' => $firebaseUser->displayName ?? '',
-                    'prenom' => '',
-                    'id_role' => 2,
-                    'bloque' => false
-                ]);
-            }
-
-            session([
-                'firebase_id_token' => $signIn->idToken(),
-                'utilisateur' => $utilisateur
+            return back()->withErrors([
+                'error' => 'Tentative échouée. Compte bloqué.'
             ]);
-
-            $tentativeSucces = true;
-
-        } catch (\Exception $e) {}
-
-        if (!$tentativeSucces && $firebaseUser) {
-            $claims = $firebaseUser->customClaims ?? [];
-            $firstAttempt = isset($claims['first_attempt_at'])
-                ? Carbon::parse($claims['first_attempt_at'])->setTimezone('UTC')
-                : null;
-            $windowExpired = !$firstAttempt || $firstAttempt->diffInMinutes($nowUtc) >= $minutesWindow;
-
-            if ($windowExpired) {
-                $utilisateur?->unblock();
-                $claims['attempts'] = 1;
-                $claims['first_attempt_at'] = $nowUtc->toIso8601String();
-            } else {
-                $claims['attempts'] = (int) ($claims['attempts'] ?? 0) + 1;
-                $claims['first_attempt_at'] = $firstAttempt->toIso8601String();
-            }
-
-            $this->auth->setCustomUserClaims($firebaseUser->uid, $claims);
         }
-
-        // ❌ On n'enregistre que les échecs
-        if (!$tentativeSucces && $utilisateur) {
-            $nbTentatives = \App\Models\TentativeConnexion::where('id_utilisateur', $utilisateur->id_utilisateur)
-                ->where('succes', false)
-                ->count();
-
-            \App\Models\TentativeConnexion::create([
-                'id_utilisateur' => $utilisateur->id_utilisateur,
-                'date_tentative' => now(),
-                'succes' => false
-            ]);
-
-            if ($nbTentatives + 1 >= $limit) {
-                $utilisateur->bloque = true;
-                $utilisateur->save();
-
-                return back()->withErrors([
-                    'error' => 'Tentative échouée. Compte bloqué.'
-                ]);
-            }
-        }
-
-        if ($tentativeSucces && $utilisateur && !$utilisateur->bloque) {
-            $utilisateur->unblock();
-        }
-
-        return $tentativeSucces
-            ? redirect()->route('profile')
-            : back()->withErrors(['error' => 'Email ou mot de passe invalide']);
     }
+
+    // 🔓 Auto-unblock si succès ET utilisateur pas bloqué
+    if ($tentativeSucces && $utilisateur && !$utilisateur->bloque) {
+        $utilisateur->unblock();
+    }
+
+    return $tentativeSucces
+        ? redirect()->route('profile')
+        : back()->withErrors(['error' => 'Email ou mot de passe invalide']);
+}
 
 
     // 🔹 PROFIL
