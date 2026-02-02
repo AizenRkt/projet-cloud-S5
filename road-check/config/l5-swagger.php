@@ -38,13 +38,17 @@ return [
                 /*
                  * Set this to `json` or `yaml` to determine which documentation file to use in UI
                  */
-                'format_to_use_for_docs' => env('L5_FORMAT_TO_USE_FOR_DOCS', 'json'),
-
+                'format_to_use_for_docs' => env('L5_FORMAT_TO_USE_FOR_DOCS', 'yaml'),
+                /*
+                 * Generate docs or use static file
+                 */
+                'generate' => false,
                 /*
                  * Absolute paths to directory containing the swagger annotations are stored.
                  */
                 'annotations' => [
-                    base_path('app/Http/Controllers'),                ],
+                    // Disabled to use static YAML file
+                ],
             ],
         ],
     ],
