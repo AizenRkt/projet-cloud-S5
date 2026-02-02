@@ -1,0 +1,12 @@
+{
+    "layers": {
+        "roads": {
+            "minzoom": 10,
+            "maxzoom": 12
+        }
+    },
+    "settings": {
+        "minzoom": 10,
+        "maxzoom": 12
+    }
+}

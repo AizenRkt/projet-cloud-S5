@@ -66,4 +66,17 @@ INSERT INTO role (nom) VALUES ('Administrateur');
 INSERT INTO role (nom) VALUES ('Utilisateur');
 INSERT INTO role (nom) VALUES ('Moderateur');
 
+CREATE TABLE modification_signalement (
+    id_modification SERIAL PRIMARY KEY,
+    id_signalement INT NOT NULL REFERENCES signalement(id_signalement) ON DELETE CASCADE,
+    id_utilisateur INT NOT NULL REFERENCES utilisateur(id_utilisateur),
+    statut VARCHAR(20) NOT NULL,
+    budget DOUBLE PRECISION,
+    surface_m2 DOUBLE PRECISION,
+    id_entreprise INT REFERENCES entreprise(id_entreprise),
+    note TEXT,
+    date_modification TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+
 

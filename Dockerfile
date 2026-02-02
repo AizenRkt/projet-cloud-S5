@@ -49,6 +49,8 @@ RUN mkdir -p storage bootstrap/cache \
 # =========================
 # Installer dépendances Composer
 # =========================
+WORKDIR /var/www/html/road-check
+
 RUN composer install --no-dev --optimize-autoloader
 
 CMD ["php-fpm"]
