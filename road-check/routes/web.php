@@ -8,6 +8,9 @@ use App\Http\Controllers\SignalementController;
 
 Route::get('/signalements', [SignalementController::class, 'index']);
 Route::post('/signalements', [SignalementController::class, 'store']);
+Route::put('/signalements/{id}', [SignalementController::class, 'update']);
+Route::get('/entreprises', [SignalementController::class, 'getEntreprises']);
+Route::get('/utilisateurs', [SignalementController::class, 'getUtilisateurs']);
 Route::get('/map', function () {
     return view('map');
 });
