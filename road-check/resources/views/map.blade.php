@@ -65,12 +65,73 @@
             font-size: 0.8em;
             margin-top: 5px;
         }
+
+        /* Summary Table Styles */
+        .summary-container {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #ddd;
+        }
+        .summary-title {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #1976d2;
+            margin-bottom: 15px;
+            display: flex;
+            alignment: center;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+        .stat-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #1976d2;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        .stat-label {
+            font-size: 0.85em;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
+        .stat-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #333;
+        }
     </style>
 </head>
 <body>
 
 <button id="edit-btn">Enable Add Mode</button>
-<div id="map"></div>
+<div id="map" style="height: 70vh;"></div>
+
+<div class="summary-container">
+    <div class="summary-title">Tableau de Récapitulation</div>
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-label">Nb de points</div>
+            <div class="stat-value" id="stat-points">0</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Total Surface (m²)</div>
+            <div class="stat-value" id="stat-surface">0</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Avancement (%)</div>
+            <div class="stat-value" id="stat-progress">0%</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Total Budget (Ar)</div>
+            <div class="stat-value" id="stat-budget">0</div>
+        </div>
+    </div>
+</div>
 
 <!-- New Signalement Modal -->
 <div id="add-modal">
@@ -222,7 +283,30 @@ function loadMarkers() {
                     </div>
                 `);
             });
+            updateSummary(data);
         });
+}
+
+function updateSummary(data) {
+    const totalPoints = data.length;
+    let totalSurface = 0;
+    let totalBudget = 0;
+    let finishedCount = 0;
+
+    data.forEach(s => {
+        totalSurface += parseFloat(s.surface_m2 || 0);
+        totalBudget += parseFloat(s.budget || 0);
+        if (s.statut === 'termine') {
+            finishedCount++;
+        }
+    });
+
+    const progress = totalPoints > 0 ? Math.round((finishedCount / totalPoints) * 100) : 0;
+
+    document.getElementById('stat-points').textContent = totalPoints;
+    document.getElementById('stat-surface').textContent = totalSurface.toLocaleString();
+    document.getElementById('stat-progress').textContent = progress + '%';
+    document.getElementById('stat-budget').textContent = totalBudget.toLocaleString();
 }
 
 // -----------------------------
