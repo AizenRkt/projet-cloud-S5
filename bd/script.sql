@@ -32,24 +32,54 @@ CREATE TABLE tentative_connexion (
 );
 
 -- Module Web / Mobile
-
 CREATE TABLE entreprise (
     id_entreprise SERIAL PRIMARY KEY,
-    nom VARCHAR(150) NOT NULL
+    nom VARCHAR(150) NOT NULL,
+    logo VARCHAR(200)
+);
+
+CREATE TABLE type_signalement (
+    id_type_signalement SERIAL PRIMARY KEY,
+    nom VARCHAR(100) NOT NULL,
+    icon VARCHAR(100)
 );
 
 CREATE TABLE signalement (
     id_signalement SERIAL PRIMARY KEY,
-    id_utilisateur INT REFERENCES utilisateur(id_utilisateur),
+    id_type_signalement INT NOT NULL REFERENCES type_signalement(id_type_signalement),
+    id_entreprise INT NULL REFERENCES entreprise(id_entreprise),
+    id_utilisateur INT NULL REFERENCES utilisateur(id_utilisateur),
+
     latitude DOUBLE PRECISION NOT NULL,
     longitude DOUBLE PRECISION NOT NULL,
-    date_signalement TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    statut VARCHAR(20) NOT NULL CHECK (
-        statut IN ('nouveau', 'en cours', 'termine')
-    ),
+
+    description TEXT,
     surface_m2 DOUBLE PRECISION,
     budget DOUBLE PRECISION,
-    id_entreprise INT REFERENCES entreprise(id_entreprise)
+
+    date_signalement DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_signalement_position
+ON signalement (latitude, longitude);
+
+CREATE TABLE signalement_type_status (
+    id_signalement_type_status SERIAL PRIMARY KEY,
+    code VARCHAR(20) NOT NULL UNIQUE,
+    libelle VARCHAR(20) NOT NULL
+)
+
+CREATE TABLE signalement_status (
+    id_signalement_status SERIAL PRIMARY KEY,
+    id_signalement INT NOT NULL REFERENCES signalement(id_signalement),
+    id_signalement_type_status INT NOT NULL REFERENCES signalement_type_status(id_signalement_type_status),
+    date_modification DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE photo_signalement (
+    id_photo SERIAL PRIMARY KEY,
+    id_signalement INT NOT NULL REFERENCES signalement(id_signalement),
+    path VARCHAR(255) NOT NULL
 );
 
 
