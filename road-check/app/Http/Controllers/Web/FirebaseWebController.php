@@ -79,13 +79,40 @@ class FirebaseWebController extends Controller
         ]);
 
         $limit = config('app.login_attempts_limit', 1);
+        $minutesWindow = config('app.login_attempts_minutes', 1);
+        $nowUtc = Carbon::now('UTC');
+
+        $firebaseUser = null;
+        try {
+            $firebaseUser = $this->auth->getUserByEmail($data['email']);
+        } catch (AuthException | FirebaseException $e) {
+        }
 
         $utilisateur = Utilisateur::where('email', $data['email'])->first();
 
         if ($utilisateur && $utilisateur->bloque) {
-            return back()->withErrors([
-                'error' => 'Compte bloqué. Contactez un administrateur.'
-            ]);
+            if ($firebaseUser) {
+                $claims = $firebaseUser->customClaims ?? [];
+                $firstAttempt = isset($claims['first_attempt_at'])
+                    ? Carbon::parse($claims['first_attempt_at'])->setTimezone('UTC')
+                    : null;
+                $windowExpired = !$firstAttempt || $firstAttempt->diffInMinutes($nowUtc) >= $minutesWindow;
+
+                if ($windowExpired) {
+                    $utilisateur->unblock();
+                    $claims['attempts'] = 0;
+                    $claims['first_attempt_at'] = $nowUtc->toIso8601String();
+                    $this->auth->setCustomUserClaims($firebaseUser->uid, $claims);
+                } else {
+                    return back()->withErrors([
+                        'error' => 'Compte bloqué. Contactez un administrateur.'
+                    ]);
+                }
+            } else {
+                return back()->withErrors([
+                    'error' => 'Compte bloqué. Contactez un administrateur.'
+                ]);
+            }
         }
 
         $tentativeSucces = false;
@@ -117,6 +144,25 @@ class FirebaseWebController extends Controller
             $tentativeSucces = true;
 
         } catch (\Exception $e) {}
+
+        if (!$tentativeSucces && $firebaseUser) {
+            $claims = $firebaseUser->customClaims ?? [];
+            $firstAttempt = isset($claims['first_attempt_at'])
+                ? Carbon::parse($claims['first_attempt_at'])->setTimezone('UTC')
+                : null;
+            $windowExpired = !$firstAttempt || $firstAttempt->diffInMinutes($nowUtc) >= $minutesWindow;
+
+            if ($windowExpired) {
+                $utilisateur?->unblock();
+                $claims['attempts'] = 1;
+                $claims['first_attempt_at'] = $nowUtc->toIso8601String();
+            } else {
+                $claims['attempts'] = (int) ($claims['attempts'] ?? 0) + 1;
+                $claims['first_attempt_at'] = $firstAttempt->toIso8601String();
+            }
+
+            $this->auth->setCustomUserClaims($firebaseUser->uid, $claims);
+        }
 
         // ❌ On n'enregistre que les échecs
         if (!$tentativeSucces && $utilisateur) {
