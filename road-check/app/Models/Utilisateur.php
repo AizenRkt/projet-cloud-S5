@@ -15,6 +15,7 @@ class Utilisateur extends Authenticatable
     protected $primaryKey = 'id_utilisateur';
     protected $fillable = [
         'email',
+        'password',
         'firebase_uid',
         'nom',
         'prenom',
