@@ -122,7 +122,8 @@
             @csrf
             <div class="mb-3">
                 <label class="form-label"><i class="bi bi-envelope"></i>Email</label>
-                <input type="email" name="email" class="form-control" value="{{ old('email', $utilisateur->email) }}" required>
+                <input type="email" class="form-control" value="{{ $utilisateur->email }}" disabled>
+                <input type="hidden" name="email" value="{{ $utilisateur->email }}">
             </div>
             <div class="row mb-3">
                 <div class="col-6">
@@ -136,11 +137,19 @@
             </div>
             <div class="mb-4">
                 <label class="form-label"><i class="bi bi-shield-check"></i>Rôle</label>
-                <select name="id_role" class="form-select" required>
-                    @foreach($roles as $role)
-                        <option value="{{ $role->id_role }}" @if(old('id_role', $utilisateur->id_role) == $role->id_role) selected @endif>{{ $role->nom }}</option>
-                    @endforeach
-                </select>
+                @php
+                    $roleNom = $utilisateur->role->nom ?? ($roles->firstWhere('id_role', $utilisateur->id_role)->nom ?? '');
+                @endphp
+                @if(strtolower($roleNom) === 'administrateur')
+                    <select name="id_role" class="form-select" required>
+                        @foreach($roles as $role)
+                            <option value="{{ $role->id_role }}" @if(old('id_role', $utilisateur->id_role) == $role->id_role) selected @endif>{{ $role->nom }}</option>
+                        @endforeach
+                    </select>
+                @else
+                    <input type="text" class="form-control" value="{{ $roles->firstWhere('id_role', $utilisateur->id_role)->nom ?? '' }}" disabled>
+                    <input type="hidden" name="id_role" value="{{ $utilisateur->id_role }}">
+                @endif
             </div>
             <div class="d-flex gap-2">
                 <button type="submit" class="btn btn-rc flex-fill">

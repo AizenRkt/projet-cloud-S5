@@ -135,14 +135,56 @@
                 </label>
                 <div class="token-box">{{ $token }}</div>
             </div>
-            <div class="d-flex gap-2">
-                <a href="{{ route('profile.edit') }}" class="btn btn-rc flex-fill">
-                    <i class="bi bi-pencil-square me-2"></i>Modifier
-                </a>
-                <a href="{{ route('login.form') }}" class="btn btn-outline-rc">
-                    <i class="bi bi-box-arrow-right me-1"></i>Déconnexion
-                </a>
-            </div>
+                        <div class="d-flex gap-2">
+                                <a href="{{ route('profile.edit') }}" class="btn btn-rc flex-fill">
+                                        <i class="bi bi-pencil-square me-2"></i>Modifier
+                                </a>
+                                <a href="{{ route('login.form') }}" class="btn btn-outline-rc">
+                                        <i class="bi bi-box-arrow-right me-1"></i>Déconnexion
+                                </a>
+                                @if(strtolower($role) === 'administrateur')
+                                        <button type="button" class="btn btn-outline-rc" data-bs-toggle="modal" data-bs-target="#unblockModal">
+                                                <i class="bi bi-unlock me-1"></i>Débloquer
+                                        </button>
+                                @endif
+                        </div>
+
+                        @if(strtolower($role) === 'administrateur')
+                                <!-- Modal -->
+                                <div class="modal fade" id="unblockModal" tabindex="-1" aria-labelledby="unblockModalLabel" aria-hidden="true">
+                                    <div class="modal-dialog">
+                                        <div class="modal-content">
+                                            <form method="POST" action="{{ route('unblock.submit') }}">
+                                                @csrf
+                                                <div class="modal-header">
+                                                    <h5 class="modal-title" id="unblockModalLabel"><i class="bi bi-unlock me-1"></i>Débloquer un utilisateur</h5>
+                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                </div>
+                                                <div class="modal-body">
+                                                    <div class="mb-3">
+                                                        <label for="unblock-email" class="form-label">Email de l'utilisateur à débloquer</label>
+                                                        <input type="email" class="form-control" id="unblock-email" name="email" required placeholder="ex: user@email.com">
+                                                    </div>
+                                                    @if(session('success'))
+                                                        <div class="alert alert-success">{{ session('success') }}</div>
+                                                    @endif
+                                                    @if($errors->any())
+                                                        <div class="alert alert-danger">
+                                                            @foreach($errors->all() as $error)
+                                                                <div>{{ $error }}</div>
+                                                            @endforeach
+                                                        </div>
+                                                    @endif
+                                                </div>
+                                                <div class="modal-footer">
+                                                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Annuler</button>
+                                                    <button type="submit" class="btn btn-rc">Débloquer</button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                        @endif
         </div>
     </div>
 </div>

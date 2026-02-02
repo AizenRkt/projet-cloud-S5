@@ -57,7 +57,7 @@ class FirebaseWebController extends Controller
                 'firebase_uid' => $firebaseUser->uid,
                 'nom' => $data['nom'],
                 'prenom' => $data['prenom'],
-                'id_role' => 1,
+                'id_role' => 2,
                 'bloque' => false
             ]);
 

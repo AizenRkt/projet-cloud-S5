@@ -30,9 +30,6 @@ class UnblockUserController extends Controller
 
         $utilisateur->unblock();
 
-        return response()->json([
-            'message' => 'Utilisateur débloqué et tentatives réinitialisées',
-            'email' => $utilisateur->email,
-        ]);
+        return redirect()->route('profile')->with('success', "Utilisateur débloqué : {$utilisateur->email}");
     }
 }
