@@ -1,33 +1,27 @@
 # Node
-./road-check-mobile/node_modules/
+road-check-mobile/node_modules/
 road-check/node_modules/
 npm-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
 # Build outputs
-./road-check-mobile/dist/
-./road-check-mobile/build/
-./road-check-mobile/www/
+road-check-mobile/dist/
+road-check-mobile/build/
+road-check-mobile/www/
 road-check/public/build/
 road-check/public/hot
 
 # Capacitor
-./road-check-mobile/capacitor.config.json.bak
+road-check-mobile/capacitor.config.json.bak
+road-check-mobile/scripts/node_modules
 
 # Android
-./road-check-mobile/android/.gradle/
-./road-check-mobile/android/.idea/
-./road-check-mobile/android/build/
-./road-check-mobile/android/app/build/
-./road-check-mobile/android/captures/
-./road-check-mobile/android/local.properties
-./road-check-mobile/android/*.iml
-./road-check-mobile/android/**/.DS_Store
+road-check-mobile/android/
 
 # iOS (si vous l'ajoutez plus tard)
-./road-check-mobile/ios/App/App/config.json
-./road-check-mobile/ios/App/App/capacitor.config.json
+road-check-mobile/ios/App/App/config.json
+road-check-mobile/ios/App/App/capacitor.config.json
 
 # Laravel (road-check)
 road-check/.env
@@ -47,11 +41,11 @@ road-check/bootstrap/cache/*
 !road-check/bootstrap/cache/.gitignore
 
 # Env & secrets
-./road-check-mobile/.env
-./road-check-mobile/.env.*
-./road-check-mobile/firebase-service-account.json
-./road-check-mobile/google-services.json
-./road-check-mobile/GoogleService-Info.plist
+road-check-mobile/.env
+road-check-mobile/.env.*
+road-check-mobile/firebase-service-account.json
+road-check-mobile/google-services.json
+road-check-mobile/GoogleService-Info.plist
 
 # Firebase
 .firebase/
@@ -60,8 +54,8 @@ firebase-debug.log
 firebase-debug.*.log
 
 # Testing & Coverage
-./road-check-mobile/coverage/
-./road-check-mobile/test-results/
+road-check-mobile/coverage/
+road-check-mobile/test-results/
 road-check/coverage/
 
 # IDE / OS
