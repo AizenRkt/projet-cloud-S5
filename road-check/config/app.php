@@ -1,6 +1,9 @@
 <?php
 
 return [
+    // Limite de tentatives de connexion (modifiable via env)
+    'login_attempts_limit' => (int) env('LOGIN_ATTEMPTS_LIMIT', 1),
+    'login_attempts_minutes' => (int) env('LOGIN_ATTEMPTS_MINUTES', 30),
 
     /*
     |--------------------------------------------------------------------------
@@ -122,7 +125,5 @@ return [
         'driver' => env('APP_MAINTENANCE_DRIVER', 'file'),
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
-
-    'enforce_roles' => (bool) env('ROLE_ENFORCEMENT', false),
 
 ];

@@ -30,9 +30,6 @@ Route::middleware('firebase.auth')->group(function () {
     Route::get('/profile', [FirebaseWebController::class, 'profile'])->name('profile');
     Route::get('/profile/edit', [FirebaseWebController::class, 'edit'])->name('profile.edit');
     Route::post('/profile/update', [FirebaseWebController::class, 'update'])->name('profile.update');
-
-    // Page React de gestion des profils (affichage)
-    Route::get('/profiles', [FirebaseWebController::class, 'profile'])->name('profiles.manage');
 });
 
 // Pages classiques

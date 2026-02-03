@@ -72,83 +72,87 @@ class FirebaseWebController extends Controller
 
     // 🔹 LOGIN
     public function login(Request $request)
-{
-    $data = $request->validate([
-        'email' => 'required|email',
-        'password' => 'required|min:6'
-    ]);
-
-    $limit = config('app.login_attempts_limit', 1);
-
-    $utilisateur = Utilisateur::where('email', $data['email'])->first();
-
-    if ($utilisateur && $utilisateur->bloque) {
-        return back()->withErrors([
-            'error' => 'Compte bloqué. Contactez un administrateur.'
+    {
+        $data = $request->validate([
+            'email' => 'required|email',
+            'password' => 'required|min:6'
         ]);
-    }
 
-    $tentativeSucces = false;
+        $utilisateur = Utilisateur::where('email', $data['email'])->first();
+        $tentativeSucces = false;
+        $limit = config('app.login_attempts_limit', 1);
+        $minutesLimit = config('app.login_attempts_minutes', 1);
 
-    try {
-        $signIn = $this->auth->signInWithEmailAndPassword(
-            $data['email'],
-            $data['password']
-        );
+        if ($utilisateur) {
+            // Récupérer toutes les tentatives échouées récentes
+            $tentatives = \App\Models\TentativeConnexion::where('id_utilisateur', $utilisateur->id_utilisateur)
+                ->where('succes', false)
+                ->orderBy('date_tentative', 'desc')
+                ->get();
 
-        $firebaseUser = $this->auth->getUserByEmail($data['email']);
+            // Vérifier si le compte est bloqué et si le temps écoulé depuis la dernière tentative a dépassé la limite
+            if ($utilisateur->bloque && $tentatives->isNotEmpty()) {
+                $derniereTentative = Carbon::parse($tentatives->first()->date_tentative)->setTimezone('UTC');
+                $now = Carbon::now('UTC');
+                $tempsEcoule = $derniereTentative->diffInMinutes($now);
 
-        if (!$utilisateur) {
-            $utilisateur = Utilisateur::create([
-                'email' => $firebaseUser->email,
-                'firebase_uid' => $firebaseUser->uid,
-                'nom' => $firebaseUser->displayName ?? '',
-                'prenom' => '',
-                'id_role' => 2,
-                'bloque' => false
+                if ($tempsEcoule >= $minutesLimit) {
+                    // Débloquer le compte et supprimer les anciennes tentatives
+                    $utilisateur->bloque = false;
+                    $utilisateur->save();
+                    \App\Models\TentativeConnexion::where('id_utilisateur', $utilisateur->id_utilisateur)->delete();
+                } else {
+                    return back()->withErrors([
+                        'error' => "Compte bloqué. Réessayez dans " . ($minutesLimit - $tempsEcoule) . " minute(s)."
+                    ]);
+                }
+            }
+        }
+
+        try {
+            $signIn = $this->auth->signInWithEmailAndPassword($data['email'], $data['password']);
+            $firebaseUser = $this->auth->getUserByEmail($data['email']);
+
+            // Vérifier si l'utilisateur existe localement, sinon l'ajouter
+            if (!$utilisateur) {
+                $utilisateur = Utilisateur::create([
+                    'email' => $firebaseUser->email,
+                    'firebase_uid' => $firebaseUser->uid,
+                    'nom' => $firebaseUser->displayName ?? '',
+                    'prenom' => '',
+                    'id_role' => 1,
+                    'bloque' => false
+                ]);
+            }
+
+            // Stocker le token et l'utilisateur complet en session
+            session([
+                'firebase_id_token' => $signIn->idToken(),
+                'utilisateur' => $utilisateur
+            ]);
+            $tentativeSucces = true;
+
+        } catch (AuthException | FirebaseException $e) {
+            // Gestion Firebase
+        } catch (\Exception $e) {
+            // Gestion autres erreurs
+        }
+
+        // Enregistrer la tentative (échec ou succès)
+        if ($utilisateur) {
+            \App\Models\TentativeConnexion::create([
+                'id_utilisateur' => $utilisateur->id_utilisateur,
+                'date_tentative' => Carbon::now('UTC'),
+                'succes' => $tentativeSucces
             ]);
         }
 
-        session([
-            'firebase_id_token' => $signIn->idToken(),
-            'utilisateur' => $utilisateur
-        ]);
-
-        $tentativeSucces = true;
-
-    } catch (\Exception $e) {}
-
-    // ❌ On n'enregistre que les échecs
-    if (!$tentativeSucces && $utilisateur) {
-        $nbTentatives = \App\Models\TentativeConnexion::where('id_utilisateur', $utilisateur->id_utilisateur)
-            ->where('succes', false)
-            ->count();
-
-        \App\Models\TentativeConnexion::create([
-            'id_utilisateur' => $utilisateur->id_utilisateur,
-            'date_tentative' => now(),
-            'succes' => false
-        ]);
-
-        if ($nbTentatives + 1 >= $limit) {
-            $utilisateur->bloque = true;
-            $utilisateur->save();
-
-            return back()->withErrors([
-                'error' => 'Tentative échouée. Compte bloqué.'
-            ]);
+        if ($tentativeSucces) {
+            return redirect()->route('profile');
+        } else {
+            return back()->withErrors(['error' => 'Email ou mot de passe invalide']);
         }
     }
-
-    // 🔓 Auto-unblock si succès ET utilisateur pas bloqué
-    if ($tentativeSucces && $utilisateur && !$utilisateur->bloque) {
-        $utilisateur->unblock();
-    }
-
-    return $tentativeSucces
-        ? redirect()->route('profiles.manage')
-        : back()->withErrors(['error' => 'Email ou mot de passe invalide']);
-}
 
 
     // 🔹 PROFIL
@@ -215,7 +219,7 @@ class FirebaseWebController extends Controller
             // MAJ session
             session(['utilisateur' => $utilisateur]);
 
-            return redirect()->route('profiles.manage')->with('success', 'Profil mis à jour !');
+            return redirect()->route('profile')->with('success', 'Profil mis à jour !');
         } catch (AuthException | FirebaseException $e) {
             return back()->withErrors(['error' => 'Erreur Firebase : ' . $e->getMessage()]);
         } catch (\Exception $e) {

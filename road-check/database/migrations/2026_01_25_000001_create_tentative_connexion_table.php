@@ -8,15 +8,13 @@ class CreateTentativeConnexionTable extends Migration
 {
     public function up()
     {
-        if (!Schema::hasTable('tentative_connexion')) {
-            Schema::create('tentative_connexion', function (Blueprint $table) {
-                $table->id('id_tentative');
-                $table->unsignedBigInteger('id_utilisateur');
-                $table->timestamp('date_tentative')->default(DB::raw('CURRENT_TIMESTAMP'));
-                $table->boolean('succes');
-                $table->foreign('id_utilisateur')->references('id_utilisateur')->on('utilisateur')->onDelete('cascade');
-            });
-        }
+        Schema::create('tentative_connexion', function (Blueprint $table) {
+            $table->id('id_tentative');
+            $table->unsignedBigInteger('id_utilisateur');
+            $table->timestamp('date_tentative')->default(DB::raw('CURRENT_TIMESTAMP'));
+            $table->boolean('succes');
+            $table->foreign('id_utilisateur')->references('id_utilisateur')->on('utilisateur')->onDelete('cascade');
+        });
     }
 
     public function down()
