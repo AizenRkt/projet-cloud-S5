@@ -1,0 +1,32 @@
+# Node
+road-check-mobile/node_modules/
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Capacitor
+road-check-mobile/capacitor.config.json.bak
+
+# Android
+road-check-mobile/android/.gradle/
+road-check-mobile/android/.idea/
+road-check-mobile/android/build/
+road-check-mobile/android/app/build/
+road-check-mobile/android/captures/
+road-check-mobile/android/local.properties
+road-check-mobile/android/*.iml
+road-check-mobile/android/**/.DS_Store
+
+# Env & secrets
+road-check-mobile/.env
+road-check-mobile/.env.*
+road-check-mobile/firebase-service-account.json
+road-check-mobile/google-services.json
+road-check-mobile/GoogleService-Info.plist
+
+# IDE / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.log
