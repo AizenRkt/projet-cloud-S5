@@ -227,4 +227,18 @@ class SignalementController extends Controller
 
         return response()->json(['message' => 'Utilisateur débloqué']);
     }
+
+    // Débloquer un utilisateur par email
+    public function unblockByEmail(Request $request)
+    {
+        $request->validate(['email' => 'required|email']);
+
+        $success = Utilisateur::unblockByEmail($request->email);
+
+        if ($success) {
+            return response()->json(['message' => 'Utilisateur débloqué']);
+        } else {
+            return response()->json(['message' => 'Utilisateur non trouvé ou déjà débloqué'], 404);
+        }
+    }
 }

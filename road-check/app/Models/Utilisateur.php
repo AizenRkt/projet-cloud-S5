@@ -42,4 +42,27 @@ class Utilisateur extends Authenticatable
     {
         return $this->hasMany(TentativeConnexion::class, 'id_utilisateur');
     }
+
+    // Méthode pour débloquer l'utilisateur
+    public function unblock(): void
+    {
+        $this->bloque = false;
+        $this->save();
+
+        // Supprimer les tentatives échouées
+        \DB::table('tentative_connexion')
+            ->where('id_utilisateur', $this->id_utilisateur)
+            ->delete();
+    }
+
+    // Méthode statique pour débloquer par email
+    public static function unblockByEmail(string $email): bool
+    {
+        $utilisateur = self::where('email', $email)->first();
+        if ($utilisateur && $utilisateur->bloque) {
+            $utilisateur->unblock();
+            return true;
+        }
+        return false;
+    }
 }

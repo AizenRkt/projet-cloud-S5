@@ -127,7 +127,7 @@ class FirebaseWebController extends Controller
         }
 
         if ($tentativeSucces) {
-            return redirect()->route('profile')->with('success', 'Connecté en mode local');
+            return redirect('/map')->with('success', 'Connecté en mode local');
         } else {
             return back()->withErrors(['error' => 'Email ou mot de passe invalide']);
         }
