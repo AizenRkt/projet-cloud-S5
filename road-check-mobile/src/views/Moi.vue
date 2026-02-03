@@ -4,7 +4,7 @@
       <ion-toolbar class="custom-toolbar">
         <div class="header-content">
           <div class="profile-section">
-            <div class="profile-avatar">
+            <div class="profile-avatar" @click="openProfilSidebar">
               <img 
                 src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop&crop=face" 
                 alt="Photo de profil" 
@@ -112,6 +112,16 @@
         :is-open="showSignalementDetail"
         @close="closeSignalementDetail"
       />
+
+      <!-- Sidebar de profil -->
+      <ProfilSidebar 
+        :is-open="showProfilSidebar"
+        :current-user="currentUser"
+        :signalements="signalements"
+        :recent-count="recentSignalements"
+        @close="closeProfilSidebar"
+        @logout="handleLogout"
+      />
     </ion-content>
   </ion-page>
 </template>
@@ -147,6 +157,7 @@ import { onAuthStateChanged, type User } from 'firebase/auth';
 import type { Signalement } from '@/services/signalement/types';
 
 import DetailSignalement from '@/components/signalement/DetailSignalement.vue';
+import ProfilSidebar from '@/components/ProfilSidebar.vue';
 
 const router = useRouter();
 
@@ -156,6 +167,7 @@ const selectedSignalement = ref<Signalement | null>(null);
 const showSignalementDetail = ref(false);
 const isLoading = ref(true);
 const currentUser = ref<User | null>(null);
+const showProfilSidebar = ref(false);
 
 // Computed
 const recentSignalements = computed(() => {
@@ -230,6 +242,22 @@ const closeSignalementDetail = () => {
   selectedSignalement.value = null;
 };
 
+// Fonctions pour la sidebar de profil
+const openProfilSidebar = () => {
+  showProfilSidebar.value = true;
+};
+
+const closeProfilSidebar = () => {
+  showProfilSidebar.value = false;
+};
+
+const handleLogout = () => {
+  // La déconnexion est gérée dans la sidebar
+  // Recharger les données après déconnexion
+  signalements.value = [];
+  currentUser.value = null;
+};
+
 // Lifecycle
 onMounted(() => {
   // Écouter les changements d'authentification
@@ -274,6 +302,16 @@ onMounted(() => {
 .profile-avatar {
   position: relative;
   flex-shrink: 0;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.profile-avatar:hover {
+  transform: scale(1.05);
+}
+
+.profile-avatar:active {
+  transform: scale(0.95);
 }
 
 .avatar-image {

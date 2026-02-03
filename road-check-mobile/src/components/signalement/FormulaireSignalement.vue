@@ -154,6 +154,66 @@
             </div>
           </div>
 
+          <!-- Photos (optionnelles) -->
+          <div class="form-group">
+            <label class="form-label optional">
+              <ion-icon :icon="camera" class="label-icon"></ion-icon>
+              Photos du problème
+            </label>
+            
+            <!-- Zone d'upload -->
+            <div class="photo-upload-section">
+              <input 
+                type="file" 
+                ref="photoInput"
+                @change="handlePhotoUpload"
+                accept="image/*"
+                multiple
+                style="display: none;"
+                id="photo-input"
+              />
+              
+              <!-- Bouton d'ajout -->
+              <label 
+                for="photo-input" 
+                class="photo-upload-button"
+                v-if="form.photos.length < 5"
+              >
+                <ion-icon :icon="addCircle" class="upload-icon"></ion-icon>
+                <span class="upload-text">
+                  {{ form.photos.length === 0 ? 'Ajouter des photos' : 'Ajouter une photo' }}
+                </span>
+                <span class="upload-subtitle">{{ 5 - form.photos.length }} photo{{ (5 - form.photos.length) > 1 ? 's' : '' }} max</span>
+              </label>
+              
+              <!-- Aperçu des photos -->
+              <div v-if="form.photos.length > 0" class="photos-preview">
+                <div 
+                  v-for="(photo, index) in form.photos" 
+                  :key="index"
+                  class="photo-preview-item"
+                >
+                  <img 
+                    :src="getPhotoPreviewUrl(photo)" 
+                    :alt="`Photo ${index + 1}`" 
+                    class="photo-preview-image"
+                  />
+                  <button 
+                    type="button"
+                    @click="removePhoto(index)"
+                    class="photo-remove-btn"
+                  >
+                    <ion-icon :icon="closeCircle" class="remove-icon"></ion-icon>
+                  </button>
+                  <div class="photo-info">
+                    <span class="photo-name">{{ photo.name }}</span>
+                    <span class="photo-size">{{ (photo.size / 1024).toFixed(0) }} KB</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Localisation -->
           <div class="location-card">
             <div class="location-header">
@@ -212,7 +272,10 @@ import {
   location, 
   square, 
   time, 
-  business 
+  business,
+  camera,
+  closeCircle,
+  addCircle
 } from "ionicons/icons";
 
 interface Props {
@@ -277,6 +340,7 @@ const form = ref({
   description: "",
   surface: null as number | null,
   budget: null as number | null,
+  photos: [] as File[],
 });
 
 const errors = ref({
@@ -582,9 +646,34 @@ const resetForm = () => {
     description: "",
     surface: null,
     budget: null,
+    photos: [],
   };
   errors.value.typeSignalementId = false;
   currentState.value = 'peek';
+};
+
+// Gestion des photos
+const handlePhotoUpload = (event: Event) => {
+  const target = event.target as HTMLInputElement;
+  const files = target.files;
+  if (files) {
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (file.type.startsWith('image/') && form.value.photos.length < 5) {
+        form.value.photos.push(file);
+      }
+    }
+    // Reset l'input pour permettre de sélectionner à nouveau les mêmes fichiers
+    target.value = '';
+  }
+};
+
+const removePhoto = (index: number) => {
+  form.value.photos.splice(index, 1);
+};
+
+const getPhotoPreviewUrl = (file: File) => {
+  return URL.createObjectURL(file);
 };
 
 // Réinitialiser l'état quand le sheet s'ouvre et recharger les données si nécessaire
@@ -1074,6 +1163,139 @@ ion-input:focus,
   width: 1px;
   height: 36px;
   background: rgba(255, 255, 255, 0.2);
+}
+
+/* Photos */
+.photo-upload-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.photo-upload-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px 20px;
+  background: #f8f9fa;
+  border: 2px dashed #d32f2f;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  min-height: 120px;
+}
+
+.photo-upload-button:hover {
+  background: #fff;
+  border-color: #b71c1c;
+  box-shadow: 0 4px 16px rgba(211, 47, 47, 0.1);
+}
+
+.photo-upload-button:active {
+  transform: scale(0.98);
+}
+
+.upload-icon {
+  width: 32px;
+  height: 32px;
+  color: #d32f2f;
+  margin-bottom: 4px;
+}
+
+.upload-text {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1a1a;
+  text-align: center;
+}
+
+.upload-subtitle {
+  font-size: 12px;
+  color: #666;
+  text-align: center;
+  font-weight: 500;
+}
+
+.photos-preview {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.photo-preview-item {
+  position: relative;
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease;
+}
+
+.photo-preview-item:hover {
+  transform: scale(1.02);
+}
+
+.photo-preview-image {
+  width: 100%;
+  height: 100px;
+  object-fit: cover;
+  display: block;
+}
+
+.photo-remove-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 24px;
+  height: 24px;
+  background: rgba(0, 0, 0, 0.7);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.photo-remove-btn:hover {
+  background: rgba(0, 0, 0, 0.9);
+  transform: scale(1.1);
+}
+
+.photo-remove-btn:active {
+  transform: scale(0.95);
+}
+
+.remove-icon {
+  width: 16px;
+  height: 16px;
+  color: white;
+}
+
+.photo-info {
+  padding: 8px 10px;
+  background: #f8f9fa;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.photo-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: #1a1a1a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.photo-size {
+  font-size: 10px;
+  color: #666;
+  font-weight: 500;
 }
 
 /* Actions */
