@@ -72,3 +72,36 @@ bd/backups/
 *.sql.backup
 *.tmp
 .tmp/
+# Dependencies
+/vendor
+/node_modules
+road-check/vendor
+road-check/node_modules
+
+# Environment files
+.env
+road-check/.env
+
+# Large data files (Map Data)
+/map-data/*.pbf
+/map-data/*.mbtiles
+/map-data/*.pmtiles
+/map-data/*.json
+/map-data/tmp/
+# Keep config and lua files in map-data
+!/map-data/*.lua
+!/map-data/config*.json
+!/map-data/minimal-config.json
+!/map-data/super-minimal.json
+
+# Build artifacts and caches
+/road-check/public/storage
+/road-check/storage/*.key
+/road-check/bootstrap/cache/*
+/road-check/storage/framework/cache/*
+/road-check/storage/framework/sessions/*
+/road-check/storage/framework/views/*
+
+# OS generated files
+.DS_Store
+Thumbs.db

@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Support\Facades\DB;
 
 class Utilisateur extends Authenticatable
 {
@@ -12,23 +11,35 @@ class Utilisateur extends Authenticatable
 
     protected $table = 'utilisateur';
     protected $primaryKey = 'id_utilisateur';
+    public $timestamps = false;
+
     protected $fillable = [
         'email',
+        'password',
         'firebase_uid',
         'nom',
         'prenom',
         'id_role',
         'bloque'
     ];
-    public $timestamps = false;
 
-    public function unblock(): void
+    protected $hidden = ['password'];
+
+    // Relation avec Role
+    public function role()
     {
-        $this->bloque = false;
-        $this->save();
+        return $this->belongsTo(Role::class, 'id_role');
+    }
 
-        DB::table('tentative_connexion')
-            ->where('id_utilisateur', $this->id_utilisateur)
-            ->delete();
+    // Relation avec Signalements
+    public function signalements()
+    {
+        return $this->hasMany(Signalement::class, 'id_utilisateur');
+    }
+
+    // Relation avec TentativeConnexion
+    public function tentatives()
+    {
+        return $this->hasMany(TentativeConnexion::class, 'id_utilisateur');
     }
 }
