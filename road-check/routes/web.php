@@ -28,7 +28,7 @@ Route::post('/api/utilisateurs/{id}/unblock', [SignalementController::class, 'un
 Route::middleware('firebase.auth')->group(function () {
     Route::get('/map', function () {
         return view('map');
-    });
+    })->name('map');
 });
 
 Route::get('/', function () {
