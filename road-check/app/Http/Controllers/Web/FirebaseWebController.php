@@ -8,9 +8,11 @@ use App\Models\Utilisateur;
 use Kreait\Firebase\Auth as FirebaseAuth;
 use Kreait\Firebase\Exception\AuthException;
 use Kreait\Firebase\Exception\FirebaseException;
+
 use App\Models\Role;
 use App\Models\TentativeConnexion;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Hash;
 
 
 class FirebaseWebController extends Controller
@@ -38,33 +40,29 @@ class FirebaseWebController extends Controller
     public function register(Request $request)
     {
         $data = $request->validate([
-            'email' => 'required|email',
+            'email' => 'required|email|unique:utilisateur,email',
             'password' => 'required|min:6',
             'nom' => 'required|string',
             'prenom' => 'required|string'
         ]);
 
         try {
-            // Créer l'utilisateur dans Firebase
-            $firebaseUser = $this->auth->createUser([
-                'email' => $data['email'],
-                'password' => $data['password']
-            ]);
+            // Générer un UID fictif pour simuler Firebase
+            $fakeUid = 'local_' . uniqid();
 
             // Créer l'utilisateur local PostgreSQL
             Utilisateur::create([
                 'email' => $data['email'],
-                'firebase_uid' => $firebaseUser->uid,
+                'password' => $data['password'], // Stockage en clair pour simplicité locale
+                'firebase_uid' => $fakeUid,
                 'nom' => $data['nom'],
                 'prenom' => $data['prenom'],
-                'id_role' => 1,
+                'id_role' => 2, // Utilisateur par défaut
                 'bloque' => false
             ]);
 
             return redirect()->route('login.form')->with('success', 'Inscription réussie !');
 
-        } catch (AuthException | FirebaseException $e) {
-            return back()->withErrors(['error' => 'Erreur Firebase : ' . $e->getMessage()]);
         } catch (\Exception $e) {
             return back()->withErrors(['error' => $e->getMessage()]);
         }
@@ -79,7 +77,6 @@ class FirebaseWebController extends Controller
         ]);
 
         $limit = config('app.login_attempts_limit', 1);
-
         $utilisateur = Utilisateur::where('email', $data['email'])->first();
 
         if ($utilisateur && $utilisateur->bloque) {
@@ -89,36 +86,20 @@ class FirebaseWebController extends Controller
         }
 
         $tentativeSucces = false;
+        $jwtToken = null;
 
-        try {
-            $signIn = $this->auth->signInWithEmailAndPassword(
-                $data['email'],
-                $data['password']
-            );
-
-            $firebaseUser = $this->auth->getUserByEmail($data['email']);
-
-            if (!$utilisateur) {
-                $utilisateur = Utilisateur::create([
-                    'email' => $firebaseUser->email,
-                    'firebase_uid' => $firebaseUser->uid,
-                    'nom' => $firebaseUser->displayName ?? '',
-                    'prenom' => '',
-                    'id_role' => 2,
-                    'bloque' => false
-                ]);
-            }
-
+        // Vérification locale uniquement
+        if ($utilisateur && !$utilisateur->bloque && !empty($utilisateur->password) && $data['password'] === $utilisateur->password) {
+            // Générer un JWT local
+            $jwtToken = $this->generateLocalJwt($utilisateur);
             session([
-                'firebase_id_token' => $signIn->idToken(),
+                'firebase_id_token' => $jwtToken,
                 'utilisateur' => $utilisateur
             ]);
-
             $tentativeSucces = true;
+        }
 
-        } catch (\Exception $e) {}
-
-        // ❌ On n'enregistre que les échecs
+        // Enregistrer les tentatives
         if (!$tentativeSucces && $utilisateur) {
             $nbTentatives = \App\Models\TentativeConnexion::where('id_utilisateur', $utilisateur->id_utilisateur)
                 ->where('succes', false)
@@ -140,13 +121,32 @@ class FirebaseWebController extends Controller
             }
         }
 
+        // Auto-unblock si succès
         if ($tentativeSucces && $utilisateur && !$utilisateur->bloque) {
             $utilisateur->unblock();
         }
 
-        return $tentativeSucces
-            ? redirect()->route('profile')
-            : back()->withErrors(['error' => 'Email ou mot de passe invalide']);
+        if ($tentativeSucces) {
+            return redirect()->route('map')->with('success', 'Connecté en mode local');
+        } else {
+            return back()->withErrors(['error' => 'Email ou mot de passe invalide']);
+        }
+    }
+
+    /**
+     * Génère un JWT local pour l'utilisateur (fallback offline)
+     */
+    protected function generateLocalJwt($utilisateur)
+    {
+        // Utilise lcobucci/jwt ou firebase/php-jwt (ici version simple)
+        $key = env('APP_KEY');
+        $payload = [
+            'sub' => $utilisateur->id_utilisateur,
+            'email' => $utilisateur->email,
+            'iat' => time(),
+            'exp' => time() + 3600, // 1h
+        ];
+        return \Firebase\JWT\JWT::encode($payload, $key, 'HS256');
     }
 
 
@@ -197,14 +197,7 @@ class FirebaseWebController extends Controller
         ]);
 
         try {
-            // MAJ Firebase (email seulement)
-            if ($data['email'] !== $utilisateur->email) {
-                $this->auth->updateUser($utilisateur->firebase_uid, [
-                    'email' => $data['email']
-                ]);
-            }
-
-            // MAJ PostgreSQL
+            // MAJ PostgreSQL uniquement
             $utilisateur->nom = $data['nom'];
             $utilisateur->prenom = $data['prenom'];
             $utilisateur->email = $data['email'];
@@ -215,8 +208,6 @@ class FirebaseWebController extends Controller
             session(['utilisateur' => $utilisateur]);
 
             return redirect()->route('profile')->with('success', 'Profil mis à jour !');
-        } catch (AuthException | FirebaseException $e) {
-            return back()->withErrors(['error' => 'Erreur Firebase : ' . $e->getMessage()]);
         } catch (\Exception $e) {
             return back()->withErrors(['error' => $e->getMessage()]);
         }

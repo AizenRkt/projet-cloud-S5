@@ -2,8 +2,8 @@
 
 return [
     // Limite de tentatives de connexion (modifiable via env)
-    'login_attempts_limit' => (int) env('LOGIN_ATTEMPTS_LIMIT', 10),
-    'login_attempts_minutes' => (int) env('LOGIN_ATTEMPTS_MINUTES', 10),
+    'login_attempts_limit' => (int) env('LOGIN_ATTEMPTS_LIMIT', 100),
+    'login_attempts_minutes' => (int) env('LOGIN_ATTEMPTS_MINUTES', 5),
 
     /*
     php artisan config:clear
@@ -44,7 +44,7 @@ return [
     |
     */
 
-    'debug' => (bool) env('APP_DEBUG', false),
+    'debug' => true,
 
     /*
     |--------------------------------------------------------------------------

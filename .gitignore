@@ -1,74 +1,34 @@
-# Node
-road-check-mobile/node_modules/
-road-check/node_modules/
-npm-debug.log*
-yarn-error.log*
-pnpm-debug.log*
+# Dependencies
+/vendor
+/node_modules
+road-check/vendor
+road-check/node_modules
 
-# Build outputs
-road-check-mobile/dist/
-road-check-mobile/build/
-road-check-mobile/www/
-road-check/public/build/
-road-check/public/hot
-
-# Capacitor
-road-check-mobile/capacitor.config.json.bak
-road-check-mobile/scripts/node_modules
-
-# Android
-road-check-mobile/android/
-
-# iOS (si vous l'ajoutez plus tard)
-road-check-mobile/ios/App/App/config.json
-road-check-mobile/ios/App/App/capacitor.config.json
-
-# Laravel (road-check)
+# Environment files
+.env
 road-check/.env
-road-check/.env.*
-road-check/storage/app/public/*
-!road-check/storage/app/public/.gitignore
-road-check/storage/framework/cache/data/*
-!road-check/storage/framework/cache/data/.gitignore
-road-check/storage/framework/sessions/*
-!road-check/storage/framework/sessions/.gitignore
-road-check/storage/framework/views/*
-!road-check/storage/framework/views/.gitignore
-road-check/storage/logs/*
-!road-check/storage/logs/.gitignore
-road-check/vendor/
-road-check/bootstrap/cache/*
-!road-check/bootstrap/cache/.gitignore
 
-# Env & secrets
-road-check-mobile/.env
-road-check-mobile/.env.*
-road-check-mobile/firebase-service-account.json
-road-check-mobile/google-services.json
-road-check-mobile/GoogleService-Info.plist
+# Large data files (Map Data)
+/map-data/*.pbf
+/map-data/*.mbtiles
+/map-data/*.pmtiles
+/map-data/*.json
+/map-data/tmp/
+# Keep config and lua files in map-data
+!/map-data/*.lua
+!/map-data/config*.json
+!/map-data/minimal-config.json
+!/map-data/super-minimal.json
 
-# Firebase
-.firebase/
-.firebaserc
-firebase-debug.log
-firebase-debug.*.log
+# Build artifacts and caches
+/road-check/public/storage
+/road-check/storage/*.key
+/road-check/bootstrap/cache/*
+/road-check/storage/framework/cache/*
+/road-check/storage/framework/session/*
+/road-check/storage/framework/views/*
 
-# Testing & Coverage
-road-check-mobile/coverage/
-road-check-mobile/test-results/
-road-check/coverage/
-
-# IDE / OS
+# OS generated files
 .DS_Store
 Thumbs.db
-.idea/
-.vscode/
-*.log
-*.swp
-*.swo
-
-# Database & Temporary files
-bd/backups/
-*.sql.backup
-*.tmp
-.tmp/
+/road-check/storage/firebase
