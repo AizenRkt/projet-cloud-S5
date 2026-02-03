@@ -1,4 +1,18 @@
+-- Réinitialisation des tables (ordre dépendances)
+DROP TABLE IF EXISTS modification_signalement;
+DROP TABLE IF EXISTS photo_signalement;
+DROP TABLE IF EXISTS signalement_status;
+DROP TABLE IF EXISTS signalement;
+DROP TABLE IF EXISTS signalement_type_status;
+DROP TABLE IF EXISTS type_signalement;
+DROP TABLE IF EXISTS entreprise;
+DROP TABLE IF EXISTS tentative_connexion;
+DROP TABLE IF EXISTS session;
+DROP TABLE IF EXISTS utilisateur;
+DROP TABLE IF EXISTS role;
+
 -- Module Authentication
+
 
 CREATE TABLE role (
     id_role SERIAL PRIMARY KEY,
@@ -8,6 +22,7 @@ CREATE TABLE role (
 CREATE TABLE utilisateur (
     id_utilisateur SERIAL PRIMARY KEY,
     email VARCHAR(100) UNIQUE NOT NULL,
+    password VARCHAR(255) NOT NULL,
     firebase_uid VARCHAR(128) UNIQUE NOT NULL,
     nom VARCHAR(100),
     prenom VARCHAR(100),
@@ -32,10 +47,10 @@ CREATE TABLE tentative_connexion (
 );
 
 -- Module Web / Mobile
+
 CREATE TABLE entreprise (
     id_entreprise SERIAL PRIMARY KEY,
-    nom VARCHAR(150) NOT NULL,
-    logo VARCHAR(200)
+    nom VARCHAR(150) NOT NULL
 );
 
 CREATE TABLE type_signalement (
@@ -57,8 +72,9 @@ CREATE TABLE signalement (
     surface_m2 DOUBLE PRECISION,
     budget DOUBLE PRECISION,
 
-    date_signalement DATETIME DEFAULT CURRENT_TIMESTAMP
+    date_signalement TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
 
 CREATE INDEX idx_signalement_position
 ON signalement (latitude, longitude);
@@ -67,13 +83,13 @@ CREATE TABLE signalement_type_status (
     id_signalement_type_status SERIAL PRIMARY KEY,
     code VARCHAR(20) NOT NULL UNIQUE,
     libelle VARCHAR(20) NOT NULL
-)
+);
 
 CREATE TABLE signalement_status (
     id_signalement_status SERIAL PRIMARY KEY,
     id_signalement INT NOT NULL REFERENCES signalement(id_signalement),
     id_signalement_type_status INT NOT NULL REFERENCES signalement_type_status(id_signalement_type_status),
-    date_modification DATETIME DEFAULT CURRENT_TIMESTAMP
+    date_modification TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE photo_signalement (
@@ -81,5 +97,32 @@ CREATE TABLE photo_signalement (
     id_signalement INT NOT NULL REFERENCES signalement(id_signalement),
     path VARCHAR(255) NOT NULL
 );
+
+CREATE TABLE modification_signalement (
+    id_modification SERIAL PRIMARY KEY,
+    id_signalement INT NOT NULL REFERENCES signalement(id_signalement) ON DELETE CASCADE,
+    id_utilisateur INT NOT NULL REFERENCES utilisateur(id_utilisateur),
+    statut VARCHAR(20) NOT NULL,
+    budget DOUBLE PRECISION,
+    surface_m2 DOUBLE PRECISION,
+    id_entreprise INT REFERENCES entreprise(id_entreprise),
+    note TEXT,
+    date_modification TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+INSERT INTO role (nom) VALUES ('Administrateur');
+INSERT INTO role (nom) VALUES ('Utilisateur');
+INSERT INTO role (nom) VALUES ('Moderateur');
+
+-- Insert sample utilisateurs
+INSERT INTO utilisateur (email, password, firebase_uid, nom, prenom, id_role) VALUES
+('admin@gmail.com', 'password123', 'firebaseuid1', 'Admin', 'User', 1);
+
+-- Insert sample entreprises
+INSERT INTO entreprise (nom) VALUES
+('Entreprise A'),
+('Entreprise B'),
+('Entreprise C');
+
 
 
