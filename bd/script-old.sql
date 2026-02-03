@@ -1,5 +1,6 @@
 -- Module Authentication
 
+
 CREATE TABLE role (
     id_role SERIAL PRIMARY KEY,
     nom VARCHAR(20) UNIQUE NOT NULL
@@ -32,54 +33,41 @@ CREATE TABLE tentative_connexion (
 );
 
 -- Module Web / Mobile
+
 CREATE TABLE entreprise (
     id_entreprise SERIAL PRIMARY KEY,
-    nom VARCHAR(150) NOT NULL,
-    logo VARCHAR(200)
-);
-
-CREATE TABLE type_signalement (
-    id_type_signalement SERIAL PRIMARY KEY,
-    nom VARCHAR(100) NOT NULL,
-    icon VARCHAR(100)
+    nom VARCHAR(150) NOT NULL
 );
 
 CREATE TABLE signalement (
     id_signalement SERIAL PRIMARY KEY,
-    id_type_signalement INT NOT NULL REFERENCES type_signalement(id_type_signalement),
-    id_entreprise INT NULL REFERENCES entreprise(id_entreprise),
-    id_utilisateur INT NULL REFERENCES utilisateur(id_utilisateur),
-
+    id_utilisateur INT REFERENCES utilisateur(id_utilisateur),
     latitude DOUBLE PRECISION NOT NULL,
     longitude DOUBLE PRECISION NOT NULL,
-
-    description TEXT,
+    date_signalement TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    statut VARCHAR(20) NOT NULL CHECK (
+        statut IN ('nouveau', 'en cours', 'termine')
+    ),
     surface_m2 DOUBLE PRECISION,
     budget DOUBLE PRECISION,
-
-    date_signalement DATETIME DEFAULT CURRENT_TIMESTAMP
+    id_entreprise INT REFERENCES entreprise(id_entreprise)
 );
 
-CREATE INDEX idx_signalement_position
-ON signalement (latitude, longitude);
+INSERT INTO role (nom) VALUES ('Administrateur');
+INSERT INTO role (nom) VALUES ('Utilisateur');
+INSERT INTO role (nom) VALUES ('Moderateur');
 
-CREATE TABLE signalement_type_status (
-    id_signalement_type_status SERIAL PRIMARY KEY,
-    code VARCHAR(20) NOT NULL UNIQUE,
-    libelle VARCHAR(20) NOT NULL
-)
-
-CREATE TABLE signalement_status (
-    id_signalement_status SERIAL PRIMARY KEY,
-    id_signalement INT NOT NULL REFERENCES signalement(id_signalement),
-    id_signalement_type_status INT NOT NULL REFERENCES signalement_type_status(id_signalement_type_status),
-    date_modification DATETIME DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE modification_signalement (
+    id_modification SERIAL PRIMARY KEY,
+    id_signalement INT NOT NULL REFERENCES signalement(id_signalement) ON DELETE CASCADE,
+    id_utilisateur INT NOT NULL REFERENCES utilisateur(id_utilisateur),
+    statut VARCHAR(20) NOT NULL,
+    budget DOUBLE PRECISION,
+    surface_m2 DOUBLE PRECISION,
+    id_entreprise INT REFERENCES entreprise(id_entreprise),
+    note TEXT,
+    date_modification TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE photo_signalement (
-    id_photo SERIAL PRIMARY KEY,
-    id_signalement INT NOT NULL REFERENCES signalement(id_signalement),
-    path VARCHAR(255) NOT NULL
-);
 
 
