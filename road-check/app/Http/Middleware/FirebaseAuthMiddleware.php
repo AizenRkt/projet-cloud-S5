@@ -21,7 +21,11 @@ class FirebaseAuthMiddleware
         } elseif (session()->has('firebase_id_token')) {
             $token = session('firebase_id_token');
         } else {
-            return response()->json(['error' => 'Token manquant'], 401);
+            if ($request->expectsJson()) {
+                return response()->json(['error' => 'Token manquant'], 401);
+            }
+
+            return redirect()->route('login.form');
         }
 
         // 2️⃣ Détection du type de token (Firebase ou local)
@@ -47,10 +51,14 @@ class FirebaseAuthMiddleware
                     method_exists($verifiedToken, 'getClaim') ? $verifiedToken->getClaim('sub') : ($verifiedToken->claims()['sub'] ?? null)
                 );
             } catch (\Throwable $e) {
-                return response()->json([
-                    'error' => 'Token invalide',
-                    'details' => $e->getMessage()
-                ], 401);
+                if ($request->expectsJson()) {
+                    return response()->json([
+                        'error' => 'Token invalide',
+                        'details' => $e->getMessage()
+                    ], 401);
+                }
+
+                return redirect()->route('login.form');
             }
         } else {
             // Token local offline : décodage avec la clé d'app
@@ -59,15 +67,23 @@ class FirebaseAuthMiddleware
                 $decoded = \Firebase\JWT\JWT::decode($token, new \Firebase\JWT\Key($key, 'HS256'));
                 // On vérifie l'expiration
                 if (isset($decoded->exp) && $decoded->exp < time()) {
-                    return response()->json(['error' => 'Token expiré (offline)'], 401);
+                    if ($request->expectsJson()) {
+                        return response()->json(['error' => 'Token expiré (offline)'], 401);
+                    }
+
+                    return redirect()->route('login.form');
                 }
                 // On simule l'attribut firebase_uid avec l'id utilisateur
                 $request->attributes->set('firebase_uid', $decoded->sub ?? null);
             } catch (\Throwable $e) {
-                return response()->json([
-                    'error' => 'Token offline invalide',
-                    'details' => $e->getMessage()
-                ], 401);
+                if ($request->expectsJson()) {
+                    return response()->json([
+                        'error' => 'Token offline invalide',
+                        'details' => $e->getMessage()
+                    ], 401);
+                }
+
+                return redirect()->route('login.form');
             }
         }
 

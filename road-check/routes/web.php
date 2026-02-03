@@ -25,8 +25,10 @@ Route::put('/api/utilisateurs/{id}', [SignalementController::class, 'updateUtili
 Route::post('/api/utilisateurs/{id}/unblock', [SignalementController::class, 'unblockUtilisateur']);
 
 // ==================== Vue principale (Manager Dashboard) ====================
-Route::get('/map', function () {
-    return view('map');
+Route::middleware('firebase.auth')->group(function () {
+    Route::get('/map', function () {
+        return view('map');
+    });
 });
 
 Route::get('/', function () {

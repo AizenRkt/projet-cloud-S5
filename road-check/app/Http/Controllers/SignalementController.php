@@ -147,6 +147,7 @@ class SignalementController extends Controller
             return [
                 'id_utilisateur' => $u->id_utilisateur,
                 'email' => $u->email,
+                'firebase_uid' => $u->firebase_uid,
                 'nom' => $u->nom,
                 'prenom' => $u->prenom,
                 'id_role' => $u->id_role,
