@@ -184,7 +184,6 @@ class SignalementController extends Controller
                 'email' => $request->email,
                 'nom' => $request->nom,
                 'prenom' => $request->prenom,
-                'password' => bcrypt($request->password),
                 'id_role' => $request->id_role,
                 'firebase_uid' => $firebaseUser->uid,
                 'bloque' => false

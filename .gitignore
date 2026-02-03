@@ -31,3 +31,4 @@ road-check/.env
 # OS generated files
 .DS_Store
 Thumbs.db
+/road-check/storage/firebase

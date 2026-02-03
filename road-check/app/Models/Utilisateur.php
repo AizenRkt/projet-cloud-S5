@@ -15,15 +15,12 @@ class Utilisateur extends Authenticatable
 
     protected $fillable = [
         'email',
-        'password',
         'firebase_uid',
         'nom',
         'prenom',
         'id_role',
         'bloque'
     ];
-
-    protected $hidden = ['password'];
 
     // Relation avec Role
     public function role()
