@@ -87,8 +87,8 @@
         </div>
         <div class="navbar-menu">
             <button class="nav-btn" onclick="openUsersModal()"> Utilisateurs</button>
-            <button class="nav-btn" onclick="openRolesModal()"> Rôles</button>
             <button class="nav-btn" onclick="syncFirebase()"> Sync</button>
+            <button class="nav-btn" onclick="logout()"> Deconnexion</button>
         </div>
     </nav>
     <div class="main-container">
@@ -184,7 +184,7 @@
                 if (!isNaN(lat) && !isNaN(lng)) {
                     const colors = { nouveau: '#1f6feb', en_cours: '#f0883e', termine: '#238636' };
                     const marker = L.circleMarker([lat, lng], { radius: 10, fillColor: colors[s.statut] || '#1f6feb', color: '#fff', weight: 2, fillOpacity: 0.8 }).addTo(map);
-                    
+
                     // Tooltip for hover (all info)
                     const tooltipContent = `
                         <div style="text-align:left;">
@@ -206,14 +206,14 @@
                 }
             });
         }
-        function selectSignalement(id) { 
-            selectedSig = signalements.find(s => s.id_signalement === id); 
-            if (!selectedSig) return; 
-            renderSignalements(); 
-            openDetail(); 
+        function selectSignalement(id) {
+            selectedSig = signalements.find(s => s.id_signalement === id);
+            if (!selectedSig) return;
+            renderSignalements();
+            openDetail();
             const lat = parseFloat(selectedSig.latitude);
             const lng = parseFloat(selectedSig.longitude);
-            if (!isNaN(lat) && !isNaN(lng)) map.setView([lat, lng], 16); 
+            if (!isNaN(lat) && !isNaN(lng)) map.setView([lat, lng], 16);
         }
         function openDetail() {
             const panel = document.getElementById('detailPanel'); const s = selectedSig;
@@ -249,6 +249,7 @@
         }
         function openRolesModal() { document.getElementById('rolesModal').classList.add('open'); document.getElementById('rolesModalBody').innerHTML = '<table class="data-table"><thead><tr><th>ID</th><th>Nom</th></tr></thead><tbody>' + roles.map(r => '<tr><td>' + r.id_role + '</td><td>' + r.nom + '</td></tr>').join('') + '</tbody></table>'; }
         function closeRolesModal() { document.getElementById('rolesModal').classList.remove('open'); }
+        async function logout() { try { await fetch('/logout', { method: 'POST', headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content } }); window.location.href = '/login'; } catch (e) { alert('Erreur'); } }
         function syncFirebase() { alert('Synchronisation...'); }
     </script>
 </body>

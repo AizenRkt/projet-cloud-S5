@@ -181,37 +181,12 @@ class FirebaseWebController extends Controller
         ]);
     }
 
-    // 🔹 TRAITEMENT MODIFICATION
-    public function update(Request $request)
+    // 🔹 LOGOUT
+    public function logout(Request $request)
     {
-        $utilisateur = session('utilisateur');
-        if (!$utilisateur) {
-            return redirect()->route('login.form')->withErrors(['error' => 'Veuillez vous connecter']);
-        }
+        // Clear session
+        session()->forget(['firebase_id_token', 'utilisateur']);
 
-        $data = $request->validate([
-            'nom' => 'required|string',
-            'prenom' => 'required|string',
-            'email' => 'required|email',
-            'id_role' => 'required|exists:role,id_role'
-        ]);
-
-        try {
-            // MAJ PostgreSQL uniquement
-            $utilisateur->nom = $data['nom'];
-            $utilisateur->prenom = $data['prenom'];
-            $utilisateur->email = $data['email'];
-            $utilisateur->id_role = $data['id_role'];
-            $utilisateur->save();
-
-            // MAJ session
-            session(['utilisateur' => $utilisateur]);
-
-            return redirect()->route('profile')->with('success', 'Profil mis à jour !');
-        } catch (\Exception $e) {
-            return back()->withErrors(['error' => $e->getMessage()]);
-        }
+        return redirect()->route('login.form')->with('success', 'Déconnecté');
     }
-
-
 }
