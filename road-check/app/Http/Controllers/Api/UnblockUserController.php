@@ -4,12 +4,19 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use OpenApi\Annotations as OA;
 use App\Models\Utilisateur;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * Controller pour débloquer un utilisateur
+ */
 class UnblockUserController extends Controller
 {
-    // POST /api/unblock
+    /**
+     * Débloque un utilisateur
+     *
+     */
     public function unblock(Request $request)
     {
         $request->validate([
@@ -32,9 +39,6 @@ class UnblockUserController extends Controller
             ->where('id_utilisateur', $utilisateur->id_utilisateur)
             ->delete();
 
-        return response()->json([
-            'message' => 'Utilisateur débloqué et tentatives réinitialisées',
-            'email' => $utilisateur->email,
-        ]);
+        return redirect()->route('profile')->with('success', "Utilisateur débloqué : {$utilisateur->email}");
     }
 }

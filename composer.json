@@ -1,5 +1,7 @@
 {
     "require": {
-        "kreait/laravel-firebase": "^3.4"
+        "kreait/laravel-firebase": "^3.4",
+        "darkaonline/l5-swagger": "^2.1",
+        "firebase/php-jwt": "^7.0"
     }
 }

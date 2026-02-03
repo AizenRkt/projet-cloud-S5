@@ -18,6 +18,7 @@ class Utilisateur extends Authenticatable
     // Champs autorisés pour insert/update
     protected $fillable = [
         'email',
+        'password',
         'firebase_uid',
         'nom',
         'prenom',

@@ -1,0 +1,10 @@
+Error [512]: Required @OA\Info() not found in D:\L3\Web\18_projet-cloud-S5\road-check\vendor\zircote\swagger-php\src\Loggers\DefaultLogger.php:23
+Trace:
+#0 [internal function]: {closure}()
+#1 D:\L3\Web\18_projet-cloud-S5\road-check\vendor\zircote\swagger-php\src\Loggers\DefaultLogger.php(23): trigger_error()
+#2 D:\L3\Web\18_projet-cloud-S5\road-check\vendor\psr\log\src\LoggerTrait.php(61): OpenApi\Loggers\DefaultLogger->log()
+#3 D:\L3\Web\18_projet-cloud-S5\road-check\vendor\zircote\swagger-php\src\Annotations\AbstractAnnotation.php(514): Psr\Log\AbstractLogger->warning()
+#4 D:\L3\Web\18_projet-cloud-S5\road-check\vendor\zircote\swagger-php\src\Annotations\OpenApi.php(191): OpenApi\Annotations\AbstractAnnotation->validate()
+#5 D:\L3\Web\18_projet-cloud-S5\road-check\vendor\zircote\swagger-php\src\Analysis.php(401): OpenApi\Annotations\OpenApi->validate()
+#6 D:\L3\Web\18_projet-cloud-S5\road-check\vendor\zircote\swagger-php\src\Generator.php(412): OpenApi\Analysis->validate()
+#7 D:\L3\Web\18_projet-cloud-S5\road-check\debug_swagger.php(18): OpenApi\Generator->generate()
