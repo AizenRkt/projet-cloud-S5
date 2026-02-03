@@ -9,13 +9,10 @@ class Utilisateur extends Authenticatable
 {
     use HasFactory;
 
-    // Table PostgreSQL
     protected $table = 'utilisateur';
-
-    // Clé primaire
     protected $primaryKey = 'id_utilisateur';
+    public $timestamps = false;
 
-    // Champs autorisés pour insert/update
     protected $fillable = [
         'email',
         'password',
@@ -26,6 +23,23 @@ class Utilisateur extends Authenticatable
         'bloque'
     ];
 
-    // Désactiver timestamps si tu utilises `date_creation`
-    public $timestamps = false;
+    protected $hidden = ['password'];
+
+    // Relation avec Role
+    public function role()
+    {
+        return $this->belongsTo(Role::class, 'id_role');
+    }
+
+    // Relation avec Signalements
+    public function signalements()
+    {
+        return $this->hasMany(Signalement::class, 'id_utilisateur');
+    }
+
+    // Relation avec TentativeConnexion
+    public function tentatives()
+    {
+        return $this->hasMany(TentativeConnexion::class, 'id_utilisateur');
+    }
 }

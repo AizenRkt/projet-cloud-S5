@@ -47,7 +47,7 @@ class FirebaseAuthController extends Controller
             'firebase_uid' => $firebaseUser->uid,
             'nom' => $data['nom'],
             'prenom' => $data['prenom'],
-            'id_role' => 1, // rôle par défaut
+            'id_role' => 1,
             'bloque' => false
         ]);
 
@@ -62,54 +62,28 @@ class FirebaseAuthController extends Controller
             'password' => 'required|string'
         ]);
 
-        // Vérifier si le compte est bloqué AVANT Firebase
-        // Vérifier si le compte est bloqué AVANT Firebase (Middleware le fait aussi, mais double sécurité)
-        $utilisateur = Utilisateur::where('email', $data['email'])->first();
-
-        $limit = Config::get('app.login_attempts_limit', 1);
-        $minutesLimit = Config::get('app.login_attempts_minutes', 1);
+        $limit = Config::get('app.login_attempts_limit', 3);
+        $minutesLimit = Config::get('app.login_attempts_minutes', 5);
         $now = Carbon::now('UTC');
 
-        $firebaseUser = null;
-        try {
-            $firebaseUser = $this->auth->getUserByEmail($data['email']);
-        } catch (AuthException | FirebaseException $e) {
-        }
+        // Vérifier si le compte est bloqué
+        $utilisateur = Utilisateur::where('email', $data['email'])->first();
 
         if ($utilisateur && $utilisateur->bloque) {
-            $claimsWindowExpired = false;
+            // Vérifier si le temps de blocage est expiré
+            $derniereTentative = TentativeConnexion::where('id_utilisateur', $utilisateur->id_utilisateur)
+                ->where('succes', false)
+                ->orderBy('date_tentative', 'desc')
+                ->first();
 
-            if ($firebaseUser) {
-                $claims = $firebaseUser->customClaims ?? [];
-                $firstAttemptAt = isset($claims['first_attempt_at'])
-                    ? Carbon::parse($claims['first_attempt_at'])->setTimezone('UTC')
-                    : null;
-                $claimsWindowExpired = !$firstAttemptAt || $firstAttemptAt->diffInMinutes($now) >= $minutesLimit;
-
-                if ($claimsWindowExpired) {
-                    $utilisateur->unblock();
-                    $claims['attempts'] = 0;
-                    $claims['first_attempt_at'] = $now->toIso8601String();
-                    $this->auth->setCustomUserClaims($firebaseUser->uid, $claims);
-                }
-            }
-
-            if (!$claimsWindowExpired) {
-                // Vérifier si le temps de blocage est expiré (fallback local)
-                $derniereTentative = TentativeConnexion::where('id_utilisateur', $utilisateur->id_utilisateur)
-                    ->where('succes', false)
-                    ->orderBy('date_tentative', 'desc')
-                    ->first();
-
-                if ($derniereTentative) {
-                     $dateTentative = Carbon::parse($derniereTentative->date_tentative)->setTimezone('UTC');
-                     if ($dateTentative->diffInMinutes($now) < $minutesLimit) {
-                         return response()->json(['error' => 'Compte bloqué.'], 423);
-                     } else {
-                         // Auto-déblocage si le temps est passé
-                         $utilisateur->bloque = false;
-                         $utilisateur->save();
-                     }
+            if ($derniereTentative) {
+                $dateTentative = Carbon::parse($derniereTentative->date_tentative)->setTimezone('UTC');
+                if ($dateTentative->diffInMinutes($now) < $minutesLimit) {
+                    return response()->json(['error' => 'Compte bloqué. Réessayez plus tard.'], 423);
+                } else {
+                    // Auto-déblocage si le temps est passé
+                    $utilisateur->bloque = false;
+                    $utilisateur->save();
                 }
             }
         }
@@ -126,26 +100,7 @@ class FirebaseAuthController extends Controller
             if (!$utilisateur) {
                 $utilisateur = Utilisateur::create([
                     'email' => $firebaseUser->email,
-
-            if ($firebaseUser) {
-                $claims = $firebaseUser->customClaims ?? [];
-                $firstAttemptAt = isset($claims['first_attempt_at'])
-                    ? Carbon::parse($claims['first_attempt_at'])->setTimezone('UTC')
-                    : null;
-                $windowExpired = !$firstAttemptAt || $firstAttemptAt->diffInMinutes($now) >= $minutesLimit;
-
-                if ($windowExpired) {
-                    $utilisateur?->unblock();
-                    $claims['attempts'] = 1;
-                    $claims['first_attempt_at'] = $now->toIso8601String();
-                } else {
-                    $claims['attempts'] = (int) ($claims['attempts'] ?? 0) + 1;
-                    $claims['first_attempt_at'] = $firstAttemptAt->toIso8601String();
-                }
-
-                $this->auth->setCustomUserClaims($firebaseUser->uid, $claims);
-            }
-
+                    'firebase_uid' => $firebaseUser->uid,
                     'nom' => $firebaseUser->displayName ?? '',
                     'prenom' => '',
                     'id_role' => 1,
@@ -166,11 +121,14 @@ class FirebaseAuthController extends Controller
                 $utilisateur->save();
             }
 
+            return response()->json([
+                'idToken' => $signIn->idToken(),
+                'refreshToken' => $signIn->refreshToken(),
+                'user' => $utilisateur
+            ]);
+
         } catch (AuthException | FirebaseException $e) {
-
             // Enregistrer tentative échouée si l'utilisateur existe
-            $utilisateur = Utilisateur::where('email', $data['email'])->first();
-
             if ($utilisateur) {
                 TentativeConnexion::create([
                     'id_utilisateur' => $utilisateur->id_utilisateur,
@@ -187,26 +145,12 @@ class FirebaseAuthController extends Controller
                 if ($failures >= $limit) {
                     $utilisateur->bloque = true;
                     $utilisateur->save();
-                    return response()->json(['error' => "Compte bloqué. Trop de tentatives."], 423);
+                    return response()->json(['error' => 'Compte bloqué. Trop de tentatives.'], 423);
                 }
             }
 
-            return response()->json(['error' => 'Erreur Firebase: ' . $e->getMessage()], 400);
+            return response()->json(['error' => 'Email ou mot de passe incorrect.'], 401);
         }
-
-        // Logic moved inside try block to ensure we have user for recording attempt
-
-
-        // Vérifier à nouveau le blocage (si le compte a été bloqué entre temps)
-        if ($utilisateur->bloque) {
-            return response()->json(['error' => 'Compte bloqué.'], 423);
-        }
-
-        return response()->json([
-            'idToken' => $signIn->idToken(),
-            'refreshToken' => $signIn->refreshToken(),
-            'user' => $utilisateur
-        ]);
     }
 
     // 🔹 UPDATE PROFIL
@@ -224,7 +168,7 @@ class FirebaseAuthController extends Controller
             $verifiedToken = $this->auth->verifyIdToken($token);
             $uid = $verifiedToken->uid;
         } catch (AuthException | FirebaseException $e) {
-            return response()->json(['error' => 'Erreur Firebase lors de la vérification du token: ' . $e->getMessage()], 500);
+            return response()->json(['error' => 'Token invalide.'], 401);
         }
 
         // Mettre à jour Firebase si email fourni
@@ -234,7 +178,7 @@ class FirebaseAuthController extends Controller
                     'email' => $request->email,
                 ]);
             } catch (AuthException | FirebaseException $e) {
-                return response()->json(['error' => 'Erreur Firebase lors de la mise à jour email: ' . $e->getMessage()], 400);
+                return response()->json(['error' => 'Erreur lors de la mise à jour email.'], 400);
             }
         }
 
