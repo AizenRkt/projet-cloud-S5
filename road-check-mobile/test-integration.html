@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test d'intégration - Formulaire Signalement</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 15px;
+            border-left: 4px solid #007AFF;
+            background-color: #f8f9fa;
+        }
+        .success { border-color: #28a745; background-color: #d4edda; }
+        .error { border-color: #dc3545; background-color: #f8d7da; }
+        .warning { border-color: #ffc107; background-color: #fff3cd; }
+        pre {
+            background: #f1f3f4;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        button {
+            background: #007AFF;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056cc;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🧪 Test d'intégration - Signalement App</h1>
+        
+        <div class="test-section">
+            <h2>📋 Checklist des améliorations</h2>
+            <ul id="checklist">
+                <li>✅ Remplacement des icônes SVG par des icônes Ionic</li>
+                <li>✅ Amélioration du système de drag</li>
+                <li>✅ Correction des IDs numériques dans les fallbacks</li>
+                <li>⏳ Test du drag depuis n'importe où en mode peek</li>
+                <li>⏳ Vérification de l'animation de l'icône toggle</li>
+                <li>⏳ Test de soumission avec données utilisateur</li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <h2>🎯 Instructions de test</h2>
+            <ol>
+                <li><strong>Lancer l'application:</strong>
+                    <pre>cd road-check-mobile
+npm run dev</pre>
+                </li>
+                <li><strong>Tester le drag:</strong>
+                    <ul>
+                        <li>Cliquer sur la carte pour ouvrir le formulaire</li>
+                        <li>En mode peek: vérifier qu'on peut dragguer depuis n'importe où</li>
+                        <li>En mode half/expanded: vérifier qu'on peut dragguer seulement depuis le header/handle</li>
+                    </ul>
+                </li>
+                <li><strong>Tester les icônes:</strong>
+                    <ul>
+                        <li>Vérifier que toutes les icônes s'affichent correctement</li>
+                        <li>Tester l'animation de l'icône chevron (expand/collapse)</li>
+                    </ul>
+                </li>
+                <li><strong>Tester la soumission:</strong>
+                    <ul>
+                        <li>Remplir le formulaire complètement</li>
+                        <li>Vérifier que les données utilisateur sont incluses</li>
+                        <li>Contrôler la console pour les erreurs</li>
+                    </ul>
+                </li>
+            </ol>
+        </div>
+
+        <div class="test-section warning">
+            <h2>⚠️ Points d'attention</h2>
+            <ul>
+                <li><strong>Performance:</strong> Vérifier que les animations sont fluides</li>
+                <li><strong>UX:</strong> Le drag doit être intuitif selon le mode du bottom sheet</li>
+                <li><strong>Firebase:</strong> S'assurer que les données sont bien sauvegardées avec les bons types</li>
+                <li><strong>Types:</strong> Vérifier que les IDs numériques fonctionnent correctement</li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <h2>🔧 Commandes utiles</h2>
+            <button onclick="copyCommand('cd road-check-mobile && npm run dev')">Lancer l'app</button>
+            <button onclick="copyCommand('cd road-check-mobile && npm run build')">Build production</button>
+            <button onclick="copyCommand('cd road-check-mobile && npm run test:unit')">Tests unitaires</button>
+        </div>
+
+        <div class="test-section">
+            <h2>📊 Résultats attendus</h2>
+            <ul>
+                <li>✅ Bottom sheet qui se drag fluidement</li>
+                <li>✅ Icônes Ionic qui s'affichent correctement</li>
+                <li>✅ Animation chevron smooth</li>
+                <li>✅ Formulaire qui soumet avec UID utilisateur</li>
+                <li>✅ Types numériques correctement gérés</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        function copyCommand(command) {
+            navigator.clipboard.writeText(command).then(() => {
+                alert('Commande copiée: ' + command);
+            });
+        }
+        
+        // Auto-update timestamp
+        setInterval(() => {
+            document.title = `Test d'intégration - ${new Date().toLocaleTimeString()}`;
+        }, 1000);
+    </script>
+</body>
+</html>

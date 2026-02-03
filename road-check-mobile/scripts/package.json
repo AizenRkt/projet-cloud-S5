@@ -1,0 +1,11 @@
+{
+  "name": "init-firestore",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "init": "node init-firestore.js"
+  },
+  "dependencies": {
+    "firebase": "^10.7.1"
+  }
+}
