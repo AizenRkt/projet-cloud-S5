@@ -19,6 +19,7 @@ return new class extends Migration
         Schema::create('utilisateur', function (Blueprint $table) {
             $table->increments('id_utilisateur');
             $table->string('email', 100)->unique();
+            $table->string('password', 255);
             $table->string('firebase_uid', 128)->unique();
             $table->string('nom', 100)->nullable();
             $table->string('prenom', 100)->nullable();
@@ -42,7 +43,6 @@ return new class extends Migration
         Schema::create('entreprise', function (Blueprint $table) {
             $table->increments('id_entreprise');
             $table->string('nom', 150);
-            $table->string('logo', 200)->nullable();
         });
 
         Schema::create('type_signalement', function (Blueprint $table) {

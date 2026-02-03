@@ -15,12 +15,15 @@ class Utilisateur extends Authenticatable
 
     protected $fillable = [
         'email',
+        'password',
         'firebase_uid',
         'nom',
         'prenom',
         'id_role',
         'bloque'
     ];
+
+    protected $hidden = ['password'];
 
     // Relation avec Role
     public function role()
@@ -39,4 +42,22 @@ class Utilisateur extends Authenticatable
     {
         return $this->hasMany(TentativeConnexion::class, 'id_utilisateur');
     }
+
+    // Bloquer l'utilisateur
+    public function block(): void
+    {
+        $this->bloque = true;
+        $this->save();
+    }
+
+    // Débloquer l'utilisateur et supprimer les tentatives d'échec
+    public function unblock(): void
+    {
+        $this->bloque = false;
+        $this->save();
+
+        // Supprimer les tentatives échouées
+        \App\Models\TentativeConnexion::where('id_utilisateur', $this->id_utilisateur)->delete();
+    }
 }
+

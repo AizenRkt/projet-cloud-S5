@@ -176,30 +176,18 @@ class SignalementController extends Controller
         ]);
 
         try {
-            $firebaseUser = $this->auth->createUser([
-                'email' => $request->email,
-                'password' => $request->password
-            ]);
-
             $utilisateur = Utilisateur::create([
                 'email' => $request->email,
                 'nom' => $request->nom,
                 'prenom' => $request->prenom,
+                'password' => \Illuminate\Support\Facades\Hash::make($request->password),
                 'id_role' => $request->id_role,
-                'firebase_uid' => $firebaseUser->uid,
+                'firebase_uid' => 'local-' . uniqid(),
                 'bloque' => false
             ]);
 
             return response()->json(['message' => 'Utilisateur créé', 'data' => $utilisateur], 201);
-        } catch (AuthException | FirebaseException $e) {
-            return response()->json(['message' => 'Erreur Firebase: ' . $e->getMessage()], 400);
         } catch (\Throwable $e) {
-            if (isset($firebaseUser) && isset($firebaseUser->uid)) {
-                try {
-                    $this->auth->deleteUser($firebaseUser->uid);
-                } catch (\Throwable $ignore) {
-                }
-            }
             return response()->json(['message' => 'Erreur serveur: ' . $e->getMessage()], 500);
         }
     }

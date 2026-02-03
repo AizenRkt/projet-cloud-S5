@@ -47,17 +47,11 @@ class FirebaseWebController extends Controller
         ]);
 
         try {
-            // Créer l'utilisateur dans Firebase
-            $firebaseUser = $this->auth->createUser([
-                'email' => $data['email'],
-                'password' => $data['password']
-            ]);
-
-            // Créer l'utilisateur local PostgreSQL avec mot de passe en clair (non sécurisé)
+            // Créer l'utilisateur local seulement (synchronisation avec Firebase possible plus tard)
             Utilisateur::create([
                 'email' => $data['email'],
-                'password' => $data['password'],
-                'firebase_uid' => $firebaseUser->uid,
+                'password' => Hash::make($data['password']),
+                'firebase_uid' => 'local-' . uniqid(),
                 'nom' => $data['nom'],
                 'prenom' => $data['prenom'],
                 'id_role' => 2,
@@ -66,8 +60,6 @@ class FirebaseWebController extends Controller
 
             return redirect()->route('login.form')->with('success', 'Inscription réussie !');
 
-        } catch (AuthException | FirebaseException $e) {
-            return back()->withErrors(['error' => 'Erreur Firebase : ' . $e->getMessage()]);
         } catch (\Exception $e) {
             return back()->withErrors(['error' => $e->getMessage()]);
         }
@@ -105,65 +97,51 @@ class FirebaseWebController extends Controller
             $hasNetwork = (strpos($output, 'ttl=') !== false);
         }
 
-        if (!$hasNetwork) {
-            // Pas de réseau : fallback local direct
-            if ($utilisateur && !$utilisateur->bloque && !empty($utilisateur->password) && $data['password'] === $utilisateur->password) {
-                $jwtToken = $this->generateLocalJwt($utilisateur);
-                session([
-                    'firebase_id_token' => $jwtToken,
-                    'utilisateur' => $utilisateur
-                ]);
-                $tentativeSucces = true;
-            }
+        // Priorité à l'auth locale (base PostgreSQL)
+        if ($utilisateur && !empty($utilisateur->password) && Hash::check($data['password'], $utilisateur->password) && !$utilisateur->bloque) {
+            $jwtToken = $this->generateLocalJwt($utilisateur);
+            session([
+                'firebase_id_token' => $jwtToken,
+                'utilisateur' => $utilisateur
+            ]);
+            $tentativeSucces = true;
         } else {
-            try {
-                // Essayer Firebase Auth
-                $signIn = $this->auth->signInWithEmailAndPassword(
-                    $data['email'],
-                    $data['password']
-                );
+            // Si échec local, on tente Firebase seulement si réseau ok
+            if ($hasNetwork) {
+                try {
+                    $signIn = $this->auth->signInWithEmailAndPassword($data['email'], $data['password']);
+                    $firebaseUser = $this->auth->getUserByEmail($data['email']);
 
-                $firebaseUser = $this->auth->getUserByEmail($data['email']);
-
-                if (!$utilisateur) {
-                    $utilisateur = Utilisateur::create([
-                        'email' => $firebaseUser->email,
-                        'password' => $data['password'],
-                        'firebase_uid' => $firebaseUser->uid,
-                        'nom' => $firebaseUser->displayName ?? '',
-                        'prenom' => '',
-                        'id_role' => 2,
-                        'bloque' => false
-                    ]);
-                } elseif (empty($utilisateur->password)) {
-                    // Si l'utilisateur existait sans password (migration), on le met à jour
-                    $utilisateur->password = $data['password'];
-                    $utilisateur->save();
-                }
-
-                session([
-                    'firebase_id_token' => $signIn->idToken(),
-                    'utilisateur' => $utilisateur
-                ]);
-
-                $tentativeSucces = true;
-
-            } catch (\Kreait\Firebase\Exception\AuthException | \Kreait\Firebase\Exception\FirebaseException $e) {
-                // Si erreur Firebase liée à la connexion réseau, fallback local
-                if (strpos($e->getMessage(), 'network') !== false || strpos($e->getMessage(), 'Network') !== false || strpos($e->getMessage(), 'connect') !== false) {
-                    // Vérification locale
-                    if ($utilisateur && !$utilisateur->bloque && !empty($utilisateur->password) && $data['password'] === $utilisateur->password) {
-                        // Générer un JWT local
-                        $jwtToken = $this->generateLocalJwt($utilisateur);
-                        session([
-                            'firebase_id_token' => $jwtToken,
-                            'utilisateur' => $utilisateur
+                    if (!$utilisateur) {
+                        $utilisateur = Utilisateur::create([
+                            'email' => $firebaseUser->email,
+                            'password' => Hash::make($data['password']),
+                            'firebase_uid' => $firebaseUser->uid,
+                            'nom' => $firebaseUser->displayName ?? '',
+                            'prenom' => '',
+                            'id_role' => 2,
+                            'bloque' => false
                         ]);
-                        $tentativeSucces = true;
+                    } else {
+                        // Mettre à jour le mot de passe local si nécessaire
+                        if (!Hash::check($data['password'], $utilisateur->password)) {
+                            $utilisateur->password = Hash::make($data['password']);
+                            $utilisateur->save();
+                        }
                     }
+
+                    session([
+                        'firebase_id_token' => $signIn->idToken(),
+                        'utilisateur' => $utilisateur
+                    ]);
+
+                    $tentativeSucces = true;
+
+                } catch (\Kreait\Firebase\Exception\AuthException | \Kreait\Firebase\Exception\FirebaseException $e) {
+                    // Si erreur réseau ou autre, on ne crée pas d'utilisateur local
+                } catch (\Exception $e) {
+                    // Ignorer
                 }
-            } catch (\Exception $e) {
-                // Autres erreurs : on ignore pour la logique de tentative
             }
         }
 
