@@ -115,25 +115,25 @@
         </div>
     </div>
     <div class="detail-panel" id="detailPanel">
-        <div class="detail-header"><h3> Modifier</h3><button class="close-btn" onclick="closeDetail()"></button></div>
+        <div class="detail-header"><h3> Modifier</h3><button class="close-btn" onclick="closeDetail()">&times;</button></div>
         <div class="detail-content" id="detailContent"></div>
     </div>
     <div class="modal-overlay" id="usersModal">
         <div class="modal">
-            <div class="modal-header"><h3> Utilisateurs</h3><button class="close-btn" onclick="closeUsersModal()"></button></div>
+            <div class="modal-header"><h3> Utilisateurs</h3><button class="close-btn" onclick="closeUsersModal()">&times;</button></div>
             <div class="modal-body" id="usersModalBody"></div>
             <div class="modal-footer"><button class="nav-btn" onclick="openCreateUserForm()"> Nouvel utilisateur</button></div>
         </div>
     </div>
     <div class="modal-overlay" id="rolesModal">
         <div class="modal" style="max-width:500px;">
-            <div class="modal-header"><h3> Rôles</h3><button class="close-btn" onclick="closeRolesModal()"></button></div>
+            <div class="modal-header"><h3> Rôles</h3><button class="close-btn" onclick="closeRolesModal()">&times;</button></div>
             <div class="modal-body" id="rolesModalBody"></div>
         </div>
     </div>
     <div class="modal-overlay" id="createUserModal">
         <div class="modal" style="max-width:500px;">
-            <div class="modal-header"><h3> Créer utilisateur</h3><button class="close-btn" onclick="closeCreateUserModal()"></button></div>
+            <div class="modal-header"><h3> Créer utilisateur</h3><button class="close-btn" onclick="closeCreateUserModal()">&times;</button></div>
             <div class="modal-body">
                 <form id="createUserForm" onsubmit="createUser(event)">
                     <div class="form-group"><label>Email</label><input type="email" id="newUserEmail" required></div>
@@ -164,29 +164,60 @@
                 signalements = sigRes || []; entreprises = entRes || []; typeSignalements = typeRes || [];
                 typeStatuts = statRes || []; utilisateurs = userRes || []; roles = roleRes || [];
                 renderSignalements(); renderMarkers(); updateStats();
-            } catch (e) { document.getElementById('signalementsList').innerHTML = '<div style="padding:20px;color:#f85149;">Erreur</div>'; }
+            } catch (e) { console.error(e); document.getElementById('signalementsList').innerHTML = '<div style="padding:20px;color:#f85149;">Erreur: ' + e.message + '</div>'; }
         }
         function renderSignalements() {
             const container = document.getElementById('signalementsList');
             const filtered = currentFilter === 'all' ? signalements : signalements.filter(s => s.statut === currentFilter);
             if (filtered.length === 0) { container.innerHTML = '<div style="padding:30px;text-align:center;color:#8b949e;">Aucun signalement</div>'; return; }
-            container.innerHTML = filtered.map(s => '<div class="sig-card' + (selectedSig?.id_signalement === s.id_signalement ? ' selected' : '') + '" onclick="selectSignalement(' + s.id_signalement + ')"><div class="sig-header"><span class="sig-type">' + (s.type_signalement || 'Non défini') + '</span><span class="sig-status ' + s.statut + '">' + (s.statut_libelle || 'Nouveau') + '</span></div><div class="sig-desc">' + (s.description || 'Aucune description') + '</div><div class="sig-info"> ' + (s.latitude?.toFixed(4) || '-') + ', ' + (s.longitude?.toFixed(4) || '-') + '</div></div>').join('');
+            container.innerHTML = filtered.map(s => {
+                const lat = parseFloat(s.latitude);
+                const lng = parseFloat(s.longitude);
+                return '<div class="sig-card' + (selectedSig?.id_signalement === s.id_signalement ? ' selected' : '') + '" onclick="selectSignalement(' + s.id_signalement + ')"><div class="sig-header"><span class="sig-type">' + (s.type_signalement || 'Non défini') + '</span><span class="sig-status ' + s.statut + '">' + (s.statut_libelle || 'Nouveau') + '</span></div><div class="sig-desc">' + (s.description || 'Aucune description') + '</div><div class="sig-info"> ' + (isNaN(lat) ? '-' : lat.toFixed(4)) + ', ' + (isNaN(lng) ? '-' : lng.toFixed(4)) + '</div></div>';
+            }).join('');
         }
         function renderMarkers() {
             markers.forEach(m => map.removeLayer(m)); markers = [];
             signalements.forEach(s => {
-                if (s.latitude && s.longitude) {
+                const lat = parseFloat(s.latitude);
+                const lng = parseFloat(s.longitude);
+                if (!isNaN(lat) && !isNaN(lng)) {
                     const colors = { nouveau: '#1f6feb', en_cours: '#f0883e', termine: '#238636' };
-                    const marker = L.circleMarker([s.latitude, s.longitude], { radius: 10, fillColor: colors[s.statut] || '#1f6feb', color: '#fff', weight: 2, fillOpacity: 0.8 }).addTo(map);
-                    marker.bindPopup('<b>' + (s.type_signalement || 'Signalement') + '</b><br>' + s.statut_libelle + '<br><button onclick="selectSignalement(' + s.id_signalement + ')">Modifier</button>');
+                    const marker = L.circleMarker([lat, lng], { radius: 10, fillColor: colors[s.statut] || '#1f6feb', color: '#fff', weight: 2, fillOpacity: 0.8 }).addTo(map);
+                    
+                    // Tooltip for hover (all info)
+                    const tooltipContent = `
+                        <div style="text-align:left;">
+                            <strong>${s.type_signalement || 'Signalement'}</strong><br/>
+                            <span style="font-size:0.8rem;color:#8b949e;">${s.statut_libelle}</span><br/>
+                            <hr style="border:0;border-top:1px solid #ccc;margin:5px 0;"/>
+                            ${s.description || 'Pas de description'}<br/>
+                            <small>Surface: ${s.surface_m2 || '-'} m² | Budget: ${s.budget || '-'} Ar</small><br/>
+                            <small>Entr: ${s.entreprise || '-'}</small>
+                        </div>
+                    `;
+                    marker.bindTooltip(tooltipContent, { direction: 'top', offset: [0, -10] });
+
+                    marker.bindTooltip(tooltipContent, { direction: 'top', offset: [0, -10] });
+
+                    // Click action: open detail directly
+                    marker.on('click', () => selectSignalement(s.id_signalement));
                     markers.push(marker);
                 }
             });
         }
-        function selectSignalement(id) { selectedSig = signalements.find(s => s.id_signalement === id); if (!selectedSig) return; renderSignalements(); openDetail(); if (selectedSig.latitude && selectedSig.longitude) map.setView([selectedSig.latitude, selectedSig.longitude], 16); }
+        function selectSignalement(id) { 
+            selectedSig = signalements.find(s => s.id_signalement === id); 
+            if (!selectedSig) return; 
+            renderSignalements(); 
+            openDetail(); 
+            const lat = parseFloat(selectedSig.latitude);
+            const lng = parseFloat(selectedSig.longitude);
+            if (!isNaN(lat) && !isNaN(lng)) map.setView([lat, lng], 16); 
+        }
         function openDetail() {
             const panel = document.getElementById('detailPanel'); const s = selectedSig;
-            document.getElementById('detailContent').innerHTML = '<form onsubmit="saveSignalement(event)"><div class="form-group"><label>Type</label><select id="editType">' + typeSignalements.map(t => '<option value="' + t.id_type_signalement + '"' + (s.id_type_signalement == t.id_type_signalement ? ' selected' : '') + '>' + t.nom + '</option>').join('') + '</select></div><div class="form-group"><label>Statut</label><select id="editStatut">' + typeStatuts.map(t => '<option value="' + t.code + '"' + (s.statut === t.code ? ' selected' : '') + '>' + t.libelle + '</option>').join('') + '</select></div><div class="form-group"><label>Description</label><textarea id="editDescription">' + (s.description || '') + '</textarea></div><div class="form-row"><div class="form-group"><label>Surface (m²)</label><input type="number" id="editSurface" value="' + (s.surface_m2 || '') + '"></div><div class="form-group"><label>Budget</label><input type="number" id="editBudget" value="' + (s.budget || '') + '"></div></div><div class="form-group"><label>Entreprise</label><select id="editEntreprise"><option value="">--</option>' + entreprises.map(e => '<option value="' + e.id_entreprise + '"' + (s.id_entreprise == e.id_entreprise ? ' selected' : '') + '>' + e.nom + '</option>').join('') + '</select></div><button type="submit" class="btn-save"> Enregistrer</button></form>';
+            document.getElementById('detailContent').innerHTML = '<form onsubmit="saveSignalement(event)"><div class="form-group"><label>Type</label><select id="editType">' + typeSignalements.map(t => '<option value="' + t.id_type_signalement + '"' + (s.id_type_signalement == t.id_type_signalement ? ' selected' : '') + '>' + t.nom + '</option>').join('') + '</select></div><div class="form-group"><label>Statut</label><select id="editStatut">' + typeStatuts.map(t => '<option value="' + t.code + '"' + (s.statut === t.code ? ' selected' : '') + '>' + t.libelle + '</option>').join('') + '</select></div><div class="form-group"><label>Description</label><textarea id="editDescription">' + (s.description || '') + '</textarea></div><div class="form-row"><div class="form-group"><label>Surface (m²)</label><input type="number" id="editSurface" value="' + (s.surface_m2 || '') + '"></div><div class="form-group"><label>Budget</label><input type="number" id="editBudget" value="' + (s.budget || '') + '"></div></div><div class="form-group"><label>Entreprise</label><select id="editEntreprise"><option value="">--</option>' + entreprises.map(e => '<option value="' + e.id_entreprise + '"' + (s.id_entreprise == e.id_entreprise ? ' selected' : '') + '>' + e.nom + '</option>').join('') + '</select></div><div style="display:flex;gap:10px;"><button type="submit" class="btn-save" style="flex:2;"> Enregistrer</button><button type="button" class="btn-save" style="flex:1;background:#30363d;" onclick="closeDetail()">Annuler</button></div></form>';
             panel.classList.add('open');
         }
         function closeDetail() { document.getElementById('detailPanel').classList.remove('open'); selectedSig = null; renderSignalements(); }
