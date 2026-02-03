@@ -1,5 +1,10 @@
 -- Réinitialisation des tables (ordre dépendances)
+DROP TABLE IF EXISTS modification_signalement;
+DROP TABLE IF EXISTS photo_signalement;
+DROP TABLE IF EXISTS signalement_status;
 DROP TABLE IF EXISTS signalement;
+DROP TABLE IF EXISTS signalement_type_status;
+DROP TABLE IF EXISTS type_signalement;
 DROP TABLE IF EXISTS entreprise;
 DROP TABLE IF EXISTS tentative_connexion;
 DROP TABLE IF EXISTS session;
@@ -48,23 +53,50 @@ CREATE TABLE entreprise (
     nom VARCHAR(150) NOT NULL
 );
 
-CREATE TABLE signalement (
-    id_signalement SERIAL PRIMARY KEY,
-    id_utilisateur INT REFERENCES utilisateur(id_utilisateur),
-    latitude DOUBLE PRECISION NOT NULL,
-    longitude DOUBLE PRECISION NOT NULL,
-    date_signalement TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    statut VARCHAR(20) NOT NULL CHECK (
-        statut IN ('nouveau', 'en cours', 'termine')
-    ),
-    surface_m2 DOUBLE PRECISION,
-    budget DOUBLE PRECISION,
-    id_entreprise INT REFERENCES entreprise(id_entreprise)
+CREATE TABLE type_signalement (
+    id_type_signalement SERIAL PRIMARY KEY,
+    nom VARCHAR(100) NOT NULL,
+    icon VARCHAR(100)
 );
 
-INSERT INTO role (nom) VALUES ('Administrateur');
-INSERT INTO role (nom) VALUES ('Utilisateur');
-INSERT INTO role (nom) VALUES ('Moderateur');
+CREATE TABLE signalement (
+    id_signalement SERIAL PRIMARY KEY,
+    id_type_signalement INT NOT NULL REFERENCES type_signalement(id_type_signalement),
+    id_entreprise INT NULL REFERENCES entreprise(id_entreprise),
+    id_utilisateur INT NULL REFERENCES utilisateur(id_utilisateur),
+
+    latitude DOUBLE PRECISION NOT NULL,
+    longitude DOUBLE PRECISION NOT NULL,
+
+    description TEXT,
+    surface_m2 DOUBLE PRECISION,
+    budget DOUBLE PRECISION,
+
+    date_signalement TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+
+CREATE INDEX idx_signalement_position
+ON signalement (latitude, longitude);
+
+CREATE TABLE signalement_type_status (
+    id_signalement_type_status SERIAL PRIMARY KEY,
+    code VARCHAR(20) NOT NULL UNIQUE,
+    libelle VARCHAR(20) NOT NULL
+);
+
+CREATE TABLE signalement_status (
+    id_signalement_status SERIAL PRIMARY KEY,
+    id_signalement INT NOT NULL REFERENCES signalement(id_signalement),
+    id_signalement_type_status INT NOT NULL REFERENCES signalement_type_status(id_signalement_type_status),
+    date_modification TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE photo_signalement (
+    id_photo SERIAL PRIMARY KEY,
+    id_signalement INT NOT NULL REFERENCES signalement(id_signalement),
+    path VARCHAR(255) NOT NULL
+);
 
 CREATE TABLE modification_signalement (
     id_modification SERIAL PRIMARY KEY,
@@ -77,6 +109,20 @@ CREATE TABLE modification_signalement (
     note TEXT,
     date_modification TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+INSERT INTO role (nom) VALUES ('Administrateur');
+INSERT INTO role (nom) VALUES ('Utilisateur');
+INSERT INTO role (nom) VALUES ('Moderateur');
+
+-- Insert sample utilisateurs
+INSERT INTO utilisateur (email, password, firebase_uid, nom, prenom, id_role) VALUES
+('admin@gmail.com', 'password123', 'firebaseuid1', 'Admin', 'User', 1);
+
+-- Insert sample entreprises
+INSERT INTO entreprise (nom) VALUES
+('Entreprise A'),
+('Entreprise B'),
+('Entreprise C');
 
 
 
