@@ -25,7 +25,7 @@ road-check/.env
 /road-check/storage/*.key
 /road-check/bootstrap/cache/*
 /road-check/storage/framework/cache/*
-/road-check/storage/framework/sessions/*
+/road-check/storage/framework/session/*
 /road-check/storage/framework/views/*
 
 # OS generated files

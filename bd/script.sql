@@ -13,6 +13,10 @@ DROP TABLE IF EXISTS role;
 
 -- ==================== Module Authentication ====================
 
+
+--importer les tables
+Get-Content .\bd\script.sql | docker exec -i laravel_postgres psql -U laravel -d laravel
+
 CREATE TABLE role (
     id_role SERIAL PRIMARY KEY,
     nom VARCHAR(20) UNIQUE NOT NULL
@@ -116,7 +120,7 @@ INSERT INTO role (nom) VALUES ('Manager'), ('Visiteur'), ('Utilisateur');
 
 -- Création d'un manager par défaut (password: manager123)
 INSERT INTO utilisateur (email, password, firebase_uid, nom, prenom, id_role)
-VALUES ('manager@roadcheck.mg', '$2y$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4J1L4GvKQH.LxW7e', 'manager-default-uid', 'Admin', 'Manager', 1);
+VALUES ('manager@roadcheck.mg', 'manager123', 'manager-default-uid', 'Admin', 'Manager', 1);
 
 -- Insertion d'entreprises de test
 INSERT INTO entreprise (nom) VALUES
