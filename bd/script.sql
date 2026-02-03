@@ -13,10 +13,6 @@ DROP TABLE IF EXISTS role;
 
 -- ==================== Module Authentication ====================
 
-
---importer les tables
-Get-Content .\bd\script.sql | docker exec -i laravel_postgres psql -U laravel -d laravel
-
 CREATE TABLE role (
     id_role SERIAL PRIMARY KEY,
     nom VARCHAR(20) UNIQUE NOT NULL
@@ -49,6 +45,7 @@ CREATE TABLE tentative_connexion (
     succes BOOLEAN NOT NULL
 );
 
+-- Module Web / Mobile
 -- ==================== Module Web / Mobile ====================
 
 CREATE TABLE entreprise (
@@ -76,6 +73,29 @@ CREATE TABLE signalement (
     surface_m2 DOUBLE PRECISION,
     budget DOUBLE PRECISION,
 
+    date_signalement DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_signalement_position
+ON signalement (latitude, longitude);
+
+CREATE TABLE signalement_type_status (
+    id_signalement_type_status SERIAL PRIMARY KEY,
+    code VARCHAR(20) NOT NULL UNIQUE,
+    libelle VARCHAR(20) NOT NULL
+)
+
+CREATE TABLE signalement_status (
+    id_signalement_status SERIAL PRIMARY KEY,
+    id_signalement INT NOT NULL REFERENCES signalement(id_signalement),
+    id_signalement_type_status INT NOT NULL REFERENCES signalement_type_status(id_signalement_type_status),
+    date_modification DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE photo_signalement (
+    id_photo SERIAL PRIMARY KEY,
+    id_signalement INT NOT NULL REFERENCES signalement(id_signalement),
+    path VARCHAR(255) NOT NULL
     date_signalement TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -88,12 +108,6 @@ CREATE TABLE signalement_type_status (
     pourcentage INT DEFAULT 0
 );
 
-CREATE TABLE signalement_status (
-    id_signalement_status SERIAL PRIMARY KEY,
-    id_signalement INT NOT NULL REFERENCES signalement(id_signalement),
-    id_signalement_type_status INT NOT NULL REFERENCES signalement_type_status(id_signalement_type_status),
-    date_modification TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
 
 CREATE TABLE photo_signalement (
     id_photo SERIAL PRIMARY KEY,
@@ -120,7 +134,7 @@ INSERT INTO role (nom) VALUES ('Manager'), ('Visiteur'), ('Utilisateur');
 
 -- Création d'un manager par défaut (password: manager123)
 INSERT INTO utilisateur (email, password, firebase_uid, nom, prenom, id_role)
-VALUES ('manager@roadcheck.mg', 'manager123', 'manager-default-uid', 'Admin', 'Manager', 1);
+VALUES ('manager@roadcheck.mg', '$2y$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4J1L4GvKQH.LxW7e', 'manager-default-uid', 'Admin', 'Manager', 1);
 
 -- Insertion d'entreprises de test
 INSERT INTO entreprise (nom) VALUES
