@@ -12,12 +12,5 @@ Route::post('/unblock', [UnblockUserController::class, 'unblock']);
 
 Route::middleware('firebase.auth')->group(function () {
     Route::put('/firebase/profile', [FirebaseAuthController::class, 'update']);
-
-    Route::get('/users/me', [ProfileController::class, 'current']);
-    Route::get('/users', [ProfileController::class, 'index']);
-    Route::post('/users', [ProfileController::class, 'store']);
-    Route::put('/users/{id}', [ProfileController::class, 'update']);
-    Route::delete('/users/{id}', [ProfileController::class, 'destroy']);
-    Route::get('/roles', [ProfileController::class, 'roles']);
 });
 Route::get('/swagger-test', [SwaggerTestController::class, 'test']);

@@ -128,6 +128,4 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
-    'enforce_roles' => (bool) env('ROLE_ENFORCEMENT', false),
-
 ];
