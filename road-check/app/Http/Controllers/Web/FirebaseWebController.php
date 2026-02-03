@@ -40,42 +40,35 @@ class FirebaseWebController extends Controller
     public function register(Request $request)
     {
         $data = $request->validate([
-            'email' => 'required|email',
+            'email' => 'required|email|unique:utilisateur,email',
             'password' => 'required|min:6',
             'nom' => 'required|string',
             'prenom' => 'required|string'
         ]);
 
         try {
-            // Créer l'utilisateur dans Firebase
-            $firebaseUser = $this->auth->createUser([
-                'email' => $data['email'],
-                'password' => $data['password']
-            ]);
+            // Générer un UID fictif pour simuler Firebase
+            $fakeUid = 'local_' . uniqid();
 
-            // Créer l'utilisateur local PostgreSQL avec mot de passe en clair (non sécurisé)
+            // Créer l'utilisateur local PostgreSQL
             Utilisateur::create([
                 'email' => $data['email'],
-                'password' => $data['password'],
-                'firebase_uid' => $firebaseUser->uid,
+                'password' => $data['password'], // Stockage en clair pour simplicité locale
+                'firebase_uid' => $fakeUid,
                 'nom' => $data['nom'],
                 'prenom' => $data['prenom'],
-                'id_role' => 2,
+                'id_role' => 2, // Utilisateur par défaut
                 'bloque' => false
             ]);
 
             return redirect()->route('login.form')->with('success', 'Inscription réussie !');
 
-        } catch (AuthException | FirebaseException $e) {
-            return back()->withErrors(['error' => 'Erreur Firebase : ' . $e->getMessage()]);
         } catch (\Exception $e) {
             return back()->withErrors(['error' => $e->getMessage()]);
         }
     }
 
     // 🔹 LOGIN
-
-
     public function login(Request $request)
     {
         $data = $request->validate([
@@ -95,79 +88,18 @@ class FirebaseWebController extends Controller
         $tentativeSucces = false;
         $jwtToken = null;
 
-        // Test de connexion réseau (ping Google DNS)
-        $hasNetwork = false;
-        if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
-            $output = @shell_exec('ping -n 1 8.8.8.8');
-            $hasNetwork = (strpos($output, 'TTL=') !== false);
-        } else {
-            $output = @shell_exec('ping -c 1 8.8.8.8');
-            $hasNetwork = (strpos($output, 'ttl=') !== false);
+        // Vérification locale uniquement
+        if ($utilisateur && !$utilisateur->bloque && !empty($utilisateur->password) && $data['password'] === $utilisateur->password) {
+            // Générer un JWT local
+            $jwtToken = $this->generateLocalJwt($utilisateur);
+            session([
+                'firebase_id_token' => $jwtToken,
+                'utilisateur' => $utilisateur
+            ]);
+            $tentativeSucces = true;
         }
 
-        if (!$hasNetwork) {
-            // Pas de réseau : fallback local direct
-            if ($utilisateur && !$utilisateur->bloque && !empty($utilisateur->password) && $data['password'] === $utilisateur->password) {
-                $jwtToken = $this->generateLocalJwt($utilisateur);
-                session([
-                    'firebase_id_token' => $jwtToken,
-                    'utilisateur' => $utilisateur
-                ]);
-                $tentativeSucces = true;
-            }
-        } else {
-            try {
-                // Essayer Firebase Auth
-                $signIn = $this->auth->signInWithEmailAndPassword(
-                    $data['email'],
-                    $data['password']
-                );
-
-                $firebaseUser = $this->auth->getUserByEmail($data['email']);
-
-                if (!$utilisateur) {
-                    $utilisateur = Utilisateur::create([
-                        'email' => $firebaseUser->email,
-                        'password' => $data['password'],
-                        'firebase_uid' => $firebaseUser->uid,
-                        'nom' => $firebaseUser->displayName ?? '',
-                        'prenom' => '',
-                        'id_role' => 2,
-                        'bloque' => false
-                    ]);
-                } elseif (empty($utilisateur->password)) {
-                    // Si l'utilisateur existait sans password (migration), on le met à jour
-                    $utilisateur->password = $data['password'];
-                    $utilisateur->save();
-                }
-
-                session([
-                    'firebase_id_token' => $signIn->idToken(),
-                    'utilisateur' => $utilisateur
-                ]);
-
-                $tentativeSucces = true;
-
-            } catch (\Kreait\Firebase\Exception\AuthException | \Kreait\Firebase\Exception\FirebaseException $e) {
-                // Si erreur Firebase liée à la connexion réseau, fallback local
-                if (strpos($e->getMessage(), 'network') !== false || strpos($e->getMessage(), 'Network') !== false || strpos($e->getMessage(), 'connect') !== false) {
-                    // Vérification locale
-                    if ($utilisateur && !$utilisateur->bloque && !empty($utilisateur->password) && $data['password'] === $utilisateur->password) {
-                        // Générer un JWT local
-                        $jwtToken = $this->generateLocalJwt($utilisateur);
-                        session([
-                            'firebase_id_token' => $jwtToken,
-                            'utilisateur' => $utilisateur
-                        ]);
-                        $tentativeSucces = true;
-                    }
-                }
-            } catch (\Exception $e) {
-                // Autres erreurs : on ignore pour la logique de tentative
-            }
-        }
-
-        // ❌ On n'enregistre que les échecs
+        // Enregistrer les tentatives
         if (!$tentativeSucces && $utilisateur) {
             $nbTentatives = \App\Models\TentativeConnexion::where('id_utilisateur', $utilisateur->id_utilisateur)
                 ->where('succes', false)
@@ -189,13 +121,13 @@ class FirebaseWebController extends Controller
             }
         }
 
-        // 🔓 Auto-unblock si succès ET utilisateur pas bloqué
+        // Auto-unblock si succès
         if ($tentativeSucces && $utilisateur && !$utilisateur->bloque) {
             $utilisateur->unblock();
         }
 
         if ($tentativeSucces) {
-            return redirect()->route('profile')->with('success', $jwtToken ? 'Connecté en mode offline (JWT local)' : 'Connecté via Firebase');
+            return redirect()->route('profile')->with('success', 'Connecté en mode local');
         } else {
             return back()->withErrors(['error' => 'Email ou mot de passe invalide']);
         }
@@ -265,14 +197,7 @@ class FirebaseWebController extends Controller
         ]);
 
         try {
-            // MAJ Firebase (email seulement)
-            if ($data['email'] !== $utilisateur->email) {
-                $this->auth->updateUser($utilisateur->firebase_uid, [
-                    'email' => $data['email']
-                ]);
-            }
-
-            // MAJ PostgreSQL
+            // MAJ PostgreSQL uniquement
             $utilisateur->nom = $data['nom'];
             $utilisateur->prenom = $data['prenom'];
             $utilisateur->email = $data['email'];
@@ -283,8 +208,6 @@ class FirebaseWebController extends Controller
             session(['utilisateur' => $utilisateur]);
 
             return redirect()->route('profile')->with('success', 'Profil mis à jour !');
-        } catch (AuthException | FirebaseException $e) {
-            return back()->withErrors(['error' => 'Erreur Firebase : ' . $e->getMessage()]);
         } catch (\Exception $e) {
             return back()->withErrors(['error' => $e->getMessage()]);
         }

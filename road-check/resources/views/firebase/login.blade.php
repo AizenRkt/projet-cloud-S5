@@ -112,11 +112,11 @@
             @csrf
             <div class="mb-3 input-icon">
                 <i class="bi bi-envelope"></i>
-                <input type="email" name="email" class="form-control" value="rohy@gmail.com" placeholder="Adresse email" value="{{ old('email') }}" required>
+                <input type="email" name="email" class="form-control" value="admin@gmail.com" placeholder="Adresse email" value="{{ old('email') }}" required>
             </div>
             <div class="mb-4 input-icon">
                 <i class="bi bi-lock"></i>
-                <input type="password" name="password" class="form-control" value="rohy123" placeholder="Mot de passe" required>
+                <input type="password" name="password" class="form-control" value="password123" placeholder="Mot de passe" required>
             </div>
             <button type="submit" class="btn btn-rc w-100 mb-3">
                 <i class="bi bi-box-arrow-in-right me-2"></i>Se connecter
