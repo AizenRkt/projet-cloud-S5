@@ -17,10 +17,6 @@
             class="avatar-image-large"
           />
         </div>
-        <div class="profile-details">
-          <h2 class="profile-name">{{ currentUser?.displayName || 'Utilisateur' }}</h2>
-          <p class="profile-email">{{ currentUser?.email }}</p>
-        </div>
         <button 
           type="button" 
           class="close-button"
@@ -109,11 +105,6 @@
         </div>
       </div>
 
-      <!-- Footer -->
-      <div class="sidebar-footer">
-        <p class="app-version">Version 1.0.0</p>
-        <p class="app-info">Road Check © 2026</p>
-      </div>
     </div>
   </div>
 </template>
@@ -279,8 +270,8 @@ const handleLogout = async () => {
 
 .profile-details {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  flex-direction:row;
+  align-items: center;
 }
 
 .profile-name {
