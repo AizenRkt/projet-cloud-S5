@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
@@ -76,6 +76,40 @@
         .action-btn { padding: 4px 10px; border: 1px solid #30363d; background: transparent; color: #8b949e; border-radius: 4px; cursor: pointer; }
         .action-btn:hover { border-color: #58a6ff; }
         .loading { text-align: center; padding: 40px; color: #8b949e; }
+
+        /* Toast Notifications */
+        .toast-container { position: fixed; top: 70px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
+        .toast { padding: 14px 20px; border-radius: 8px; display: flex; align-items: center; gap: 12px; min-width: 300px; max-width: 450px; animation: slideIn 0.3s ease; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+        .toast.success { background: linear-gradient(135deg, #238636, #2ea043); color: #fff; border: 1px solid #2ea043; }
+        .toast.error { background: linear-gradient(135deg, #da3633, #f85149); color: #fff; border: 1px solid #f85149; }
+        .toast.info { background: linear-gradient(135deg, #1f6feb, #388bfd); color: #fff; border: 1px solid #388bfd; }
+        .toast.warning { background: linear-gradient(135deg, #9e6a03, #d29922); color: #fff; border: 1px solid #d29922; }
+        .toast-icon { font-size: 1.2rem; }
+        .toast-message { flex: 1; font-size: 0.9rem; }
+        .toast-close { background: none; border: none; color: rgba(255,255,255,0.7); cursor: pointer; font-size: 1.2rem; padding: 0; }
+        .toast-close:hover { color: #fff; }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
+
+        /* Loading Overlay */
+        .loading-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(13,17,23,0.85); z-index: 10000; display: none; align-items: center; justify-content: center; flex-direction: column; gap: 20px; }
+        .loading-overlay.show { display: flex; }
+        .spinner { width: 50px; height: 50px; border: 4px solid #30363d; border-top-color: #58a6ff; border-radius: 50%; animation: spin 1s linear infinite; }
+        .loading-text { color: #c9d1d9; font-size: 1rem; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Confirm Modal */
+        .confirm-modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 10001; display: none; align-items: center; justify-content: center; }
+        .confirm-modal.show { display: flex; }
+        .confirm-box { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 24px; max-width: 400px; text-align: center; }
+        .confirm-icon { font-size: 3rem; margin-bottom: 15px; }
+        .confirm-title { color: #c9d1d9; font-size: 1.1rem; margin-bottom: 20px; }
+        .confirm-buttons { display: flex; gap: 12px; justify-content: center; }
+        .confirm-btn { padding: 10px 24px; border-radius: 6px; border: none; cursor: pointer; font-weight: 600; }
+        .confirm-btn.yes { background: #238636; color: #fff; }
+        .confirm-btn.yes:hover { background: #2ea043; }
+        .confirm-btn.no { background: #21262d; color: #c9d1d9; border: 1px solid #30363d; }
+        .confirm-btn.no:hover { background: #30363d; }
     </style>
 </head>
 <body>
@@ -148,10 +182,78 @@
             </div>
         </div>
     </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner"></div>
+        <div class="loading-text" id="loadingText">Chargement...</div>
+    </div>
+
+    <!-- Confirm Modal -->
+    <div class="confirm-modal" id="confirmModal">
+        <div class="confirm-box">
+            <div class="confirm-icon" id="confirmIcon">⚠️</div>
+            <div class="confirm-title" id="confirmTitle">Êtes-vous sûr ?</div>
+            <div class="confirm-buttons">
+                <button class="confirm-btn no" onclick="closeConfirm(false)">Annuler</button>
+                <button class="confirm-btn yes" onclick="closeConfirm(true)">Confirmer</button>
+            </div>
+        </div>
+    </div>
+
     <script src="{{ asset('leaflet/leaflet.js') }}"></script>
     <script>
         let map, markers = [], signalements = [], entreprises = [], typeSignalements = [], typeStatuts = [], utilisateurs = [], roles = [];
         let currentFilter = 'all', selectedSig = null;
+        let confirmCallback = null;
+
+        // ========== Toast Notification System ==========
+        function showToast(message, type = 'info', duration = 4000) {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            const icons = { success: '✓', error: '✗', info: 'ℹ', warning: '⚠' };
+            toast.innerHTML = `
+                <span class="toast-icon">${icons[type] || 'ℹ'}</span>
+                <span class="toast-message">${message}</span>
+                <button class="toast-close" onclick="this.parentElement.remove()">×</button>
+            `;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.animation = 'slideOut 0.3s ease forwards';
+                setTimeout(() => toast.remove(), 300);
+            }, duration);
+        }
+
+        // ========== Loading Overlay ==========
+        function showLoading(text = 'Chargement...') {
+            document.getElementById('loadingText').textContent = text;
+            document.getElementById('loadingOverlay').classList.add('show');
+        }
+        function hideLoading() {
+            document.getElementById('loadingOverlay').classList.remove('show');
+        }
+
+        // ========== Confirm Modal ==========
+        function showConfirm(message, icon = '⚠️') {
+            return new Promise((resolve) => {
+                document.getElementById('confirmTitle').textContent = message;
+                document.getElementById('confirmIcon').textContent = icon;
+                document.getElementById('confirmModal').classList.add('show');
+                confirmCallback = resolve;
+            });
+        }
+        function closeConfirm(result) {
+            document.getElementById('confirmModal').classList.remove('show');
+            if (confirmCallback) {
+                confirmCallback(result);
+                confirmCallback = null;
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', () => { initMap(); loadAllData(); });
         function initMap() { map = L.map('map').setView([-18.9137, 47.5361], 13); L.tileLayer('http://localhost:8081/styles/Basic/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map); }
         async function loadAllData() {
@@ -224,7 +326,21 @@
         async function saveSignalement(e) {
             e.preventDefault(); if (!selectedSig) return;
             const data = { id_type_signalement: document.getElementById('editType').value, statut: document.getElementById('editStatut').value, description: document.getElementById('editDescription').value, surface_m2: document.getElementById('editSurface').value || null, budget: document.getElementById('editBudget').value || null, id_entreprise: document.getElementById('editEntreprise').value || null };
-            try { const res = await fetch('/api/signalements/' + selectedSig.id_signalement, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content }, body: JSON.stringify(data) }); if (res.ok) { alert('Mis à jour'); closeDetail(); loadAllData(); } else alert('Erreur'); } catch (err) { alert('Erreur'); }
+            showLoading('Mise à jour du signalement...');
+            try {
+                const res = await fetch('/api/signalements/' + selectedSig.id_signalement, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content }, body: JSON.stringify(data) });
+                hideLoading();
+                if (res.ok) {
+                    showToast('Signalement mis à jour avec succès', 'success');
+                    closeDetail();
+                    loadAllData();
+                } else {
+                    showToast('Erreur lors de la mise à jour', 'error');
+                }
+            } catch (err) {
+                hideLoading();
+                showToast('Erreur de connexion', 'error');
+            }
         }
         function updateStats() {
             document.getElementById('statNouveau').textContent = signalements.filter(s => s.statut === 'nouveau').length;
@@ -239,18 +355,81 @@
             const body = document.getElementById('usersModalBody');
             body.innerHTML = '<table class="data-table"><thead><tr><th>Nom</th><th>Email</th><th>Rôle</th><th>Statut</th><th>Actions</th></tr></thead><tbody>' + utilisateurs.map(u => '<tr><td>' + (u.prenom || '') + ' ' + (u.nom || '') + '</td><td>' + u.email + '</td><td><span class="badge ' + (u.role || '').toLowerCase() + '">' + (u.role || 'N/A') + '</span></td><td>' + (u.bloque ? '<span class="badge blocked">Bloqué</span>' : '<span class="badge active">Actif</span>') + '</td><td>' + (u.bloque ? '<button class="action-btn" onclick="unblockUser(' + u.id_utilisateur + ')">Débloquer</button>' : '') + '</td></tr>').join('') + '</tbody></table>';
         }
-        async function unblockUser(id) { if (!confirm('Débloquer?')) return; try { const res = await fetch('/api/utilisateurs/' + id + '/unblock', { method: 'POST', headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content } }); if (res.ok) { alert('Débloqué'); loadAllData(); renderUsersTable(); } } catch (e) { alert('Erreur'); } }
+        async function unblockUser(id) {
+            const confirmed = await showConfirm('Voulez-vous débloquer cet utilisateur ?', '🔓');
+            if (!confirmed) return;
+            showLoading('Déblocage en cours...');
+            try {
+                const res = await fetch('/api/utilisateurs/' + id + '/unblock', { method: 'POST', headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content } });
+                hideLoading();
+                if (res.ok) {
+                    showToast('Utilisateur débloqué avec succès', 'success');
+                    loadAllData();
+                    renderUsersTable();
+                } else {
+                    showToast('Erreur lors du déblocage', 'error');
+                }
+            } catch (e) {
+                hideLoading();
+                showToast('Erreur de connexion', 'error');
+            }
+        }
         function openCreateUserForm() { closeUsersModal(); document.getElementById('newUserRole').innerHTML = roles.map(r => '<option value="' + r.id_role + '">' + r.nom + '</option>').join(''); document.getElementById('createUserModal').classList.add('open'); }
         function closeCreateUserModal() { document.getElementById('createUserModal').classList.remove('open'); }
         async function createUser(e) {
             e.preventDefault();
             const data = { email: document.getElementById('newUserEmail').value, nom: document.getElementById('newUserNom').value, prenom: document.getElementById('newUserPrenom').value, password: document.getElementById('newUserPassword').value, id_role: document.getElementById('newUserRole').value };
-            try { const res = await fetch('/api/utilisateurs', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content }, body: JSON.stringify(data) }); if (res.ok) { alert('Créé'); closeCreateUserModal(); loadAllData(); } else { const err = await res.json(); alert(err.message || 'Erreur'); } } catch (e) { alert('Erreur'); }
+            showLoading('Création de l\'utilisateur...');
+            try {
+                const res = await fetch('/api/utilisateurs', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content }, body: JSON.stringify(data) });
+                hideLoading();
+                if (res.ok) {
+                    showToast('Utilisateur créé avec succès', 'success');
+                    closeCreateUserModal();
+                    document.getElementById('createUserForm').reset();
+                    loadAllData();
+                } else {
+                    const err = await res.json();
+                    showToast(err.message || 'Erreur lors de la création', 'error');
+                }
+            } catch (e) {
+                hideLoading();
+                showToast('Erreur de connexion', 'error');
+            }
         }
         function openRolesModal() { document.getElementById('rolesModal').classList.add('open'); document.getElementById('rolesModalBody').innerHTML = '<table class="data-table"><thead><tr><th>ID</th><th>Nom</th></tr></thead><tbody>' + roles.map(r => '<tr><td>' + r.id_role + '</td><td>' + r.nom + '</td></tr>').join('') + '</tbody></table>'; }
         function closeRolesModal() { document.getElementById('rolesModal').classList.remove('open'); }
-        async function logout() { try { await fetch('/logout', { method: 'POST', headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content } }); window.location.href = '/login'; } catch (e) { alert('Erreur'); } }
-        async function syncFirebase() { try { const res = await fetch('/api/sync-users', { method: 'POST', headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content } }); const data = await res.json(); alert(data.message); } catch (e) { alert('Erreur de synchronisation'); } }
+        async function logout() {
+            const confirmed = await showConfirm('Voulez-vous vraiment vous déconnecter ?', '🚪');
+            if (!confirmed) return;
+            showLoading('Déconnexion...');
+            try {
+                await fetch('/logout', { method: 'POST', headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content } });
+                window.location.href = '/login';
+            } catch (e) {
+                hideLoading();
+                showToast('Erreur lors de la déconnexion', 'error');
+            }
+        }
+        async function syncFirebase() {
+            showLoading('Synchronisation avec Firebase...');
+            try {
+                const res = await fetch('/api/sync-users', { method: 'POST', headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content } });
+                const data = await res.json();
+                hideLoading();
+                if (res.ok) {
+                    showToast(data.message || 'Synchronisation réussie', 'success');
+                    if (data.synced && data.synced.length > 0) {
+                        showToast(`${data.synced.length} utilisateur(s) synchronisé(s)`, 'info', 5000);
+                    }
+                } else {
+                    showToast(data.message || 'Erreur de synchronisation', 'error');
+                }
+            } catch (e) {
+                hideLoading();
+                showToast('Erreur de connexion à Firebase', 'error');
+            }
+        }
     </script>
 </body>
 </html>
