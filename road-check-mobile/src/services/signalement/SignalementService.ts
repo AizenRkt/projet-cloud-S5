@@ -15,7 +15,8 @@ import { db } from '@/firebase';
 import { 
   SignalementData, 
   Signalement, 
-  FirebaseSignalementData 
+  FirebaseSignalementData,
+  SignalementStatus
 } from './types';
 
 export class SignalementService {
@@ -38,7 +39,8 @@ export class SignalementService {
         description: data.description || '',
         surface: data.surface || null,
         budget: data.budget || null,
-        dateSignalement: Timestamp.fromDate(data.dateSignalement || new Date())
+        dateSignalement: Timestamp.fromDate(data.dateSignalement || new Date()),
+        status: SignalementStatus.EN_ATTENTE // Statut par défaut lors de la création
       };
 
       const docRef = await addDoc(collection(db, this.collectionName), signalementData);
@@ -63,7 +65,8 @@ export class SignalementService {
         return {
           id: docSnap.id,
           ...data,
-          dateSignalement: data.dateSignalement.toDate()
+          dateSignalement: data.dateSignalement.toDate(),
+          status: data.status || SignalementStatus.EN_ATTENTE
         } as Signalement;
       }
       return null;
@@ -100,7 +103,8 @@ export class SignalementService {
           description: data.description,
           surface: data.surface,
           budget: data.budget,
-          dateSignalement: data.dateSignalement.toDate()
+          dateSignalement: data.dateSignalement.toDate(),
+          status: data.status || SignalementStatus.EN_ATTENTE
         } as Signalement;
       });
     } catch (error) {
@@ -159,11 +163,15 @@ export class SignalementService {
       
       const querySnapshot = await getDocs(q);
       
-      return querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        dateSignalement: doc.data().dateSignalement.toDate()
-      } as Signalement));
+      return querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          dateSignalement: data.dateSignalement.toDate(),
+          status: data.status || SignalementStatus.EN_ATTENTE
+        } as Signalement;
+      });
     } catch (error) {
       console.error('Erreur lors de la récupération par utilisateur:', error);
       throw new Error('Impossible de récupérer les signalements de l\'utilisateur');

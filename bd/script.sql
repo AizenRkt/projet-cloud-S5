@@ -69,6 +69,7 @@ CREATE TABLE signalement_type_status (
     libelle VARCHAR(20) NOT NULL
 )
 
+
 CREATE TABLE signalement_status (
     id_signalement_status SERIAL PRIMARY KEY,
     id_signalement INT NOT NULL REFERENCES signalement(id_signalement),
@@ -81,5 +82,7 @@ CREATE TABLE photo_signalement (
     id_signalement INT NOT NULL REFERENCES signalement(id_signalement),
     path VARCHAR(255) NOT NULL
 );
+
+-- statut possible firebase code : en_attente, nouveau, en_cours, termine, annule
 
 

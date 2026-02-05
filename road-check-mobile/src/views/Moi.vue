@@ -171,7 +171,16 @@
             <div class="item-content">
               <div class="item-header">
                 <h3 class="item-title">{{ signalement.typeSignalementNom || 'Signalement' }}</h3>
-                <span class="item-date">{{ formatDate(signalement.dateSignalement) }}</span>
+                <div class="item-header-right">
+                  <!-- Badge de statut -->
+                  <span 
+                    class="status-badge-small"
+                    :style="{ backgroundColor: getStatusConfig(signalement.status).color }"
+                  >
+                    {{ getStatusConfig(signalement.status).label }}
+                  </span>
+                  <span class="item-date">{{ formatDate(signalement.dateSignalement) }}</span>
+                </div>
               </div>
               
               <div class="item-details">
@@ -293,11 +302,20 @@ import { signalementService, typeSignalementService, entrepriseService } from '@
 import { auth } from '@/firebase';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import type { Signalement, TypeSignalement, Entreprise } from '@/services/signalement/types';
+import { SignalementStatus, SignalementStatusConfig } from '@/services/signalement/types';
 
 import DetailSignalement from '@/components/signalement/DetailSignalement.vue';
 import ProfilSidebar from '@/components/ProfilSidebar.vue';
 
 const router = useRouter();
+
+// Fonction pour obtenir la configuration du statut
+const getStatusConfig = (status?: SignalementStatus) => {
+  if (!status || !SignalementStatusConfig[status]) {
+    return SignalementStatusConfig[SignalementStatus.EN_ATTENTE];
+  }
+  return SignalementStatusConfig[status];
+};
 
 // État
 const signalements = ref<Signalement[]>([]);
@@ -943,6 +961,26 @@ ion-action-sheet .action-sheet-button {
   align-items: center;
   margin-bottom: 4px;
   gap: 8px;
+}
+
+.item-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.status-badge-small {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 12px;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
 }
 
 .item-title {

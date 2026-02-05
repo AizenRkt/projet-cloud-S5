@@ -29,16 +29,6 @@
             <ion-icon :icon="closeOutline"></ion-icon>
           </button>
         </div>
-        
-        <div class="toggle-section" @click="toggleExpand">
-          <span class="expand-text">
-            {{ position === 'peek' ? 'Voir les détails' : 'Réduire' }}
-          </span>
-          <ion-icon 
-            :icon="position === 'peek' ? chevronUpOutline : chevronDownOutline" 
-            class="toggle-icon"
-          ></ion-icon>
-        </div>
       </div>
 
       <!-- Contenu -->
@@ -114,6 +104,20 @@
             </div>
           </div>
         </div>
+
+        <!-- Section Statut en bas -->
+        <div class="status-section">
+          <div class="section-title">
+            <span>Statut</span>
+          </div>
+          <div 
+            class="status-badge-large"
+            :style="{ backgroundColor: getStatusConfig(signalement.status).color }"
+          >
+            <ion-icon :icon="getStatusIcon(signalement.status)" class="status-icon"></ion-icon>
+            <span class="status-label">{{ getStatusConfig(signalement.status).label }}</span>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -135,9 +139,14 @@ import {
   squareOutline,
   cardOutline,
   alertCircleOutline,
-  warningOutline
+  warningOutline,
+  hourglassOutline,
+  checkmarkCircleOutline,
+  checkmarkDoneOutline,
+  closeCircleOutline
 } from 'ionicons/icons';
 import type { Signalement } from '@/services/signalement/types';
+import { SignalementStatus, SignalementStatusConfig } from '@/services/signalement/types';
 
 interface Props {
   signalement: Signalement;
@@ -178,6 +187,27 @@ const getTypeIcon = (typeName?: string) => {
   if (type.includes('nid') || type.includes('trou')) return warningOutline;
   if (type.includes('route') || type.includes('chaussée')) return constructOutline;
   return alertCircleOutline;
+};
+
+// Configuration du statut
+const getStatusConfig = (status?: SignalementStatus) => {
+  if (!status || !SignalementStatusConfig[status]) {
+    return SignalementStatusConfig[SignalementStatus.EN_ATTENTE];
+  }
+  return SignalementStatusConfig[status];
+};
+
+// Icône du statut
+const getStatusIcon = (status?: SignalementStatus) => {
+  const iconMap: Record<string, any> = {
+    'hourglass-outline': hourglassOutline,
+    'checkmark-circle-outline': checkmarkCircleOutline,
+    'construct-outline': constructOutline,
+    'checkmark-done-outline': checkmarkDoneOutline,
+    'close-circle-outline': closeCircleOutline
+  };
+  const config = getStatusConfig(status);
+  return iconMap[config.icon] || hourglassOutline;
 };
 
 // Formatage
@@ -531,5 +561,34 @@ const handleTouchEnd = () => {
   .sheet-content {
     padding: 16px;
   }
+}
+
+/* Section Statut */
+.status-section {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.status-badge-large {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px 24px;
+  border-radius: 12px;
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.status-badge-large .status-icon {
+  font-size: 20px;
+  color: #ffffff;
+}
+
+.status-badge-large .status-label {
+  line-height: 1;
 }
 </style>
