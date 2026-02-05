@@ -73,7 +73,7 @@ CREATE TABLE signalement (
     surface_m2 DOUBLE PRECISION,
     budget DOUBLE PRECISION,
 
-    date_signalement DATETIME DEFAULT CURRENT_TIMESTAMP
+    date_signalement TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_signalement_position
@@ -82,32 +82,16 @@ ON signalement (latitude, longitude);
 CREATE TABLE signalement_type_status (
     id_signalement_type_status SERIAL PRIMARY KEY,
     code VARCHAR(20) NOT NULL UNIQUE,
-    libelle VARCHAR(20) NOT NULL
-)
+    libelle VARCHAR(20) NOT NULL,
+    pourcentage DECIMAL(5,2) NOT NULL
+);
 
 CREATE TABLE signalement_status (
     id_signalement_status SERIAL PRIMARY KEY,
     id_signalement INT NOT NULL REFERENCES signalement(id_signalement),
     id_signalement_type_status INT NOT NULL REFERENCES signalement_type_status(id_signalement_type_status),
-    date_modification DATETIME DEFAULT CURRENT_TIMESTAMP
+    date_modification TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-
-CREATE TABLE photo_signalement (
-    id_photo SERIAL PRIMARY KEY,
-    id_signalement INT NOT NULL REFERENCES signalement(id_signalement),
-    path VARCHAR(255) NOT NULL
-    date_signalement TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX idx_signalement_position ON signalement (latitude, longitude);
-
-CREATE TABLE signalement_type_status (
-    id_signalement_type_status SERIAL PRIMARY KEY,
-    code VARCHAR(20) NOT NULL UNIQUE,
-    libelle VARCHAR(50) NOT NULL,
-    pourcentage INT DEFAULT 0
-);
-
 
 CREATE TABLE photo_signalement (
     id_photo SERIAL PRIMARY KEY,

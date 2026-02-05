@@ -23,6 +23,7 @@ Route::get('/api/utilisateurs', [SignalementController::class, 'getUtilisateurs'
 Route::post('/api/utilisateurs', [SignalementController::class, 'createUtilisateur']);
 Route::put('/api/utilisateurs/{id}', [SignalementController::class, 'updateUtilisateur']);
 Route::post('/api/utilisateurs/{id}/unblock', [SignalementController::class, 'unblockUtilisateur']);
+Route::post('/api/sync-users', [FirebaseWebController::class, 'syncUsersToFirebase']);
 
 // ==================== Vue principale (Manager Dashboard) ====================
 Route::middleware('firebase.auth')->group(function () {

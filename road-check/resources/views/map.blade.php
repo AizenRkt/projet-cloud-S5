@@ -250,7 +250,7 @@
         function openRolesModal() { document.getElementById('rolesModal').classList.add('open'); document.getElementById('rolesModalBody').innerHTML = '<table class="data-table"><thead><tr><th>ID</th><th>Nom</th></tr></thead><tbody>' + roles.map(r => '<tr><td>' + r.id_role + '</td><td>' + r.nom + '</td></tr>').join('') + '</tbody></table>'; }
         function closeRolesModal() { document.getElementById('rolesModal').classList.remove('open'); }
         async function logout() { try { await fetch('/logout', { method: 'POST', headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content } }); window.location.href = '/login'; } catch (e) { alert('Erreur'); } }
-        function syncFirebase() { alert('Synchronisation...'); }
+        async function syncFirebase() { try { const res = await fetch('/api/sync-users', { method: 'POST', headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content } }); const data = await res.json(); alert(data.message); } catch (e) { alert('Erreur de synchronisation'); } }
     </script>
 </body>
 </html>

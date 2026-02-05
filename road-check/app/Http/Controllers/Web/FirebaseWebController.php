@@ -189,4 +189,45 @@ class FirebaseWebController extends Controller
 
         return redirect()->route('login.form')->with('success', 'Déconnecté');
     }
+
+    // 🔹 SYNCHRONISATION UTILISATEURS LOCAL -> FIREBASE
+    public function syncUsersToFirebase()
+    {
+        try {
+            $localUsers = Utilisateur::all(); // Récupérer tous les utilisateurs locaux
+            $syncedCount = 0;
+
+            foreach ($localUsers as $localUser) {
+                // Vérifier si l'utilisateur existe déjà dans Firebase (par email)
+                $firebaseUser = null;
+                try {
+                    $firebaseUser = $this->auth->getUserByEmail($localUser->email);
+                } catch (\Exception $e) {
+                    // Utilisateur n'existe pas, on le crée
+                }
+
+                if (!$firebaseUser) {
+                    // Créer dans Firebase avec le mot de passe local (supposé en clair)
+                    $createdUser = $this->auth->createUser([
+                        'email' => $localUser->email,
+                        'password' => $localUser->password, // Doit être en clair
+                        'displayName' => $localUser->nom . ' ' . $localUser->prenom,
+                    ]);
+
+                    // Mettre à jour le firebase_uid en local pour lier
+                    $localUser->update(['firebase_uid' => $createdUser->uid]);
+                    $syncedCount++;
+                } else {
+                    // Utilisateur existe, mettre à jour displayName si nécessaire
+                    $this->auth->updateUser($firebaseUser->uid, [
+                        'displayName' => $localUser->nom . ' ' . $localUser->prenom,
+                    ]);
+                }
+            }
+
+            return response()->json(['message' => $syncedCount . ' utilisateur(s) synchronisé(s) vers Firebase.']);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Erreur : ' . $e->getMessage()], 500);
+        }
+    }
 }
