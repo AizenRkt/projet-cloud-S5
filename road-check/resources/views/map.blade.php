@@ -120,9 +120,9 @@
             <span class="subtitle">| Manager</span>
         </div>
         <div class="navbar-menu">
-            <button class="nav-btn" onclick="openUsersModal()"> Utilisateurs</button>
-            <button class="nav-btn" onclick="syncFirebase()"> Sync</button>
-            <button class="nav-btn" onclick="logout()"> Deconnexion</button>
+            <button class="nav-btn" onclick="openUsersModal()">Utilisateurs</button>
+            <button class="nav-btn" onclick="openSyncModal()">Synchronisation</button>
+            <button class="nav-btn" onclick="logout()">Deconnexion</button>
         </div>
     </nav>
     <div class="main-container">
@@ -161,8 +161,34 @@
     </div>
     <div class="modal-overlay" id="rolesModal">
         <div class="modal" style="max-width:500px;">
-            <div class="modal-header"><h3> Rôles</h3><button class="close-btn" onclick="closeRolesModal()">&times;</button></div>
+            <div class="modal-header"><h3>Roles</h3><button class="close-btn" onclick="closeRolesModal()">&times;</button></div>
             <div class="modal-body" id="rolesModalBody"></div>
+        </div>
+    </div>
+    <div class="modal-overlay" id="syncModal">
+        <div class="modal" style="max-width:600px;">
+            <div class="modal-header"><h3>Synchronisation Firebase</h3><button class="close-btn" onclick="closeSyncModal()">&times;</button></div>
+            <div class="modal-body">
+                <div id="syncStatus" style="margin-bottom:20px;padding:15px;background:#21262d;border-radius:8px;">
+                    <div style="display:flex;justify-content:space-between;margin-bottom:10px;">
+                        <span>Statut de synchronisation</span>
+                        <button class="action-btn" onclick="loadSyncStatus()">Actualiser</button>
+                    </div>
+                    <div id="syncStatusContent">Chargement...</div>
+                </div>
+                <div style="display:flex;gap:12px;flex-direction:column;">
+                    <div style="padding:15px;background:#21262d;border-radius:8px;">
+                        <h4 style="color:#58a6ff;margin-bottom:10px;">Signalements</h4>
+                        <p style="font-size:0.85rem;color:#8b949e;margin-bottom:12px;">Synchroniser les signalements locaux vers Firebase Firestore</p>
+                        <button class="btn-save" onclick="syncSignalementsToFirebase()">Synchroniser les signalements</button>
+                    </div>
+                    <div style="padding:15px;background:#21262d;border-radius:8px;">
+                        <h4 style="color:#58a6ff;margin-bottom:10px;">Utilisateurs</h4>
+                        <p style="font-size:0.85rem;color:#8b949e;margin-bottom:12px;">Synchroniser les utilisateurs locaux vers Firebase Auth</p>
+                        <button class="btn-save" style="background:#1f6feb;" onclick="syncUsersToFirebase()">Synchroniser les utilisateurs</button>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
     <div class="modal-overlay" id="createUserModal">
@@ -238,7 +264,7 @@
         }
 
         // ========== Confirm Modal ==========
-        function showConfirm(message, icon = '⚠️') {
+        function showConfirm(message, icon = '') {
             return new Promise((resolve) => {
                 document.getElementById('confirmTitle').textContent = message;
                 document.getElementById('confirmIcon').textContent = icon;
@@ -356,7 +382,7 @@
             body.innerHTML = '<table class="data-table"><thead><tr><th>Nom</th><th>Email</th><th>Rôle</th><th>Statut</th><th>Actions</th></tr></thead><tbody>' + utilisateurs.map(u => '<tr><td>' + (u.prenom || '') + ' ' + (u.nom || '') + '</td><td>' + u.email + '</td><td><span class="badge ' + (u.role || '').toLowerCase() + '">' + (u.role || 'N/A') + '</span></td><td>' + (u.bloque ? '<span class="badge blocked">Bloqué</span>' : '<span class="badge active">Actif</span>') + '</td><td>' + (u.bloque ? '<button class="action-btn" onclick="unblockUser(' + u.id_utilisateur + ')">Débloquer</button>' : '') + '</td></tr>').join('') + '</tbody></table>';
         }
         async function unblockUser(id) {
-            const confirmed = await showConfirm('Voulez-vous débloquer cet utilisateur ?', '🔓');
+            const confirmed = await showConfirm('Voulez-vous débloquer cet utilisateur ?');
             if (!confirmed) return;
             showLoading('Déblocage en cours...');
             try {
@@ -399,8 +425,94 @@
         }
         function openRolesModal() { document.getElementById('rolesModal').classList.add('open'); document.getElementById('rolesModalBody').innerHTML = '<table class="data-table"><thead><tr><th>ID</th><th>Nom</th></tr></thead><tbody>' + roles.map(r => '<tr><td>' + r.id_role + '</td><td>' + r.nom + '</td></tr>').join('') + '</tbody></table>'; }
         function closeRolesModal() { document.getElementById('rolesModal').classList.remove('open'); }
+
+        // ========== Sync Modal ==========
+        function openSyncModal() {
+            document.getElementById('syncModal').classList.add('open');
+            loadSyncStatus();
+        }
+        function closeSyncModal() { document.getElementById('syncModal').classList.remove('open'); }
+
+        async function loadSyncStatus() {
+            try {
+                const res = await fetch('/api/sync/status');
+                const data = await res.json();
+                document.getElementById('syncStatusContent').innerHTML = `
+                    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:15px;text-align:center;">
+                        <div><div style="font-size:1.5rem;font-weight:700;color:#c9d1d9;">${data.total}</div><div style="font-size:0.75rem;color:#8b949e;">Total</div></div>
+                        <div><div style="font-size:1.5rem;font-weight:700;color:#238636;">${data.synced}</div><div style="font-size:0.75rem;color:#8b949e;">Synchronises</div></div>
+                        <div><div style="font-size:1.5rem;font-weight:700;color:#f0883e;">${data.pending}</div><div style="font-size:0.75rem;color:#8b949e;">En attente</div></div>
+                        <div><div style="font-size:1.5rem;font-weight:700;color:#f85149;">${data.with_errors}</div><div style="font-size:0.75rem;color:#8b949e;">Erreurs</div></div>
+                    </div>
+                    <div style="margin-top:12px;background:#30363d;border-radius:4px;height:8px;overflow:hidden;">
+                        <div style="background:#238636;height:100%;width:${data.sync_percentage}%;transition:width 0.3s;"></div>
+                    </div>
+                    <div style="text-align:center;margin-top:8px;font-size:0.8rem;color:#8b949e;">${data.sync_percentage}% synchronise</div>
+                `;
+            } catch (e) {
+                document.getElementById('syncStatusContent').innerHTML = '<div style="color:#f85149;">Erreur de chargement du statut</div>';
+            }
+        }
+
+        async function syncSignalementsToFirebase() {
+            showLoading('Synchronisation des signalements vers Firebase...');
+            try {
+                const res = await fetch('/api/sync/to-firebase', {
+                    method: 'POST',
+                    headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content }
+                });
+                const data = await res.json();
+                hideLoading();
+
+                if (res.status === 429) {
+                    showToast(data.message, 'warning');
+                    return;
+                }
+                if (res.status === 403) {
+                    showToast(data.message, 'error');
+                    return;
+                }
+
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    if (data.synced.length > 0) {
+                        showToast(`IDs synchronises: ${data.synced.join(', ')}`, 'info', 6000);
+                    }
+                } else {
+                    showToast(data.message, 'error');
+                    if (data.failed.length > 0) {
+                        showToast(`IDs en echec: ${data.failed.join(', ')}`, 'warning', 6000);
+                    }
+                }
+                loadSyncStatus();
+            } catch (e) {
+                hideLoading();
+                showToast('Erreur de connexion', 'error');
+            }
+        }
+
+        async function syncUsersToFirebase() {
+            showLoading('Synchronisation des utilisateurs vers Firebase...');
+            try {
+                const res = await fetch('/api/sync-users', {
+                    method: 'POST',
+                    headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content }
+                });
+                const data = await res.json();
+                hideLoading();
+                if (res.ok) {
+                    showToast(data.message || 'Synchronisation reussie', 'success');
+                } else {
+                    showToast(data.message || 'Erreur de synchronisation', 'error');
+                }
+            } catch (e) {
+                hideLoading();
+                showToast('Erreur de connexion a Firebase', 'error');
+            }
+        }
+
         async function logout() {
-            const confirmed = await showConfirm('Voulez-vous vraiment vous déconnecter ?', '🚪');
+            const confirmed = await showConfirm('Voulez-vous vraiment vous déconnecter ?');
             if (!confirmed) return;
             showLoading('Déconnexion...');
             try {
@@ -408,26 +520,7 @@
                 window.location.href = '/login';
             } catch (e) {
                 hideLoading();
-                showToast('Erreur lors de la déconnexion', 'error');
-            }
-        }
-        async function syncFirebase() {
-            showLoading('Synchronisation avec Firebase...');
-            try {
-                const res = await fetch('/api/sync-users', { method: 'POST', headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content } });
-                const data = await res.json();
-                hideLoading();
-                if (res.ok) {
-                    showToast(data.message || 'Synchronisation réussie', 'success');
-                    if (data.synced && data.synced.length > 0) {
-                        showToast(`${data.synced.length} utilisateur(s) synchronisé(s)`, 'info', 5000);
-                    }
-                } else {
-                    showToast(data.message || 'Erreur de synchronisation', 'error');
-                }
-            } catch (e) {
-                hideLoading();
-                showToast('Erreur de connexion à Firebase', 'error');
+                showToast('Erreur lors de la deconnexion', 'error');
             }
         }
     </script>

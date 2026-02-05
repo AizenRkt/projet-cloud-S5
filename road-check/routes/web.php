@@ -23,7 +23,18 @@ Route::get('/api/utilisateurs', [SignalementController::class, 'getUtilisateurs'
 Route::post('/api/utilisateurs', [SignalementController::class, 'createUtilisateur']);
 Route::put('/api/utilisateurs/{id}', [SignalementController::class, 'updateUtilisateur']);
 Route::post('/api/utilisateurs/{id}/unblock', [SignalementController::class, 'unblockUtilisateur']);
-Route::post('/api/sync-users', [FirebaseWebController::class, 'syncUsersToFirebase']);
+Route::post('/api/utilisateurs/unblock-by-email', [SignalementController::class, 'unblockByEmail']);
+Route::post('/api/sync-users', [SignalementController::class, 'syncUsersToFirebase']);
+
+// Synchronisation signalements vers Firebase
+if (app()->environment('local')) {
+    Route::post('/api/sync/to-firebase', [SignalementController::class, 'syncSignalementsToFirebase'])->withoutMiddleware(['csrf']);
+    Route::get('/api/test-sync', [SignalementController::class, 'testSyncSignalementsToFirebase']);
+} else {
+    Route::post('/api/sync/to-firebase', [SignalementController::class, 'syncSignalementsToFirebase']);
+}
+Route::post('/api/sync/resync/{id}', [SignalementController::class, 'markForResync']);
+Route::get('/api/sync/status', [SignalementController::class, 'getSyncStatus']);
 
 // ==================== Vue principale (Manager Dashboard) ====================
 Route::middleware('firebase.auth')->group(function () {

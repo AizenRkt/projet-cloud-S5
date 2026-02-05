@@ -19,7 +19,16 @@ class Signalement extends Model
         'description',
         'surface_m2',
         'budget',
-        'date_signalement'
+        'date_signalement',
+        'synced_to_firebase',
+        'firebase_id',
+        'last_sync_attempt',
+        'sync_error'
+    ];
+
+    protected $casts = [
+        'synced_to_firebase' => 'boolean',
+        'last_sync_attempt' => 'datetime'
     ];
 
     // Relations

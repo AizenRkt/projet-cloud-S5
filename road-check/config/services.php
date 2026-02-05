@@ -35,4 +35,9 @@ return [
         ],
     ],
 
+    'firebase' => [
+        'credentials' => storage_path('firebase/firebase_credentials.json'),
+        'project_id' => 'road-check-a6a4a',
+    ],
+
 ];

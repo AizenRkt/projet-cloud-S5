@@ -74,7 +74,10 @@ CREATE TABLE signalement (
     budget DOUBLE PRECISION,
 
     date_signalement TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    synced_to_firebase BOOLEAN DEFAULT FALSE
+    synced_to_firebase BOOLEAN DEFAULT FALSE,
+    firebase_id VARCHAR(128) NULL,
+    last_sync_attempt TIMESTAMP NULL,
+    sync_error TEXT NULL
 );
 
 CREATE INDEX idx_signalement_position

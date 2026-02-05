@@ -53,4 +53,15 @@ WORKDIR /var/www/html/road-check
 
 RUN composer install --no-dev --optimize-autoloader
 
+# =========================
+# Extension gRPC pour Firestore
+# =========================
+RUN pecl install grpc \
+    && docker-php-ext-enable grpc
+
+# =========================
+# Installer Firestore PHP SDK
+# =========================
+RUN composer require google/cloud-firestore
+
 CMD ["php-fpm"]

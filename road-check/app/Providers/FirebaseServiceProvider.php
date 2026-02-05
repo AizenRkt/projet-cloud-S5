@@ -15,7 +15,7 @@ class FirebaseServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(Auth::class, function ($app) {
-            $credentialsPath = base_path(env('FIREBASE_CREDENTIALS', 'storage/firebase/firebase_credentials.json'));
+            $credentialsPath = config('services.firebase.credentials', base_path('storage/firebase/firebase_credentials.json'));
 
             if (!file_exists($credentialsPath)) {
                 throw new \Exception("Fichier de credentials Firebase introuvable : $credentialsPath");
@@ -28,21 +28,27 @@ class FirebaseServiceProvider extends ServiceProvider
         });
 
         $this->app->singleton(Firestore::class, function ($app) {
+            $credentialsPath = config('services.firebase.credentials', base_path('storage/firebase/firebase_credentials.json'));
+
+            if (!file_exists($credentialsPath)) {
+                \Log::warning('Firebase credentials file not found: ' . $credentialsPath);
+                return null;
+            }
+
             try {
-                $credentialsPath = base_path(env('FIREBASE_CREDENTIALS', 'storage/firebase/firebase_credentials.json'));
-
-                if (!file_exists($credentialsPath)) {
-                    throw new \Exception("Fichier de credentials Firebase introuvable : $credentialsPath");
-                }
-
                 $factory = (new Factory)
                     ->withServiceAccount($credentialsPath);
 
-                return $factory->createFirestore();
+                $firestore = $factory->createFirestore();
+
+                // Test de connexion basique
+                $firestore->database()->collection('test')->limit(1)->documents();
+
+                return $firestore;
             } catch (\Exception $e) {
-                // Log l'erreur mais ne pas planter l'application
                 \Log::error('Erreur initialisation Firestore: ' . $e->getMessage());
-                return null; // Retourner null au lieu de planter
+                \Log::info('Firestore sera désactivé. Vérifiez que Firestore est activé dans votre projet Firebase.');
+                return null;
             }
         });
     }

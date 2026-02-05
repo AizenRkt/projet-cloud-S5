@@ -90,10 +90,8 @@ class FirebaseWebController extends Controller
 
         // Vérification locale uniquement
         if ($utilisateur && !$utilisateur->bloque && !empty($utilisateur->password) && $data['password'] === $utilisateur->password) {
-            // Générer un JWT local
-            $jwtToken = $this->generateLocalJwt($utilisateur);
+            // Stocker en session sans JWT
             session([
-                'firebase_id_token' => $jwtToken,
                 'utilisateur' => $utilisateur
             ]);
             $tentativeSucces = true;
@@ -127,28 +125,11 @@ class FirebaseWebController extends Controller
         }
 
         if ($tentativeSucces) {
-            return redirect()->route('map')->with('success', 'Connecté en mode local');
+            return redirect('/map')->with('success', 'Connecté localement');
         } else {
             return back()->withErrors(['error' => 'Email ou mot de passe invalide']);
         }
     }
-
-    /**
-     * Génère un JWT local pour l'utilisateur (fallback offline)
-     */
-    protected function generateLocalJwt($utilisateur)
-    {
-        // Utilise lcobucci/jwt ou firebase/php-jwt (ici version simple)
-        $key = env('APP_KEY');
-        $payload = [
-            'sub' => $utilisateur->id_utilisateur,
-            'email' => $utilisateur->email,
-            'iat' => time(),
-            'exp' => time() + 3600, // 1h
-        ];
-        return \Firebase\JWT\JWT::encode($payload, $key, 'HS256');
-    }
-
 
     // 🔹 PROFIL
     public function profile()
@@ -158,10 +139,8 @@ class FirebaseWebController extends Controller
         if (!$utilisateur) {
             return redirect()->route('login.form')->withErrors(['error' => 'Veuillez vous connecter']);
         }
-        $token = session('firebase_id_token');
         $role = Role::find($utilisateur->id_role);
         return view('firebase.profile', [
-            'token' => $token,
             'prenom' => $utilisateur->prenom,
             'nom' => $utilisateur->nom,
             'role' => $role ? $role->nom : ''
@@ -185,49 +164,8 @@ class FirebaseWebController extends Controller
     public function logout(Request $request)
     {
         // Clear session
-        session()->forget(['firebase_id_token', 'utilisateur']);
+        session()->forget(['utilisateur']);
 
         return redirect()->route('login.form')->with('success', 'Déconnecté');
-    }
-
-    // 🔹 SYNCHRONISATION UTILISATEURS LOCAL -> FIREBASE
-    public function syncUsersToFirebase()
-    {
-        try {
-            $localUsers = Utilisateur::all(); // Récupérer tous les utilisateurs locaux
-            $syncedCount = 0;
-
-            foreach ($localUsers as $localUser) {
-                // Vérifier si l'utilisateur existe déjà dans Firebase (par email)
-                $firebaseUser = null;
-                try {
-                    $firebaseUser = $this->auth->getUserByEmail($localUser->email);
-                } catch (\Exception $e) {
-                    // Utilisateur n'existe pas, on le crée
-                }
-
-                if (!$firebaseUser) {
-                    // Créer dans Firebase avec le mot de passe local (supposé en clair)
-                    $createdUser = $this->auth->createUser([
-                        'email' => $localUser->email,
-                        'password' => $localUser->password, // Doit être en clair
-                        'displayName' => $localUser->nom . ' ' . $localUser->prenom,
-                    ]);
-
-                    // Mettre à jour le firebase_uid en local pour lier
-                    $localUser->update(['firebase_uid' => $createdUser->uid]);
-                    $syncedCount++;
-                } else {
-                    // Utilisateur existe, mettre à jour displayName si nécessaire
-                    $this->auth->updateUser($firebaseUser->uid, [
-                        'displayName' => $localUser->nom . ' ' . $localUser->prenom,
-                    ]);
-                }
-            }
-
-            return response()->json(['message' => $syncedCount . ' utilisateur(s) synchronisé(s) vers Firebase.']);
-        } catch (\Exception $e) {
-            return response()->json(['message' => 'Erreur : ' . $e->getMessage()], 500);
-        }
     }
 }

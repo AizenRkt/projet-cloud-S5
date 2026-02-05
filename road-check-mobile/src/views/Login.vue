@@ -140,6 +140,7 @@
 import { ref } from "vue";
 import { useRouter } from "vue-router";
 import { login, register } from "@/services/auth";
+import { isBlocked, handleLoginAttempt } from "@/services/loginAttempts";
 import {
   IonPage,
   IonContent,
@@ -168,13 +169,23 @@ const showPassword = ref(false);
 const isLoading = ref(false);
 
 const handleSubmit = async () => {
+  if (isBlocked(email.value)) {
+    alert("Compte bloqué temporairement. Réessayez plus tard.");
+    return;
+  }
   try {
     isLoading.value = true;
     await login(email.value, password.value);
+    handleLoginAttempt(email.value, true);
     router.push("/tabs/carte");
   } catch (err) {
+    handleLoginAttempt(email.value, false);
+    if (isBlocked(email.value)) {
+      alert("Compte bloqué après plusieurs tentatives. Réessayez dans quelques minutes.");
+    } else {
+      alert("Erreur de connexion");
+    }
     console.error("Erreur:", err);
-    alert("Erreur de connexion");
   } finally {
     isLoading.value = false;
   }
