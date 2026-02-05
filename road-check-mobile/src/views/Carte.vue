@@ -228,9 +228,7 @@ const initMap = async () => {
 
   // Marqueur Antananarivo
   L.marker([-18.8792, 47.5079])
-    .addTo(map)
-    .bindPopup("Antananarivo")
-    .openPopup();
+    .addTo(map);
 
   // Essayer de récupérer la position actuelle
   const pos = await GeolocalisationService.getCurrentPosition();

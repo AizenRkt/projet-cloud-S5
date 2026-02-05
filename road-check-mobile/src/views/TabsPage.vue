@@ -11,13 +11,13 @@
         </ion-tab-button>
 
         <!-- Signaler -->
-        <ion-tab-button tab="tab2" href="/tabs/tab2">
+        <ion-tab-button tab="tab2" href="/tabs/recap">
           <ion-icon aria-hidden="true" :icon="statsChartOutline"/>
-          <ion-label>recap</ion-label>
+          <ion-label>Recap</ion-label>
         </ion-tab-button>
 
         <!-- Profil -->
-        <ion-tab-button tab="tab3" href="/tabs/tab3">
+        <ion-tab-button tab="tab3" href="/tabs/moi">
           <ion-icon aria-hidden="true" :icon="personCircleOutline" />
           <ion-label>Moi</ion-label>
         </ion-tab-button>
