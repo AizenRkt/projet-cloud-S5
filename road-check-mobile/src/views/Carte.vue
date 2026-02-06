@@ -140,6 +140,7 @@ import * as L from "leaflet";
 import GeolocalisationService from "@/services/geolocalisation";
 import GeoSearchService, { type SearchLocation } from "@/services/geosearch";
 import { signalementService } from "@/services/signalement";
+import { photoService } from "@/services/signalement/PhotoService";
 import { onIonViewDidEnter } from "@ionic/vue";
 
 // **Vrai import corrigé**
@@ -498,7 +499,10 @@ const handleSubmitSignalement = async (data: any) => {
   try {
     console.log("Données reçues du formulaire:", data);
     
-    // Préparer les données pour Firebase
+    // Extraire les photos du data
+    const photos: File[] = data.photos || [];
+    
+    // Préparer les données pour Firebase (sans les photos File)
     const signalementData = {
       typeSignalementId: data.typeSignalementId,
       typeSignalementNom: data.typeSignalementNom,
@@ -520,6 +524,19 @@ const handleSubmitSignalement = async (data: any) => {
     const signalementId = await signalementService.create(signalementData);
     
     console.log("Signalement créé avec ID:", signalementId);
+
+    // Upload des photos vers Supabase Storage si présentes
+    if (photos.length > 0) {
+      console.log(`Upload de ${photos.length} photo(s) vers Supabase...`);
+      const photoUrls = await photoService.uploadPhotos(signalementId, photos);
+      
+      if (photoUrls.length > 0) {
+        // Mettre à jour le signalement Firebase avec les URLs des photos
+        await signalementService.update(signalementId, { photos: photoUrls });
+        console.log(`${photoUrls.length} photo(s) uploadée(s) et sauvegardée(s)`);
+      }
+    }
+
     alert("Signalement enregistré avec succès !");
     
     // Recharger les signalements pour afficher le nouveau

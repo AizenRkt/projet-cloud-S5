@@ -67,12 +67,16 @@ export interface SignalementData {
   budget?: number;
   dateSignalement?: Date;
   status?: SignalementStatus;
+  dateStatus?: Date;
+  photos?: string[];
 }
 
 export interface Signalement extends SignalementData {
   id: string;
   dateSignalement: Date;
   status: SignalementStatus;
+  dateStatus: Date;
+  photos: string[];
 }
 
 // Types pour Firebase
@@ -90,4 +94,6 @@ export interface FirebaseSignalementData {
   budget?: number | null;
   dateSignalement: Timestamp;
   status?: string;
+  dateStatus?: Timestamp;
+  photos?: string[];
 }

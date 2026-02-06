@@ -1,3 +1,4 @@
+<!-- YAkXVM$47UqG5@b -->
 <template>
   <div 
     class="detail-signalement-overlay" 
@@ -49,7 +50,7 @@
               <span>Position</span>
             </div>
             <div class="info-value">
-              {{ signalement.latitude.toFixed(6) }}, {{ signalement.longitude.toFixed(6) }}
+              {{ Number(signalement.latitude).toFixed(6) }}, {{ Number(signalement.longitude).toFixed(6) }}
             </div>
           </div>
 
@@ -105,6 +106,25 @@
           </div>
         </div>
 
+        <!-- Section Photos -->
+        <div class="photos-section" v-if="signalement.photos && signalement.photos.length > 0">
+          <div class="section-title">
+            <ion-icon :icon="imageOutline" class="section-icon"></ion-icon>
+            <span>Photos</span>
+          </div>
+          <div class="photo-cover-container" @click="openGallery">
+            <img :src="signalement.photos[0]" alt="Photo du signalement" class="photo-cover" />
+            <div class="photo-overlay" v-if="signalement.photos.length > 1">
+              <ion-icon :icon="imagesOutline" class="photo-overlay-icon"></ion-icon>
+              <span class="photo-count">+{{ signalement.photos.length }} photos</span>
+            </div>
+            <div class="photo-overlay photo-overlay-single" v-else>
+              <ion-icon :icon="expandOutline" class="photo-overlay-icon"></ion-icon>
+              <span class="photo-count">Voir la photo</span>
+            </div>
+          </div>
+        </div>
+
         <!-- Section Statut en bas -->
         <div class="status-section">
           <div class="section-title">
@@ -117,7 +137,56 @@
             <ion-icon :icon="getStatusIcon(signalement.status)" class="status-icon"></ion-icon>
             <span class="status-label">{{ getStatusConfig(signalement.status).label }}</span>
           </div>
+          <div class="status-date">
+            <ion-icon :icon="timeOutline" class="status-date-icon"></ion-icon>
+            <span>Mis à jour le {{ formatDateStatus(signalement.dateStatus) }}</span>
+          </div>
         </div>
+
+      </div>
+    </div>
+
+    <!-- Modal Galerie Photos -->
+    <div 
+      class="gallery-overlay" 
+      :class="{ 'is-open': isGalleryOpen }" 
+      @click.self="closeGallery"
+    >
+      <div class="gallery-header">
+        <span class="gallery-counter">{{ currentPhotoIndex + 1 }} / {{ signalement.photos?.length || 0 }}</span>
+        <button class="gallery-close-btn" @click="closeGallery">
+          <ion-icon :icon="closeOutline"></ion-icon>
+        </button>
+      </div>
+
+      <div 
+        class="gallery-swiper"
+        @touchstart="handleGalleryTouchStart"
+        @touchmove="handleGalleryTouchMove"
+        @touchend="handleGalleryTouchEnd"
+      >
+        <div 
+          class="gallery-track"
+          :style="{ transform: `translateX(calc(-${currentPhotoIndex * 100}% + ${galleryDeltaX}px))` }"
+        >
+          <div 
+            class="gallery-slide" 
+            v-for="(photo, index) in signalement.photos" 
+            :key="index"
+          >
+            <img :src="photo" :alt="`Photo ${index + 1}`" class="gallery-image" />
+          </div>
+        </div>
+      </div>
+
+      <div class="gallery-dots" v-if="(signalement.photos?.length || 0) > 1">
+        <span 
+          class="gallery-dot" 
+          :class="{ active: index === currentPhotoIndex }" 
+          v-for="(_, index) in signalement.photos" 
+          :key="index"
+          @click="currentPhotoIndex = index"
+        ></span>
       </div>
     </div>
   </div>
@@ -143,7 +212,10 @@ import {
   hourglassOutline,
   checkmarkCircleOutline,
   checkmarkDoneOutline,
-  closeCircleOutline
+  closeCircleOutline,
+  imageOutline,
+  imagesOutline,
+  expandOutline
 } from 'ionicons/icons';
 import type { Signalement } from '@/services/signalement/types';
 import { SignalementStatus, SignalementStatusConfig } from '@/services/signalement/types';
@@ -160,8 +232,51 @@ const emit = defineEmits<{
 
 // État du bottom sheet
 type SheetPosition = 'peek' | 'half' | 'expanded';
-const position = ref<SheetPosition>('peek');
+const position = ref<SheetPosition>('half');
 const translateY = ref(0);
+
+// État de la galerie photos
+const isGalleryOpen = ref(false);
+const currentPhotoIndex = ref(0);
+const galleryDeltaX = ref(0);
+let galleryStartX = 0;
+let isGallerySwiping = false;
+
+const openGallery = () => {
+  currentPhotoIndex.value = 0;
+  galleryDeltaX.value = 0;
+  isGalleryOpen.value = true;
+};
+
+const closeGallery = () => {
+  isGalleryOpen.value = false;
+};
+
+const handleGalleryTouchStart = (e: TouchEvent) => {
+  galleryStartX = e.touches[0].clientX;
+  isGallerySwiping = true;
+  galleryDeltaX.value = 0;
+};
+
+const handleGalleryTouchMove = (e: TouchEvent) => {
+  if (!isGallerySwiping) return;
+  e.preventDefault();
+  galleryDeltaX.value = e.touches[0].clientX - galleryStartX;
+};
+
+const handleGalleryTouchEnd = () => {
+  if (!isGallerySwiping) return;
+  isGallerySwiping = false;
+  const totalPhotos = props.signalement.photos?.length || 0;
+  const threshold = 60;
+
+  if (galleryDeltaX.value < -threshold && currentPhotoIndex.value < totalPhotos - 1) {
+    currentPhotoIndex.value++;
+  } else if (galleryDeltaX.value > threshold && currentPhotoIndex.value > 0) {
+    currentPhotoIndex.value--;
+  }
+  galleryDeltaX.value = 0;
+};
 
 // Refs pour le drag
 const dragHandle = ref<HTMLElement>();
@@ -223,6 +338,17 @@ const formatDate = (date: Date | string) => {
   });
 };
 
+const formatDateStatus = (date: Date | string) => {
+  const d = new Date(date);
+  return d.toLocaleDateString('fr-FR', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+};
+
 const formatBudget = (budget: number) => {
   return new Intl.NumberFormat('fr-FR', {
     style: 'currency',
@@ -249,9 +375,8 @@ const handleTouchStart = (event: TouchEvent) => {
   const touch = event.touches[0];
   const target = event.target as HTMLElement;
   
-  // Déterminer si on peut drag depuis cette position
-  const canDrag = position.value === 'peek' || 
-                  dragHandle.value?.contains(target) ||
+  // Seul le drag-handle et le header permettent de drag
+  const canDrag = dragHandle.value?.contains(target) ||
                   sheetHeader.value?.contains(target);
   
   if (!canDrag) return;
@@ -275,18 +400,21 @@ const handleTouchEnd = () => {
   
   isDragging = false;
   
+  const threshold = 80;
+  
   // Déterminer la nouvelle position selon la direction du drag
-  if (translateY.value > 50) {
+  if (translateY.value > threshold) {
     // Drag vers le bas
     if (position.value === 'expanded') {
       position.value = 'half';
-    } else if (position.value === 'half') {
-      position.value = 'peek';
     } else {
+      // Depuis half ou peek, fermer
       emit('close');
+      position.value = 'half'; // Reset pour la prochaine ouverture
+      translateY.value = 0;
       return;
     }
-  } else if (translateY.value < -50) {
+  } else if (translateY.value < -threshold) {
     // Drag vers le haut
     if (position.value === 'peek') {
       position.value = 'half';
@@ -335,15 +463,15 @@ const handleTouchEnd = () => {
 }
 
 .detail-signalement-sheet.position-peek {
-  transform: translateY(75vh);
+  transform: translateY(60vh);
 }
 
 .detail-signalement-sheet.position-half {
-  transform: translateY(40vh);
+  transform: translateY(25vh);
 }
 
 .detail-signalement-sheet.position-expanded {
-  transform: translateY(10vh);
+  transform: translateY(5vh);
 }
 
 .drag-handle {
@@ -590,5 +718,174 @@ const handleTouchEnd = () => {
 
 .status-badge-large .status-label {
   line-height: 1;
+}
+
+.status-date {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 12px;
+  font-size: 13px;
+  color: #666;
+}
+
+.status-date-icon {
+  font-size: 16px;
+  color: #999;
+}
+
+/* Section Photos */
+.photos-section {
+  margin-bottom: 24px;
+}
+
+.photo-cover-container {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  cursor: pointer;
+  aspect-ratio: 16 / 10;
+  background: #e0e0e0;
+}
+
+.photo-cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.photo-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.65));
+  color: #fff;
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.photo-overlay-single {
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.photo-cover-container:active .photo-overlay-single {
+  opacity: 1;
+}
+
+.photo-overlay-icon {
+  font-size: 20px;
+}
+
+.photo-count {
+  line-height: 1;
+}
+
+/* Galerie plein écran */
+.gallery-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20000;
+  background: rgba(0, 0, 0, 0.95);
+  display: flex;
+  flex-direction: column;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.gallery-overlay.is-open {
+  opacity: 1;
+  visibility: visible;
+}
+
+.gallery-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  padding-top: max(16px, env(safe-area-inset-top));
+}
+
+.gallery-counter {
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.gallery-close-btn {
+  background: rgba(255, 255, 255, 0.15);
+  border: none;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #fff;
+  font-size: 22px;
+}
+
+.gallery-swiper {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+}
+
+.gallery-track {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  transition: transform 0.3s ease;
+}
+
+.gallery-slide {
+  flex: 0 0 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.gallery-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 4px;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.gallery-dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+}
+
+.gallery-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.35);
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.gallery-dot.active {
+  background: #fff;
+  transform: scale(1.3);
 }
 </style>

@@ -75,6 +75,49 @@
           </button>
         </div>
 
+        <!-- Section Thème -->
+        <div class="menu-section">
+          <h3 class="section-title">Apparence</h3>
+          
+          <div class="theme-selector">
+            <button 
+              type="button" 
+              class="theme-option"
+              :class="{ 'is-active': currentTheme === 'system' }"
+              @click="setTheme('system')"
+            >
+              <div class="theme-option-icon">
+                <ion-icon :icon="phonePortraitOutline" class="theme-icon"></ion-icon>
+              </div>
+              <span class="theme-option-label">Système</span>
+            </button>
+            
+            <button 
+              type="button" 
+              class="theme-option"
+              :class="{ 'is-active': currentTheme === 'light' }"
+              @click="setTheme('light')"
+            >
+              <div class="theme-option-icon">
+                <ion-icon :icon="sunnyOutline" class="theme-icon"></ion-icon>
+              </div>
+              <span class="theme-option-label">Jour</span>
+            </button>
+            
+            <button 
+              type="button" 
+              class="theme-option"
+              :class="{ 'is-active': currentTheme === 'dark' }"
+              @click="setTheme('dark')"
+            >
+              <div class="theme-option-icon">
+                <ion-icon :icon="moonOutline" class="theme-icon"></ion-icon>
+              </div>
+              <span class="theme-option-label">Nuit</span>
+            </button>
+          </div>
+        </div>
+
         <!-- Section déconnexion -->
         <div class="logout-section">
           <button 
@@ -119,7 +162,10 @@ import {
   settingsOutline,
   helpCircleOutline,
   logOutOutline,
-  chevronForwardOutline
+  chevronForwardOutline,
+  sunnyOutline,
+  moonOutline,
+  phonePortraitOutline
 } from 'ionicons/icons';
 import { logout } from '@/services/auth';
 import type { User } from 'firebase/auth';
@@ -145,6 +191,53 @@ const emit = defineEmits<{
 
 const router = useRouter();
 const isLoggingOut = ref(false);
+
+// Gestion du thème
+type ThemeMode = 'system' | 'light' | 'dark';
+const currentTheme = ref<ThemeMode>('system');
+
+// Charger le thème sauvegardé
+const loadSavedTheme = () => {
+  const savedTheme = localStorage.getItem('app-theme') as ThemeMode | null;
+  if (savedTheme && ['system', 'light', 'dark'].includes(savedTheme)) {
+    currentTheme.value = savedTheme;
+    applyTheme(savedTheme);
+  }
+};
+
+// Appliquer le thème
+const applyTheme = (theme: ThemeMode) => {
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  
+  if (theme === 'dark' || (theme === 'system' && prefersDark)) {
+    document.documentElement.classList.add('dark');
+    document.body.classList.add('dark');
+  } else {
+    document.documentElement.classList.remove('dark');
+    document.body.classList.remove('dark');
+  }
+};
+
+// Changer le thème
+const setTheme = (theme: ThemeMode) => {
+  currentTheme.value = theme;
+  localStorage.setItem('app-theme', theme);
+  applyTheme(theme);
+};
+
+// Écouter les changements du système
+const setupSystemThemeListener = () => {
+  const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+  mediaQuery.addEventListener('change', () => {
+    if (currentTheme.value === 'system') {
+      applyTheme('system');
+    }
+  });
+};
+
+// Initialiser le thème au montage
+loadSavedTheme();
+setupSystemThemeListener();
 
 // Fermer la sidebar en cliquant sur l'overlay
 const handleOverlayClick = (e: MouseEvent) => {
@@ -509,6 +602,129 @@ const handleLogout = async () => {
   font-weight: 500;
 }
 
+/* Theme Selector */
+.theme-selector {
+  display: flex;
+  gap: 8px;
+  padding: 0 16px;
+}
+
+.theme-option {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 12px;
+  background: #f5f5f7;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.theme-option:hover {
+  background: #e8e8ed;
+}
+
+.theme-option.is-active {
+  background: rgba(0, 122, 255, 0.1);
+  border-color: #007AFF;
+}
+
+.theme-option-icon {
+  width: 40px;
+  height: 40px;
+  background: #ffffff;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.theme-option.is-active .theme-option-icon {
+  background: #007AFF;
+}
+
+.theme-icon {
+  font-size: 20px;
+  color: #666;
+}
+
+.theme-option.is-active .theme-icon {
+  color: #ffffff;
+}
+
+.theme-option-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #666;
+  text-align: center;
+}
+
+.theme-option.is-active .theme-option-label {
+  color: #007AFF;
+}
+
+/* Mode sombre - Sidebar */
+:global(.dark) .sidebar {
+  background: #1c1c1e;
+}
+
+:global(.dark) .section-title {
+  color: #8E8E93;
+}
+
+:global(.dark) .menu-item {
+  background: #2c2c2e;
+}
+
+:global(.dark) .menu-item:hover {
+  background: #3c3c3e;
+}
+
+:global(.dark) .menu-item-title {
+  color: #ffffff;
+}
+
+:global(.dark) .menu-item-subtitle {
+  color: #8E8E93;
+}
+
+:global(.dark) .item-icon {
+  color: #007AFF;
+}
+
+:global(.dark) .theme-option {
+  background: #2c2c2e;
+}
+
+:global(.dark) .theme-option:hover {
+  background: #3c3c3e;
+}
+
+:global(.dark) .theme-option.is-active {
+  background: rgba(0, 122, 255, 0.2);
+}
+
+:global(.dark) .theme-option-icon {
+  background: #3c3c3e;
+  box-shadow: none;
+}
+
+:global(.dark) .theme-icon {
+  color: #8E8E93;
+}
+
+:global(.dark) .theme-option-label {
+  color: #8E8E93;
+}
+
+:global(.dark) .theme-option.is-active .theme-option-label {
+  color: #007AFF;
+}
+
 /* Responsive */
 @media (max-width: 480px) {
   .sidebar {
@@ -517,6 +733,27 @@ const handleLogout = async () => {
   
   .stats-grid {
     grid-template-columns: 1fr;
+  }
+  
+  .theme-selector {
+    padding: 0 12px;
+  }
+  
+  .theme-option {
+    padding: 12px 8px;
+  }
+  
+  .theme-option-icon {
+    width: 36px;
+    height: 36px;
+  }
+  
+  .theme-icon {
+    font-size: 18px;
+  }
+  
+  .theme-option-label {
+    font-size: 11px;
   }
 }
 </style>

@@ -40,7 +40,8 @@ export class SignalementService {
         surface: data.surface || null,
         budget: data.budget || null,
         dateSignalement: Timestamp.fromDate(data.dateSignalement || new Date()),
-        status: SignalementStatus.EN_ATTENTE // Statut par défaut lors de la création
+        status: SignalementStatus.EN_ATTENTE, // Statut par défaut lors de la création
+        dateStatus: Timestamp.fromDate(new Date()) // Date du statut initial
       };
 
       const docRef = await addDoc(collection(db, this.collectionName), signalementData);
@@ -66,7 +67,9 @@ export class SignalementService {
           id: docSnap.id,
           ...data,
           dateSignalement: data.dateSignalement.toDate(),
-          status: data.status || SignalementStatus.EN_ATTENTE
+          status: data.status || SignalementStatus.EN_ATTENTE,
+          dateStatus: data.dateStatus ? data.dateStatus.toDate() : data.dateSignalement.toDate(),
+          photos: data.photos || []
         } as Signalement;
       }
       return null;
@@ -104,7 +107,9 @@ export class SignalementService {
           surface: data.surface,
           budget: data.budget,
           dateSignalement: data.dateSignalement.toDate(),
-          status: data.status || SignalementStatus.EN_ATTENTE
+          status: data.status || SignalementStatus.EN_ATTENTE,
+          dateStatus: data.dateStatus ? data.dateStatus.toDate() : data.dateSignalement.toDate(),
+          photos: data.photos || []
         } as Signalement;
       });
     } catch (error) {
@@ -169,7 +174,9 @@ export class SignalementService {
           id: doc.id,
           ...data,
           dateSignalement: data.dateSignalement.toDate(),
-          status: data.status || SignalementStatus.EN_ATTENTE
+          status: data.status || SignalementStatus.EN_ATTENTE,
+          dateStatus: data.dateStatus ? data.dateStatus.toDate() : data.dateSignalement.toDate(),
+          photos: data.photos || []
         } as Signalement;
       });
     } catch (error) {

@@ -617,7 +617,8 @@ const submitForm = async () => {
       latitude: props.latitude,
       longitude: props.longitude,
       utilisateurId: userUid.value, // UID de l'utilisateur
-      utilisateurEmail: userEmail.value // Email de l'utilisateur (optionnel)
+      utilisateurEmail: userEmail.value, // Email de l'utilisateur (optionnel)
+      photos: [...form.value.photos] // Photos à uploader
     };
 
     console.log("Données à envoyer:", signalementData);

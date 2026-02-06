@@ -244,14 +244,6 @@
         </ion-button>
       </div>
 
-      <!-- Détails du signalement -->
-      <DetailSignalement 
-        v-if="selectedSignalement"
-        :signalement="selectedSignalement"
-        :is-open="showSignalementDetail"
-        @close="closeSignalementDetail"
-      />
-
       <!-- Sidebar de profil -->
       <ProfilSidebar 
         :is-open="showProfilSidebar"
@@ -262,6 +254,14 @@
         @logout="handleLogout"
       />
     </ion-content>
+
+    <!-- Détails du signalement - au dessus du header pour le drag et la galerie -->
+    <DetailSignalement 
+      v-if="selectedSignalement"
+      :signalement="selectedSignalement"
+      :is-open="showSignalementDetail"
+      @close="closeSignalementDetail"
+    />
   </ion-page>
 </template>
 

@@ -26,6 +26,7 @@
     "@ionic/pwa-elements": "^3.3.0",
     "@ionic/vue": "^8.7.16",
     "@ionic/vue-router": "^8.7.16",
+    "@supabase/supabase-js": "^2.95.2",
     "axios": "^1.13.2",
     "chart.js": "^4.5.1",
     "firebase": "^12.7.0",
