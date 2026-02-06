@@ -50,6 +50,20 @@ services:
     networks:
       - laravel
 
+  firestore-sync:
+    build:
+      context: ./firestore-sync-service
+    container_name: firestore-sync-service
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./firestore-sync-service:/app
+    networks:
+      - laravel
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+
 networks:
   laravel:
     driver: bridge

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
@@ -113,6 +113,13 @@
     </style>
 </head>
 <body>
+        @if(session('success'))
+            <div style="position:fixed;top:70px;right:20px;z-index:9999;">
+                <div class="alert alert-success" style="background:#f0fdf4;color:#16a34a;padding:16px 24px;border-radius:8px;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+                    <i class="bi bi-check-circle me-2"></i>{{ session('success') }}
+                </div>
+            </div>
+        @endif
     <nav class="navbar">
         <div class="navbar-brand">
             <span class="logo"></span>

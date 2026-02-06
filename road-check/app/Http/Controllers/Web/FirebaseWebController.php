@@ -30,10 +30,22 @@ class FirebaseWebController extends Controller
         return view('firebase.register');
     }
 
-    // 🔹 Afficher formulaire de login
+    // 🔹 Afficher formulaire de login avec test Firestore (Kreait)
     public function showLoginForm()
     {
-        return view('firebase.login');
+        $firestoreStatus = null;
+        try {
+            $factory = (new \Kreait\Firebase\Factory())
+                ->withServiceAccount(config('services.firebase.credentials'))
+                ->withDatabaseUri('https://road-check-a6a4a-default-rtdb.europe-west1.firebasedatabase.app');
+            $database = $factory->createDatabase();
+            // Test simple : lire une clé bidon (Firestore RTDB, pas Firestore v2)
+            $snapshot = $database->getReference('test-connexion')->getSnapshot();
+            $firestoreStatus = $snapshot->exists() ? 'Connexion Firestore RTDB OK' : 'Connexion Firestore RTDB vide';
+        } catch (\Throwable $e) {
+            $firestoreStatus = 'Erreur Firestore (Kreait) : ' . $e->getMessage();
+        }
+        return view('firebase.login', compact('firestoreStatus'));
     }
 
     // 🔹 INSCRIPTION
@@ -127,7 +139,7 @@ class FirebaseWebController extends Controller
         if ($tentativeSucces) {
             return redirect('/map')->with('success', 'Connecté localement');
         } else {
-            return back()->withErrors(['error' => 'Email ou mot de passe invalide']);
+            return redirect()->route('login.form')->withErrors(['error' => 'Email ou mot de passe invalide']);
         }
     }
 

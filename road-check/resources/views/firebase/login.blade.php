@@ -87,6 +87,12 @@
 </head>
 <body>
     <div class="login-card">
+        @if(isset($firestoreStatus))
+            <div class="alert alert-info mb-3">
+                <i class="bi bi-cloud-check me-2"></i>
+                Firestore (Kreait) : {{ $firestoreStatus }}
+            </div>
+        @endif
         <div class="brand-logo">
             <i class="bi bi-car-front-fill"></i>
         </div>

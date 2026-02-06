@@ -16,6 +16,7 @@ use Kreait\Firebase\Exception\AuthException;
 use Kreait\Firebase\Exception\FirebaseException;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 
 class SignalementController extends Controller
 {
@@ -295,31 +296,9 @@ class SignalementController extends Controller
             }
         }
 
-        // Vérifier que Firestore est disponible
-        if (!$this->firestore) {
-            // En mode développement, permettre la simulation
-            $simulate = config('app.env') === 'local' || env('FIREBASE_SIMULATE', false);
-
-            if ($simulate) {
-                // Récupérer les signalements pour la simulation
-                $signalements = Signalement::where('synced_to_firebase', false)
-                    ->with(['typeSignalement', 'entreprise', 'dernierStatut.typeStatus'])
-                    ->get();
-                return $this->simulateSyncSignalementsToFirebase($signalements);
-            }
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Firebase Firestore n\'est pas configuré ou indisponible. Vérifiez : 1) Fichier credentials Firebase existe, 2) Firestore est activé dans votre projet Firebase, 3) Les permissions du service account sont correctes. Ou définissez FIREBASE_SIMULATE=true dans .env pour simuler.',
-                'synced' => [],
-                'failed' => [],
-                'timestamp' => now()->toIso8601String()
-            ], 503);
-        }
-
+        // Nouvelle logique : synchronisation via microservice Node.js Firestore
         $synced = [];
         $failed = [];
-
         try {
             // Récupérer les signalements non synchronisés
             $signalements = Signalement::where('synced_to_firebase', false)
@@ -336,84 +315,76 @@ class SignalementController extends Controller
                 ]);
             }
 
-            $database = $this->firestore->database();
-            $collection = $database->collection('reports');
+            // Préparer les données à envoyer
+            $payload = $signalements->map(function ($signalement) {
+                return [
+                    'budget' => $signalement->budget,
+                    'date_signalement' => $signalement->date_signalement,
+                    'description' => $signalement->description,
+                    'id_entreprise' => $signalement->id_entreprise,
+                    'entreprise_nom' => $signalement->entreprise ? $signalement->entreprise->nom : null,
+                    'latitude' => $signalement->latitude,
+                    'longitude' => $signalement->longitude,
+                    'statut_libelle' => $signalement->dernierStatut && $signalement->dernierStatut->typeStatus
+                        ? $signalement->dernierStatut->typeStatus->libelle
+                        : 'Nouveau',
+                    'surface_m2' => $signalement->surface_m2,
+                    'id_type_signalement' => $signalement->id_type_signalement,
+                    'type_signalement' => $signalement->typeSignalement ? $signalement->typeSignalement->nom : null,
+                    'utilisateur_email' => $signalement->utilisateur ? $signalement->utilisateur->email : null,
+                    'utilisateur_id' => $signalement->utilisateur ? $signalement->utilisateur->firebase_uid : null,
+                    'local_id' => $signalement->id_signalement,
+                    'firebase_id' => $signalement->firebase_id
+                ];
+            })->toArray();
 
-            foreach ($signalements as $signalement) {
-                try {
-                    // Préparer les données à synchroniser (champs modifiables uniquement)
-                    $firebaseData = [
-                        'statut' => $signalement->dernierStatut && $signalement->dernierStatut->typeStatus
-                            ? $signalement->dernierStatut->typeStatus->code
-                            : 'nouveau',
-                        'statut_libelle' => $signalement->dernierStatut && $signalement->dernierStatut->typeStatus
-                            ? $signalement->dernierStatut->typeStatus->libelle
-                            : 'Nouveau',
-                        'budget' => $signalement->budget,
-                        'surface_m2' => $signalement->surface_m2,
-                        'description' => $signalement->description,
-                        'id_entreprise' => $signalement->id_entreprise,
-                        'entreprise_nom' => $signalement->entreprise ? $signalement->entreprise->nom : null,
-                        'type_signalement' => $signalement->typeSignalement ? $signalement->typeSignalement->nom : null,
-                        'id_type_signalement' => $signalement->id_type_signalement,
-                        'local_id' => $signalement->id_signalement,
-                        'last_synced_at' => now()->toIso8601String(),
-                        // Champs en lecture seule (pour référence, non modifiables côté Firebase)
-                        'latitude' => $signalement->latitude,
-                        'longitude' => $signalement->longitude,
-                        'date_signalement' => $signalement->date_signalement,
-                    ];
-
-                    if ($signalement->firebase_id) {
-                        // Mettre à jour le document existant
-                        $docRef = $collection->document($signalement->firebase_id);
-                        $docRef->set($firebaseData, ['merge' => true]);
-                    } else {
-                        // Créer un nouveau document
-                        $newDoc = $collection->add($firebaseData);
-                        $signalement->firebase_id = $newDoc->id();
-                    }
-
-                    // Marquer comme synchronisé
-                    $signalement->synced_to_firebase = true;
-                    $signalement->last_sync_attempt = now();
-                    $signalement->sync_error = null;
-                    $signalement->save();
-
-                    $synced[] = (string) $signalement->id_signalement;
-
-                } catch (\Exception $e) {
-                    // Erreur pour ce signalement spécifique
-                    Log::error("Erreur sync signalement #{$signalement->id_signalement}: " . $e->getMessage());
-
-                    $signalement->last_sync_attempt = now();
-                    $signalement->sync_error = substr($e->getMessage(), 0, 255);
-                    $signalement->save();
-
-                    $failed[] = (string) $signalement->id_signalement;
-                }
-            }
-
-            // Appliquer le rate limit après une sync réussie
-            Cache::put($cacheKey, time() + 30, 30);
-
-            $success = count($failed) === 0;
-            $message = count($synced) . ' signalement(s) synchronisé(s)';
-            if (count($failed) > 0) {
-                $message .= ', ' . count($failed) . ' en échec';
-            }
-
-            return response()->json([
-                'success' => $success,
-                'message' => $message,
-                'synced' => $synced,
-                'failed' => $failed,
-                'timestamp' => now()->toIso8601String()
+            // Appel HTTP vers le microservice Node.js
+            $response = Http::timeout(10)->post('http://firestore-sync:4000/sync-signalements', [
+                'signalements' => $payload
             ]);
 
-        } catch (\Exception $e) {
-            Log::error('Erreur globale sync Firebase: ' . $e->getMessage());
+            if ($response->successful()) {
+                $result = $response->json();
+                $synced = $result['synced'] ?? [];
+                $failed = $result['failed'] ?? [];
 
+                // Marquer comme synchronisé dans la base locale
+                foreach ($signalements as $signalement) {
+                    if (in_array($signalement->id_signalement, $synced)) {
+                        $signalement->synced_to_firebase = true;
+                        $signalement->last_sync_attempt = now();
+                        $signalement->sync_error = null;
+                        $signalement->save();
+                    }
+                }
+
+                // Appliquer le rate limit après une sync réussie
+                Cache::put($cacheKey, time() + 30, 30);
+
+                $success = count($failed) === 0;
+                $message = count($synced) . ' signalement(s) synchronisé(s)';
+                if (count($failed) > 0) {
+                    $message .= ', ' . count($failed) . ' en échec';
+                }
+
+                return response()->json([
+                    'success' => $success,
+                    'message' => $message,
+                    'synced' => $synced,
+                    'failed' => $failed,
+                    'timestamp' => now()->toIso8601String()
+                ]);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Erreur lors de l\'appel au service Firestore: ' . $response->body(),
+                    'synced' => [],
+                    'failed' => [],
+                    'timestamp' => now()->toIso8601String()
+                ], 500);
+            }
+        } catch (\Exception $e) {
+            Log::error('Erreur globale sync Firestore (Node.js): ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur de synchronisation: ' . $e->getMessage(),

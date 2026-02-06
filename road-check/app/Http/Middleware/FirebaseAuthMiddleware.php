@@ -16,7 +16,14 @@ class FirebaseAuthMiddleware
             return $next($request);
         }
 
-        // 1️⃣ Récupération robuste du token (header ou session)
+        // 1️⃣bis Vérifier si l'utilisateur est connecté via session locale (login sans JWT)
+        if (session()->has('utilisateur')) {
+            $utilisateur = session('utilisateur');
+            $request->attributes->set('firebase_uid', $utilisateur->firebase_uid ?? $utilisateur->id_utilisateur ?? null);
+            return $next($request);
+        }
+
+        // 2️⃣ Récupération robuste du token (header ou session)
         $authHeader =
             $request->header('Authorization')
             ?? $request->server('HTTP_AUTHORIZATION')
