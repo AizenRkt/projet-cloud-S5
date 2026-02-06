@@ -2,13 +2,14 @@ import { PushNotifications } from "@capacitor/push-notifications";
 import { Capacitor } from "@capacitor/core";
 import { getAuth } from "firebase/auth";
 import { getFirestore, doc, setDoc } from "firebase/firestore";
+import { toastController } from "@ionic/vue";
 
 const auth = getAuth();
 const db = getFirestore();
 
 export const initPushNotifications = async () => {
   if (Capacitor.getPlatform() === "web") {
-    console.log("🔔 Notifications push non disponibles sur web");
+    console.log("Notifications push non disponibles sur web");
     return;
   }
 
@@ -22,88 +23,53 @@ export const initPushNotifications = async () => {
     await PushNotifications.register();
 
     PushNotifications.addListener("registration", async (token) => {
-      console.log("🔥 FCM Token :", token.value);
+      console.log("FCM Token :", token.value);
       const user = auth.currentUser;
       if (user) {
         await setDoc(doc(db, "users", user.uid), {
           email: user.email,
           fcmToken: token.value,
-        });
+        }, { merge: true });
         console.log("Token FCM enregistré dans Firestore");
       }
     });
 
-    PushNotifications.addListener("pushNotificationReceived", (notification) => {
-      console.log("📩 Notification reçue :", notification);
+    // Notification reçue quand l'app est ouverte → afficher un toast
+    PushNotifications.addListener("pushNotificationReceived", async (notification) => {
+      console.log("Notification reçue :", notification);
+      
+      const toast = await toastController.create({
+        header: notification.title || "Notification",
+        message: notification.body || "",
+        duration: 4000,
+        position: "top",
+        color: "primary",
+        buttons: [
+          {
+            text: "Voir",
+            role: "info",
+          },
+        ],
+      });
+      await toast.present();
     });
 
+    // Notification tapée → naviguer vers le signalement
     PushNotifications.addListener(
       "pushNotificationActionPerformed",
-      (notification) => {
-        console.log("📩 Action notification :", notification);
+      (action) => {
+        console.log("Action notification :", action);
+        
+        const data = action.notification.data;
+        if (data?.type === "status_change" && data?.signalementId) {
+          // Naviguer vers la page Moi pour voir les signalements
+          window.location.href = "/tabs/moi";
+        }
       }
     );
 
-    console.log("✅ Notifications push initialisées");
+    console.log("Notifications push initialisées");
   } catch (err) {
     console.error("Erreur initPushNotifications :", err);
   }
 };
-
-
-// import { PushNotifications } from "@capacitor/push-notifications";
-// import { getAuth } from "firebase/auth";
-// import { getFirestore, doc, setDoc } from "firebase/firestore";
-
-// // Firebase
-// const auth = getAuth();
-// const db = getFirestore();
-
-// /**
-//  * Initialisation des notifications push
-//  */
-// export const initPushNotifications = async () => {
-//   try {
-//     // Demande permission
-//     const perm = await PushNotifications.requestPermissions();
-//     if (perm.receive !== "granted") {
-//       console.log("Permission notifications refusée");
-//       return;
-//     }
-
-//     // Enregistrement auprès du FCM
-//     await PushNotifications.register();
-
-//     // Événement : token reçu
-//     PushNotifications.addListener("registration", async (token) => {
-//       console.log("🔥 FCM Token :", token.value);
-
-//       // Sauvegarder le token dans Firestore pour l'utilisateur connecté
-//       const user = auth.currentUser;
-//       if (user) {
-//         await setDoc(doc(db, "users", user.uid), {
-//           email: user.email,
-//           fcmToken: token.value,
-//         });
-//         console.log("Token FCM enregistré dans Firestore");
-//       }
-//     });
-
-//     // Événement : notification reçue (quand app ouverte)
-//     PushNotifications.addListener("pushNotificationReceived", (notification) => {
-//       console.log("📩 Notification reçue :", notification);
-//     });
-
-//     // Événement : notification tapée (app ouverte via notification)
-//     PushNotifications.addListener(
-//       "pushNotificationActionPerformed",
-//       (notification) => {
-//         console.log("📩 Action notification :", notification);
-//       }
-//     );
-
-//     console.log("✅ Notifications push initialisées");
-//   } catch (err) {
-//     console.error("Erreur initPushNotifications :", err);
-//   }
-// };
