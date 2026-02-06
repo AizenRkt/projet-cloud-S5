@@ -42,26 +42,17 @@ COPY . .
 # =========================
 # Créer dossiers Laravel et permissions
 # =========================
+
 RUN mkdir -p storage bootstrap/cache \
     && chown -R www-data:www-data /var/www/html \
     && chmod -R 775 storage bootstrap/cache
 
-# =========================
-# Installer dépendances Composer
-# =========================
 WORKDIR /var/www/html/road-check
 
+# Corrige le problème de sécurité Git
+RUN git config --global --add safe.directory /var/www/html
+
+# Installer les dépendances Laravel
 RUN composer install --no-dev --optimize-autoloader
-
-# =========================
-# Extension gRPC pour Firestore
-# =========================
-RUN pecl install grpc \
-    && docker-php-ext-enable grpc
-
-# =========================
-# Installer Firestore PHP SDK
-# =========================
-RUN composer require google/cloud-firestore
 
 CMD ["php-fpm"]

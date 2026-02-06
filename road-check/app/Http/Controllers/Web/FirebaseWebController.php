@@ -30,7 +30,7 @@ class FirebaseWebController extends Controller
         return view('firebase.register');
     }
 
-    // 🔹 Afficher formulaire de login
+    // 🔹 Afficher formulaire de login (sans Firestore côté PHP)
     public function showLoginForm()
     {
         return view('firebase.login');

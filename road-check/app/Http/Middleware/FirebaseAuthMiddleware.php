@@ -10,11 +10,13 @@ class FirebaseAuthMiddleware
 {
     public function handle(Request $request, Closure $next)
     {
-        // 1️⃣ Vérifier si l'utilisateur est déjà authentifié via Laravel Auth (pour login local)
-        if (auth()->check()) {
-            $request->attributes->set('firebase_uid', auth()->id());
+
+        // 1️⃣ Auth local via session 'utilisateur' (login local Laravel)
+        if (session()->has('utilisateur')) {
+            $request->attributes->set('firebase_uid', session('utilisateur')['id_utilisateur'] ?? null);
             return $next($request);
         }
+
 
         // 1️⃣ Récupération robuste du token (header ou session)
         $authHeader =

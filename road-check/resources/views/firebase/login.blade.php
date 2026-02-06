@@ -87,6 +87,12 @@
 </head>
 <body>
     <div class="login-card">
+        @if(isset($firestoreStatus))
+            <div class="alert alert-info mb-3">
+                <i class="bi bi-cloud-check me-2"></i>
+                Firestore : {{ $firestoreStatus }}
+            </div>
+        @endif
         <div class="brand-logo">
             <i class="bi bi-car-front-fill"></i>
         </div>
@@ -132,5 +138,31 @@
             </a>
         </p>
     </div>
+</body>
+        <!-- Firebase JS SDK -->
+        <script src="https://www.gstatic.com/firebasejs/9.6.11/firebase-app.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/9.6.11/firebase-firestore.js"></script>
+        <script>
+            // Config Firebase (remplace par ta config si besoin)
+            const firebaseConfig = {
+                apiKey: "AIzaSyC7XeriIaw-HtnK6NYM7bAgaut6rjltTqo",
+                authDomain: "road-check-a6a4a.firebaseapp.com",
+                projectId: "road-check-a6a4a",
+            };
+            const app = firebase.initializeApp(firebaseConfig);
+            const db = firebase.firestore();
+
+            // Test Firestore : lire la collection 'tentatives_connexion'
+            db.collection('tentatives_connexion').limit(1).get()
+                .then(snapshot => {
+                    let msg = snapshot.empty ? 'Firestore connecté (aucune tentative)' : 'Firestore connecté (tentatives présentes)';
+                    document.querySelector('.login-card').insertAdjacentHTML('afterbegin',
+                        `<div class="alert alert-info mb-3"><i class="bi bi-cloud-check me-2"></i>Firestore JS : ${msg}</div>`);
+                })
+                .catch(err => {
+                    document.querySelector('.login-card').insertAdjacentHTML('afterbegin',
+                        `<div class="alert alert-danger mb-3"><i class="bi bi-exclamation-circle me-2"></i>Firestore JS : ${err.message}</div>`);
+                });
+        </script>
 </body>
 </html>
