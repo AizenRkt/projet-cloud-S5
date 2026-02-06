@@ -10,6 +10,8 @@ use App\Models\TypeSignalement;
 use App\Models\Entreprise;
 use App\Models\Utilisateur;
 use App\Models\Role;
+use App\Models\TentativeConnexion;
+use App\Models\PhotoSignalement;
 use Kreait\Firebase\Auth as FirebaseAuth;
 use Kreait\Firebase\Firestore;
 use Kreait\Firebase\Exception\AuthException;
@@ -214,11 +216,21 @@ class SignalementController extends Controller
         return response()->json(['message' => 'Utilisateur mis à jour', 'data' => $utilisateur]);
     }
 
-    // Débloquer un utilisateur
+    // Débloquer un utilisateur (PG + Firestore)
     public function unblockUtilisateur($id)
     {
         $utilisateur = Utilisateur::findOrFail($id);
         $utilisateur->update(['bloque' => false]);
+
+        // Synchroniser le déblocage vers Firestore
+        try {
+            Http::timeout(5)->post('http://firestore-sync:4000/update-user-bloque', [
+                'email' => $utilisateur->email,
+                'bloque' => false,
+            ]);
+        } catch (\Exception $e) {
+            Log::warning('Sync Firestore déblocage échouée: ' . $e->getMessage());
+        }
 
         return response()->json(['message' => 'Utilisateur débloqué']);
     }
@@ -259,138 +271,401 @@ class SignalementController extends Controller
         }
     }
 
-    // ==================== SYNCHRONISATION SIGNALEMENTS -> FIREBASE ====================
+    // ==================== SYNCHRONISATION BIDIRECTIONNELLE ====================
 
     /**
-     * Synchroniser les signalements locaux vers Firebase Firestore
-     * POST /api/sync/to-firebase
+     * Synchronisation bidirectionnelle PostgreSQL ↔ Firestore
+     * Ordre: entreprises → types_signalement → utilisateurs → signalements → tentatives_connexion
+     * POST /api/sync/bidirectional
      */
-    public function syncSignalementsToFirebase(Request $request)
+    public function syncBidirectional(Request $request)
     {
-        // Rate limiting: max 1 sync toutes les 30 secondes par utilisateur
-        $utilisateur = session('utilisateur');
-        $cacheKey = 'sync_rate_limit_' . ($utilisateur->id_utilisateur ?? 'anonymous');
+        $resultsPgToFs = [
+            'entreprises' => 0,
+            'types_signalement' => 0,
+            'utilisateurs' => 0,
+            'signalements' => 0,
+            'tentatives_connexion' => 0,
+        ];
+        $resultsFsToPg = [
+            'entreprises' => ['inserted' => 0, 'updated' => 0, 'errors' => []],
+            'types_signalement' => ['inserted' => 0, 'updated' => 0, 'errors' => []],
+            'utilisateurs' => ['inserted' => 0, 'updated' => 0, 'errors' => []],
+            'signalements' => ['inserted' => 0, 'updated' => 0, 'errors' => []],
+            'tentatives_connexion' => ['inserted' => 0, 'updated' => 0, 'errors' => []],
+        ];
 
-        if (Cache::has($cacheKey)) {
-            $remainingSeconds = Cache::get($cacheKey) - time();
-            return response()->json([
-                'success' => false,
-                'message' => "Rate limit: veuillez attendre {$remainingSeconds} secondes avant la prochaine synchronisation",
-                'synced' => [],
-                'failed' => [],
-                'timestamp' => now()->toIso8601String()
-            ], 429);
-        }
-
-        // Vérifier que l'utilisateur est un manager (role_id = 1)
-        if (!$utilisateur || $utilisateur->id_role !== 1) {
-            // En mode développement, permettre l'accès pour les tests
-            if (!app()->environment('local')) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Accès refusé: seuls les managers peuvent synchroniser',
-                    'synced' => [],
-                    'failed' => [],
-                    'timestamp' => now()->toIso8601String()
-                ], 403);
-            }
-        }
-
-        // Nouvelle logique : synchronisation via microservice Node.js Firestore
-        $synced = [];
-        $failed = [];
         try {
-            // Récupérer les signalements non synchronisés
-            $signalements = Signalement::where('synced_to_firebase', false)
-                ->with(['typeSignalement', 'entreprise', 'dernierStatut.typeStatus'])
-                ->get();
+            // =============================================
+            // ÉTAPE 1 : PostgreSQL → Firestore
+            // Ordre: entreprises → types_signalement → utilisateurs → signalements → tentatives_connexion
+            // =============================================
 
-            if ($signalements->isEmpty()) {
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Aucun signalement à synchroniser',
-                    'synced' => [],
-                    'failed' => [],
-                    'timestamp' => now()->toIso8601String()
-                ]);
-            }
+            $sessionUser = session('utilisateur');
 
-            // Préparer les données à envoyer
-            $payload = $signalements->map(function ($signalement) {
+            // Préparer toutes les données PG dans le bon ordre
+            $entreprises = Entreprise::all()->map(fn($e) => [
+                'id_entreprise' => $e->id_entreprise,
+                'nom' => $e->nom,
+                'logo' => $e->logo ?? null,
+            ])->toArray();
+
+            $typesSignalement = TypeSignalement::all()->map(fn($ts) => [
+                'id_type_signalement' => $ts->id_type_signalement,
+                'nom' => $ts->nom,
+                'icon' => $ts->icon ?? null,
+            ])->toArray();
+
+            $utilisateurs = Utilisateur::with('role')->get()->map(fn($u) => [
+                'id_utilisateur' => $u->id_utilisateur,
+                'email' => $u->email,
+                'nom' => $u->nom,
+                'prenom' => $u->prenom,
+                'firebase_uid' => $u->firebase_uid,
+                'role' => $u->role ? $u->role->nom : 'Utilisateur',
+                'id_role' => $u->id_role,
+                'bloque' => $u->bloque,
+                'date_creation' => $u->date_creation,
+            ])->toArray();
+
+            $signalements = Signalement::with(['typeSignalement', 'entreprise', 'utilisateur', 'dernierStatut.typeStatus', 'photos'])
+                ->get()
+                ->map(function ($s) use ($sessionUser) {
+                    $email = $s->utilisateur ? $s->utilisateur->email : ($sessionUser ? $sessionUser->email : null);
+                    $uid = $s->utilisateur ? $s->utilisateur->firebase_uid : ($sessionUser ? $sessionUser->firebase_uid : null);
+                    return [
+                        'local_id' => $s->id_signalement,
+                        'firebase_id' => $s->firebase_id,
+                        'budget' => $s->budget,
+                        'date_signalement' => $s->date_signalement,
+                        'date_status' => $s->dernierStatut ? $s->dernierStatut->date_modification : $s->date_signalement,
+                        'description' => $s->description,
+                        'id_entreprise' => $s->id_entreprise,
+                        'entreprise_nom' => $s->entreprise ? $s->entreprise->nom : null,
+                        'latitude' => $s->latitude,
+                        'longitude' => $s->longitude,
+                        'photos' => $s->photos ? $s->photos->pluck('path')->toArray() : [],
+                        'statut' => $s->dernierStatut && $s->dernierStatut->typeStatus ? $s->dernierStatut->typeStatus->code : 'nouveau',
+                        'surface_m2' => $s->surface_m2,
+                        'id_type_signalement' => $s->id_type_signalement,
+                        'type_signalement' => $s->typeSignalement ? $s->typeSignalement->nom : null,
+                        'utilisateur_email' => $email,
+                        'utilisateur_id' => $uid,
+                    ];
+                })->toArray();
+
+            $tentatives = TentativeConnexion::all()->map(function ($tc) {
+                $user = Utilisateur::find($tc->id_utilisateur);
                 return [
-                    'budget' => $signalement->budget,
-                    'date_signalement' => $signalement->date_signalement,
-                    'description' => $signalement->description,
-                    'id_entreprise' => $signalement->id_entreprise,
-                    'entreprise_nom' => $signalement->entreprise ? $signalement->entreprise->nom : null,
-                    'latitude' => $signalement->latitude,
-                    'longitude' => $signalement->longitude,
-                    'statut_libelle' => $signalement->dernierStatut && $signalement->dernierStatut->typeStatus
-                        ? $signalement->dernierStatut->typeStatus->libelle
-                        : 'Nouveau',
-                    'surface_m2' => $signalement->surface_m2,
-                    'id_type_signalement' => $signalement->id_type_signalement,
-                    'type_signalement' => $signalement->typeSignalement ? $signalement->typeSignalement->nom : null,
-                    'utilisateur_email' => $signalement->utilisateur ? $signalement->utilisateur->email : null,
-                    'utilisateur_id' => $signalement->utilisateur ? $signalement->utilisateur->firebase_uid : null,
-                    'local_id' => $signalement->id_signalement,
-                    'firebase_id' => $signalement->firebase_id
+                    'id_tentative' => $tc->id_tentative,
+                    'id_utilisateur' => $tc->id_utilisateur,
+                    'utilisateur_email' => $user ? $user->email : null,
+                    'date_tentative' => $tc->date_tentative,
+                    'succes' => $tc->succes,
                 ];
             })->toArray();
 
-            // Appel HTTP vers le microservice Node.js
-            $response = Http::timeout(10)->post('http://firestore-sync:4000/sync-signalements', [
-                'signalements' => $payload
+            // Envoyer tout au microservice Node.js (PG → Firestore)
+            $pgToFsResponse = Http::timeout(30)->post('http://firestore-sync:4000/sync-all-to-firestore', [
+                'entreprises' => $entreprises,
+                'types_signalement' => $typesSignalement,
+                'utilisateurs' => $utilisateurs,
+                'signalements' => $signalements,
+                'tentatives_connexion' => $tentatives,
             ]);
 
-            if ($response->successful()) {
-                $result = $response->json();
-                $synced = $result['synced'] ?? [];
-                $failed = $result['failed'] ?? [];
+            if ($pgToFsResponse->successful()) {
+                $pgResult = $pgToFsResponse->json()['results'] ?? [];
+                $resultsPgToFs = [
+                    'entreprises' => $pgResult['entreprises']['synced'] ?? 0,
+                    'types_signalement' => $pgResult['types_signalement']['synced'] ?? 0,
+                    'utilisateurs' => $pgResult['utilisateurs']['synced'] ?? 0,
+                    'signalements' => $pgResult['signalements']['synced'] ?? 0,
+                    'tentatives_connexion' => $pgResult['tentatives_connexion']['synced'] ?? 0,
+                ];
 
-                // Marquer comme synchronisé dans la base locale
-                foreach ($signalements as $signalement) {
-                    if (in_array($signalement->id_signalement, $synced)) {
-                        $signalement->synced_to_firebase = true;
-                        $signalement->last_sync_attempt = now();
-                        $signalement->sync_error = null;
-                        $signalement->save();
+                // Marquer les signalements comme synchronisés
+                $syncedIds = $pgResult['synced_ids'] ?? [];
+                if (!empty($syncedIds)) {
+                    Signalement::whereIn('id_signalement', $syncedIds)
+                        ->update([
+                            'synced_to_firebase' => true,
+                            'last_sync_attempt' => now(),
+                            'sync_error' => null,
+                        ]);
+                }
+            }
+
+            // =============================================
+            // ÉTAPE 2 : Firestore → PostgreSQL
+            // Même ordre: entreprises → types_signalement → utilisateurs → signalements → tentatives_connexion
+            // =============================================
+
+            $fsResponse = Http::timeout(30)->get('http://firestore-sync:4000/get-all-collections');
+
+            if ($fsResponse->successful()) {
+                $firestoreData = $fsResponse->json()['data'] ?? [];
+
+                // 1. Entreprises
+                foreach ($firestoreData['entreprises'] ?? [] as $doc) {
+                    try {
+                        $existing = Entreprise::where('nom', $doc['nom'] ?? '')->first();
+                        if ($existing) {
+                            $existing->update(['nom' => $doc['nom'] ?? $existing->nom, 'logo' => $doc['logo'] ?? $existing->logo]);
+                            $resultsFsToPg['entreprises']['updated']++;
+                        } else {
+                            Entreprise::create(['nom' => $doc['nom'] ?? 'Sans nom', 'logo' => $doc['logo'] ?? null]);
+                            $resultsFsToPg['entreprises']['inserted']++;
+                        }
+                    } catch (\Exception $e) {
+                        $resultsFsToPg['entreprises']['errors'][] = $e->getMessage();
                     }
                 }
 
-                // Appliquer le rate limit après une sync réussie
-                Cache::put($cacheKey, time() + 30, 30);
-
-                $success = count($failed) === 0;
-                $message = count($synced) . ' signalement(s) synchronisé(s)';
-                if (count($failed) > 0) {
-                    $message .= ', ' . count($failed) . ' en échec';
+                // 2. Types signalement
+                foreach ($firestoreData['types_signalement'] ?? [] as $doc) {
+                    try {
+                        $existing = TypeSignalement::where('nom', $doc['nom'] ?? '')->first();
+                        if ($existing) {
+                            $existing->update(['nom' => $doc['nom'] ?? $existing->nom, 'icon' => $doc['icon'] ?? $existing->icon]);
+                            $resultsFsToPg['types_signalement']['updated']++;
+                        } else {
+                            TypeSignalement::create(['nom' => $doc['nom'] ?? 'Sans nom', 'icon' => $doc['icon'] ?? null]);
+                            $resultsFsToPg['types_signalement']['inserted']++;
+                        }
+                    } catch (\Exception $e) {
+                        $resultsFsToPg['types_signalement']['errors'][] = $e->getMessage();
+                    }
                 }
 
-                return response()->json([
-                    'success' => $success,
-                    'message' => $message,
-                    'synced' => $synced,
-                    'failed' => $failed,
-                    'timestamp' => now()->toIso8601String()
-                ]);
-            } else {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Erreur lors de l\'appel au service Firestore: ' . $response->body(),
-                    'synced' => [],
-                    'failed' => [],
-                    'timestamp' => now()->toIso8601String()
-                ], 500);
+                // 3. Utilisateurs
+                foreach ($firestoreData['utilisateurs'] ?? [] as $doc) {
+                    try {
+                        $email = $doc['email'] ?? $doc['utilisateurEmail'] ?? null;
+                        if (!$email) continue;
+
+                        $existing = Utilisateur::where('email', $email)->first();
+                        if ($existing) {
+                            // Ne mettre à jour que les champs non-vides de Firestore
+                            $updateData = [];
+                            // nom: ne pas écraser si Firestore est vide
+                            if (!empty($doc['nom'])) {
+                                $updateData['nom'] = $doc['nom'];
+                            }
+                            // prenom: ne pas écraser si Firestore est vide
+                            if (!empty($doc['prenom'])) {
+                                $updateData['prenom'] = $doc['prenom'];
+                            }
+                            // firebase_uid: préférer la valeur non-null
+                            if (!empty($doc['firebase_uid'])) {
+                                $updateData['firebase_uid'] = $doc['firebase_uid'];
+                            }
+                            // bloque: toujours synchroniser (logique OR déjà appliquée dans Node.js)
+                            if (isset($doc['bloque'])) {
+                                $updateData['bloque'] = $doc['bloque'];
+                            }
+                            // id_role: synchroniser si présent et valide
+                            if (isset($doc['id_role']) && (int)$doc['id_role'] > 0) {
+                                $updateData['id_role'] = (int)$doc['id_role'];
+                            }
+                            if (!empty($updateData)) {
+                                $existing->update($updateData);
+                            }
+                            $resultsFsToPg['utilisateurs']['updated']++;
+                        } else {
+                            $roleId = 3;
+                            if (isset($doc['role'])) {
+                                $role = Role::where('nom', $doc['role'])->first();
+                                if ($role) $roleId = $role->id_role;
+                            } elseif (isset($doc['id_role'])) {
+                                $roleId = (int) $doc['id_role'];
+                            }
+                            Utilisateur::create([
+                                'email' => $email,
+                                'password' => \Illuminate\Support\Facades\Hash::make('firebase_user'),
+                                'firebase_uid' => $doc['firebase_uid'] ?? $doc['firestore_id'] ?? 'firestore-' . uniqid(),
+                                'nom' => $doc['nom'] ?? '', 'prenom' => $doc['prenom'] ?? '',
+                                'id_role' => $roleId, 'bloque' => $doc['bloque'] ?? false,
+                            ]);
+                            $resultsFsToPg['utilisateurs']['inserted']++;
+                        }
+                    } catch (\Exception $e) {
+                        $resultsFsToPg['utilisateurs']['errors'][] = $e->getMessage();
+                    }
+                }
+
+                // 4. Signalements
+                foreach ($firestoreData['signalements'] ?? [] as $doc) {
+                    try {
+                        $firestoreId = $doc['firestore_id'] ?? null;
+                        $existing = $firestoreId ? Signalement::where('firebase_id', $firestoreId)->first() : null;
+
+                        $typeSignalementId = null;
+                        if (isset($doc['typeSignalementId'])) {
+                            $typeSignalementId = (int) $doc['typeSignalementId'];
+                        } elseif (isset($doc['typeSignalementNom'])) {
+                            $ts = TypeSignalement::where('nom', $doc['typeSignalementNom'])->first();
+                            $typeSignalementId = $ts ? $ts->id_type_signalement : null;
+                        }
+                        if (!$typeSignalementId) $typeSignalementId = 1;
+
+                        $entrepriseId = null;
+                        if (isset($doc['entrepriseId']) && $doc['entrepriseId']) {
+                            $entrepriseId = (int) $doc['entrepriseId'];
+                        } elseif (isset($doc['entrepriseNom']) && $doc['entrepriseNom']) {
+                            $ent = Entreprise::where('nom', $doc['entrepriseNom'])->first();
+                            $entrepriseId = $ent ? $ent->id_entreprise : null;
+                        }
+
+                        $utilisateurId = null;
+                        if (isset($doc['utilisateurId']) && $doc['utilisateurId']) {
+                            $user = Utilisateur::where('firebase_uid', $doc['utilisateurId'])->first();
+                            $utilisateurId = $user ? $user->id_utilisateur : null;
+                        }
+                        if (!$utilisateurId && isset($doc['utilisateurEmail'])) {
+                            $user = Utilisateur::where('email', $doc['utilisateurEmail'])->first();
+                            $utilisateurId = $user ? $user->id_utilisateur : null;
+                        }
+
+                        $signalementData = [
+                            'id_type_signalement' => $typeSignalementId,
+                            'id_entreprise' => $entrepriseId,
+                            'latitude' => $doc['latitude'] ?? 0, 'longitude' => $doc['longitude'] ?? 0,
+                            'description' => $doc['description'] ?? '',
+                            'surface_m2' => $doc['surface'] ?? $doc['surface_m2'] ?? 0,
+                            'budget' => $doc['budget'] ?? 0,
+                            'date_signalement' => isset($doc['dateSignalement']) ? date('Y-m-d H:i:s', strtotime($doc['dateSignalement'])) : now(),
+                            'synced_to_firebase' => true, 'firebase_id' => $firestoreId,
+                            'last_sync_attempt' => now(), 'sync_error' => null,
+                        ];
+
+                        if ($existing) {
+                            $existing->update($signalementData);
+
+                            // Sync photos: fusionner PG existantes + Firestore
+                            $photosArray = $doc['photos'] ?? [];
+                            if (is_array($photosArray) && count($photosArray) > 0) {
+                                // Récupérer les photos PG existantes
+                                $existingPhotos = PhotoSignalement::where('id_signalement', $existing->id_signalement)
+                                    ->pluck('path')->toArray();
+                                // Insérer les photos Firestore qui n'existent pas déjà dans PG
+                                foreach ($photosArray as $photoPath) {
+                                    if ($photoPath && is_string($photoPath) && !in_array($photoPath, $existingPhotos)) {
+                                        PhotoSignalement::create([
+                                            'id_signalement' => $existing->id_signalement,
+                                            'path' => $photoPath,
+                                        ]);
+                                    }
+                                }
+                            }
+
+                            $resultsFsToPg['signalements']['updated']++;
+                        } else {
+                            // Seulement pour les nouveaux signalements: assigner l'utilisateur
+                            $signalementData['id_utilisateur'] = $utilisateurId;
+                            $sig = Signalement::create($signalementData);
+                            $statusCode = $doc['status'] ?? 'nouveau';
+                            $typeStatus = SignalementTypeStatus::where('code', $statusCode)->first();
+                            if ($typeStatus) {
+                                SignalementStatus::create([
+                                    'id_signalement' => $sig->id_signalement,
+                                    'id_signalement_type_status' => $typeStatus->id_signalement_type_status,
+                                    'date_modification' => isset($doc['dateStatus']) ? date('Y-m-d H:i:s', strtotime($doc['dateStatus'])) : now(),
+                                ]);
+                            }
+
+                            // Sync photos pour le nouveau signalement
+                            $photosArray = $doc['photos'] ?? [];
+                            if (is_array($photosArray)) {
+                                foreach ($photosArray as $photoPath) {
+                                    if ($photoPath && is_string($photoPath)) {
+                                        PhotoSignalement::create([
+                                            'id_signalement' => $sig->id_signalement,
+                                            'path' => $photoPath,
+                                        ]);
+                                    }
+                                }
+                            }
+
+                            $resultsFsToPg['signalements']['inserted']++;
+                        }
+                    } catch (\Exception $e) {
+                        $resultsFsToPg['signalements']['errors'][] = ($doc['firestore_id'] ?? 'unknown') . ': ' . $e->getMessage();
+                    }
+                }
+
+                // 5. Tentatives connexion (champs Firestore: email, success, timestamp)
+                foreach ($firestoreData['tentatives_connexion'] ?? [] as $doc) {
+                    try {
+                        // Résoudre l'utilisateur par email
+                        $utilisateurId = null;
+                        $email = $doc['email'] ?? $doc['utilisateurEmail'] ?? null;
+                        if (isset($doc['id_utilisateur'])) {
+                            $utilisateurId = (int) $doc['id_utilisateur'];
+                        } elseif ($email) {
+                            $user = Utilisateur::where('email', $email)->first();
+                            $utilisateurId = $user ? $user->id_utilisateur : null;
+                        }
+
+                        // Résoudre la date: champ timestamp (ms) ou dateTentative ou date_tentative
+                        if (isset($doc['timestamp'])) {
+                            $dateTentative = date('Y-m-d H:i:s', intval($doc['timestamp'] / 1000));
+                        } elseif (isset($doc['dateTentative'])) {
+                            $dateTentative = date('Y-m-d H:i:s', strtotime($doc['dateTentative']));
+                        } elseif (isset($doc['date_tentative'])) {
+                            $dateTentative = date('Y-m-d H:i:s', strtotime($doc['date_tentative']));
+                        } else {
+                            $dateTentative = now();
+                        }
+
+                        // Résoudre le succès: champ success ou succes
+                        $succes = $doc['success'] ?? $doc['succes'] ?? false;
+
+                        $existing = TentativeConnexion::where('id_utilisateur', $utilisateurId)
+                            ->where('date_tentative', $dateTentative)->first();
+
+                        if ($existing) {
+                            $existing->update(['succes' => $succes]);
+                            $resultsFsToPg['tentatives_connexion']['updated']++;
+                        } else {
+                            TentativeConnexion::create([
+                                'id_utilisateur' => $utilisateurId,
+                                'date_tentative' => $dateTentative,
+                                'succes' => $succes,
+                            ]);
+                            $resultsFsToPg['tentatives_connexion']['inserted']++;
+                        }
+                    } catch (\Exception $e) {
+                        $resultsFsToPg['tentatives_connexion']['errors'][] = $e->getMessage();
+                    }
+                }
             }
+
+            // =============================================
+            // RÉSUMÉ
+            // =============================================
+            $totalPgToFs = array_sum($resultsPgToFs);
+            $totalInserted = array_sum(array_column($resultsFsToPg, 'inserted'));
+            $totalUpdated = array_sum(array_column($resultsFsToPg, 'updated'));
+            $totalErrors = array_sum(array_map(fn($r) => count($r['errors']), $resultsFsToPg));
+
+            return response()->json([
+                'success' => $totalErrors === 0,
+                'message' => "PG→Firestore: {$totalPgToFs} envoyé(s) | Firestore→PG: {$totalInserted} inséré(s), {$totalUpdated} mis à jour"
+                    . ($totalErrors > 0 ? " | {$totalErrors} erreur(s)" : ''),
+                'pg_to_firestore' => $resultsPgToFs,
+                'firestore_to_pg' => $resultsFsToPg,
+                'timestamp' => now()->toIso8601String(),
+            ]);
+
         } catch (\Exception $e) {
-            Log::error('Erreur globale sync Firestore (Node.js): ' . $e->getMessage());
+            Log::error('Erreur sync bidirectionnelle: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur de synchronisation: ' . $e->getMessage(),
-                'synced' => $synced,
-                'failed' => $failed,
-                'timestamp' => now()->toIso8601String()
+                'pg_to_firestore' => $resultsPgToFs,
+                'firestore_to_pg' => $resultsFsToPg,
+                'timestamp' => now()->toIso8601String(),
             ], 500);
         }
     }
@@ -469,19 +744,18 @@ class SignalementController extends Controller
     /**
      * Endpoint de test pour la synchronisation (développement uniquement)
      */
-    public function testSyncSignalementsToFirebase()
+    public function testSyncBidirectional()
     {
         if (!app()->environment('local')) {
             return response()->json(['error' => 'Endpoint de test uniquement disponible en développement'], 403);
         }
 
-        // Simuler une session utilisateur manager
         session(['utilisateur' => (object)['id_utilisateur' => 1, 'id_role' => 1, 'email' => 'admin@gmail.com']]);
 
         $request = new \Illuminate\Http\Request();
         $request->setMethod('POST');
 
-        return $this->syncSignalementsToFirebase($request);
+        return $this->syncBidirectional($request);
     }
     public function getSyncStatus()
     {

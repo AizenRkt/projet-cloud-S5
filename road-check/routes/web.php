@@ -26,12 +26,12 @@ Route::post('/api/utilisateurs/{id}/unblock', [SignalementController::class, 'un
 Route::post('/api/utilisateurs/unblock-by-email', [SignalementController::class, 'unblockByEmail']);
 Route::post('/api/sync-users', [SignalementController::class, 'syncUsersToFirebase']);
 
-// Synchronisation signalements vers Firebase
+// Synchronisation bidirectionnelle PostgreSQL <-> Firestore
 if (app()->environment('local')) {
-    Route::post('/api/sync/to-firebase', [SignalementController::class, 'syncSignalementsToFirebase'])->withoutMiddleware(['csrf']);
-    Route::get('/api/test-sync', [SignalementController::class, 'testSyncSignalementsToFirebase']);
+    Route::post('/api/sync/bidirectional', [SignalementController::class, 'syncBidirectional'])->withoutMiddleware(['csrf']);
+    Route::get('/api/test-sync', [SignalementController::class, 'testSyncBidirectional']);
 } else {
-    Route::post('/api/sync/to-firebase', [SignalementController::class, 'syncSignalementsToFirebase']);
+    Route::post('/api/sync/bidirectional', [SignalementController::class, 'syncBidirectional']);
 }
 Route::post('/api/sync/resync/{id}', [SignalementController::class, 'markForResync']);
 Route::get('/api/sync/status', [SignalementController::class, 'getSyncStatus']);

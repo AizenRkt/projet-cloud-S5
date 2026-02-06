@@ -184,15 +184,16 @@
                     <div id="syncStatusContent">Chargement...</div>
                 </div>
                 <div style="display:flex;gap:12px;flex-direction:column;">
-                    <div style="padding:15px;background:#21262d;border-radius:8px;">
-                        <h4 style="color:#58a6ff;margin-bottom:10px;">Signalements</h4>
-                        <p style="font-size:0.85rem;color:#8b949e;margin-bottom:12px;">Synchroniser les signalements locaux vers Firebase Firestore</p>
-                        <button class="btn-save" onclick="syncSignalementsToFirebase()">Synchroniser les signalements</button>
+                    <div style="padding:15px;background:#21262d;border-radius:8px;border:1px solid #58a6ff;">
+                        <h4 style="color:#58a6ff;margin-bottom:10px;">Synchronisation bidirectionnelle</h4>
+                        <p style="font-size:0.85rem;color:#8b949e;margin-bottom:8px;">PostgreSQL → Firestore puis Firestore → PostgreSQL</p>
+                        <p style="font-size:0.8rem;color:#8b949e;margin-bottom:12px;">Ordre: entreprises → types_signalement → utilisateurs → signalements → tentatives_connexion</p>
+                        <button class="btn-save" style="background:#238636;font-size:1rem;padding:12px 24px;width:100%;" onclick="syncBidirectional()">Synchroniser (PostgreSQL ↔ Firestore)</button>
                     </div>
                     <div style="padding:15px;background:#21262d;border-radius:8px;">
-                        <h4 style="color:#58a6ff;margin-bottom:10px;">Utilisateurs</h4>
-                        <p style="font-size:0.85rem;color:#8b949e;margin-bottom:12px;">Synchroniser les utilisateurs locaux vers Firebase Auth</p>
-                        <button class="btn-save" style="background:#1f6feb;" onclick="syncUsersToFirebase()">Synchroniser les utilisateurs</button>
+                        <h4 style="color:#1f6feb;margin-bottom:10px;">Utilisateurs → Firebase Auth</h4>
+                        <p style="font-size:0.85rem;color:#8b949e;margin-bottom:12px;">Créer les comptes email/password dans Firebase Authentication</p>
+                        <button class="btn-save" style="background:#1f6feb;" onclick="syncUsersToFirebaseAuth()">Synchroniser les utilisateurs vers Firebase Auth</button>
                     </div>
                 </div>
             </div>
@@ -461,45 +462,8 @@
             }
         }
 
-        async function syncSignalementsToFirebase() {
-            showLoading('Synchronisation des signalements vers Firebase...');
-            try {
-                const res = await fetch('/api/sync/to-firebase', {
-                    method: 'POST',
-                    headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content }
-                });
-                const data = await res.json();
-                hideLoading();
-
-                if (res.status === 429) {
-                    showToast(data.message, 'warning');
-                    return;
-                }
-                if (res.status === 403) {
-                    showToast(data.message, 'error');
-                    return;
-                }
-
-                if (data.success) {
-                    showToast(data.message, 'success');
-                    if (data.synced.length > 0) {
-                        showToast(`IDs synchronises: ${data.synced.join(', ')}`, 'info', 6000);
-                    }
-                } else {
-                    showToast(data.message, 'error');
-                    if (data.failed.length > 0) {
-                        showToast(`IDs en echec: ${data.failed.join(', ')}`, 'warning', 6000);
-                    }
-                }
-                loadSyncStatus();
-            } catch (e) {
-                hideLoading();
-                showToast('Erreur de connexion', 'error');
-            }
-        }
-
-        async function syncUsersToFirebase() {
-            showLoading('Synchronisation des utilisateurs vers Firebase...');
+        async function syncUsersToFirebaseAuth() {
+            showLoading('Synchronisation des utilisateurs vers Firebase Auth...');
             try {
                 const res = await fetch('/api/sync-users', {
                     method: 'POST',
@@ -514,7 +478,51 @@
                 }
             } catch (e) {
                 hideLoading();
-                showToast('Erreur de connexion a Firebase', 'error');
+                showToast('Erreur de connexion a Firebase Auth', 'error');
+            }
+        }
+
+        async function syncBidirectional() {
+            const confirmed = await showConfirm('Lancer la synchronisation bidirectionnelle ?\n\n1. PostgreSQL → Firestore\n2. Firestore → PostgreSQL\n\nOrdre: entreprises → types → utilisateurs → signalements → tentatives');
+            if (!confirmed) return;
+            showLoading('Synchronisation bidirectionnelle en cours...');
+            try {
+                const res = await fetch('/api/sync/bidirectional', {
+                    method: 'POST',
+                    headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content }
+                });
+                const data = await res.json();
+                hideLoading();
+
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    // Détail PG → Firestore
+                    if (data.pg_to_firestore) {
+                        const pg = data.pg_to_firestore;
+                        const totalPg = Object.values(pg).reduce((a, b) => a + b, 0);
+                        if (totalPg > 0) {
+                            showToast(`PG→Firestore: ${totalPg} document(s) envoyé(s)`, 'info', 5000);
+                        }
+                    }
+                    // Détail Firestore → PG
+                    if (data.firestore_to_pg) {
+                        for (const [col, info] of Object.entries(data.firestore_to_pg)) {
+                            if (info.inserted > 0 || info.updated > 0) {
+                                showToast(`FS→PG ${col}: ${info.inserted} inséré(s), ${info.updated} mis à jour`, 'info', 5000);
+                            }
+                            if (info.errors && info.errors.length > 0) {
+                                showToast(`${col}: ${info.errors.length} erreur(s)`, 'warning', 5000);
+                            }
+                        }
+                    }
+                    loadSyncStatus();
+                    loadSignalements();
+                } else {
+                    showToast(data.message || 'Erreur de synchronisation', 'error');
+                }
+            } catch (e) {
+                hideLoading();
+                showToast('Erreur de connexion au service de synchronisation', 'error');
             }
         }
 
