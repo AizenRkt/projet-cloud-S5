@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\FirebaseAuthController;
 use App\Http\Controllers\Web\FirebaseWebController;
 use App\Http\Controllers\SignalementController;
+use App\Http\Controllers\Signalements\SignalementValidationController;
 
 // ==================== API Routes (pour le frontend React) ====================
 
@@ -11,6 +12,7 @@ use App\Http\Controllers\SignalementController;
 Route::get('/api/signalements', [SignalementController::class, 'index']);
 Route::put('/api/signalements/{id}', [SignalementController::class, 'update']);
 Route::get('/api/signalements/stats', [SignalementController::class, 'stats']);
+Route::post('/api/signalements/{id}/validate', [SignalementValidationController::class, 'validateSignalement']);
 
 // Données référentielles
 Route::get('/api/entreprises', [SignalementController::class, 'getEntreprises']);
@@ -41,6 +43,9 @@ Route::middleware('firebase.auth')->group(function () {
     Route::get('/map', function () {
         return view('map');
     })->name('map');
+    Route::get('/signalements/validation', function () {
+        return view('signalements.index');
+    })->name('signalements.validation');
 });
 
 Route::get('/', function () {
