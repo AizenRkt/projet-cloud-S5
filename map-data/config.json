@@ -14,12 +14,6 @@
   "data": {
     "antananarivo": {
       "mbtiles": "antananarivo.mbtiles"
-    },
-    "antananarivo_analamanga": {
-      "mbtiles": "antananarivo_analamanga.mbtiles"
-    },
-    "madagascar": {
-      "mbtiles": "madagascar.mbtiles"
     }
   }
 }
