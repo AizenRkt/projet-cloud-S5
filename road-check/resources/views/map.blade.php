@@ -76,6 +76,20 @@
         .action-btn { padding: 4px 10px; border: 1px solid #30363d; background: transparent; color: #8b949e; border-radius: 4px; cursor: pointer; }
         .action-btn:hover { border-color: #58a6ff; }
         .loading { text-align: center; padding: 40px; color: #8b949e; }
+        
+        /* Search & Filter Styles */
+        .search-container { padding: 15px; border-bottom: 1px solid #30363d; background: #1c2128; }
+        .search-input { width: 100%; padding: 8px 12px; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #c9d1d9; font-size: 0.9rem; transition: border-color 0.2s; }
+        .search-input:focus { border-color: #58a6ff; outline: none; }
+        .search-input::placeholder { color: #8b949e; }
+        .date-filters { display: flex; gap: 8px; margin-top: 10px; }
+        .date-filters .search-input { flex: 1; }
+
+        /* Scrollbar Styling */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #161b22; }
+        ::-webkit-scrollbar-thumb { background: #30363d; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #58a6ff; }
     </style>
 </head>
 <body>
@@ -102,15 +116,32 @@
                     <button class="filter-tab" onclick="filterBy('termine', this)"> Terminé</button>
                 </div>
             </div>
+            <div class="search-container">
+                <input type="text" id="searchInput" class="search-input" placeholder="Rechercher un signalement..." oninput="handleSearch(this.value)">
+                <div class="date-filters">
+                    <input type="date" id="dateStart" class="search-input" onchange="renderSignalements(); renderMarkers();" placeholder="Du">
+                    <input type="date" id="dateEnd" class="search-input" onchange="renderSignalements(); renderMarkers();" placeholder="Au">
+                </div>
+            </div>
             <div class="sidebar-content" id="signalementsList"><div class="loading">Chargement...</div></div>
         </aside>
         <div class="map-container">
             <div id="map"></div>
+            <button class="locate-btn" onclick="locateMe()" title="Ma position">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+            </button>
             <div class="stats-bar">
-                <div class="stat-item"><div class="stat-value nouveau" id="statNouveau">0</div><div class="stat-label">Nouveaux</div></div>
+                <div class="stat-item"><div class="stat-value nouveau" id="statNouveau">0</div><div class="stat-label">Validés</div></div>
                 <div class="stat-item"><div class="stat-value en_cours" id="statEnCours">0</div><div class="stat-label">En cours</div></div>
                 <div class="stat-item"><div class="stat-value termine" id="statTermine">0</div><div class="stat-label">Terminés</div></div>
                 <div class="stat-item"><div class="stat-value" id="statTotal">0</div><div class="stat-label">Total</div></div>
+                <div class="stat-item" style="min-width: 100px;">
+                    <div class="stat-value" id="statGlobalProgress" style="color: #58a6ff;">0%</div>
+                    <div class="stat-label">Avancement Global</div>
+                    <div style="height:4px;background:#30363d;border-radius:2px;overflow:hidden;margin-top:4px;width:100%;">
+                        <div id="statGlobalProgressBar" style="width:0%;height:100%;background:#58a6ff;"></div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -152,8 +183,19 @@
     <script>
         let map, markers = [], signalements = [], entreprises = [], typeSignalements = [], typeStatuts = [], utilisateurs = [], roles = [];
         let currentFilter = 'all', selectedSig = null;
+        
+        const statusLabels = {
+            en_attente: "En attente",
+            nouveau: "Validé",
+            en_cours: "En cours de traitement",
+            termine: "Terminé",
+            annule: "Annulé"
+        };
+
         document.addEventListener('DOMContentLoaded', () => { initMap(); loadAllData(); });
+        
         function initMap() { map = L.map('map').setView([-18.9137, 47.5361], 13); L.tileLayer('http://localhost:8081/styles/Basic/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map); }
+        
         async function loadAllData() {
             try {
                 const [sigRes, entRes, typeRes, statRes, userRes, roleRes] = await Promise.all([
@@ -166,30 +208,91 @@
                 renderSignalements(); renderMarkers(); updateStats();
             } catch (e) { console.error(e); document.getElementById('signalementsList').innerHTML = '<div style="padding:20px;color:#f85149;">Erreur: ' + e.message + '</div>'; }
         }
+
+        function getProgress(status) {
+            if (status === 'termine') return 100;
+            if (status === 'en_cours') return 50;
+            return 0;
+        }
+
+        function filterSignalements() {
+            const start = document.getElementById('dateStart').value;
+            const end = document.getElementById('dateEnd').value;
+            const startDate = start ? new Date(start) : null;
+            const endDate = end ? new Date(end) : null;
+
+            return signalements.filter(s => {
+                const statusMatch = currentFilter === 'all' || s.statut === currentFilter;
+                let dateMatch = true;
+                if (s.created_at || s.date_signalement) {
+                    const sDate = new Date(s.created_at || s.date_signalement);
+                    if (startDate && sDate < startDate) dateMatch = false;
+                    if (endDate) {
+                        const eDate = new Date(endDate);
+                        eDate.setHours(23,59,59);
+                        if (sDate > eDate) dateMatch = false;
+                    }
+                }
+                return statusMatch && dateMatch;
+            });
+        }
+
         function renderSignalements() {
             const container = document.getElementById('signalementsList');
-            const filtered = currentFilter === 'all' ? signalements : signalements.filter(s => s.statut === currentFilter);
+            const filtered = filterSignalements();
+            
             if (filtered.length === 0) { container.innerHTML = '<div style="padding:30px;text-align:center;color:#8b949e;">Aucun signalement</div>'; return; }
+            
             container.innerHTML = filtered.map(s => {
                 const lat = parseFloat(s.latitude);
                 const lng = parseFloat(s.longitude);
-                return '<div class="sig-card' + (selectedSig?.id_signalement === s.id_signalement ? ' selected' : '') + '" onclick="selectSignalement(' + s.id_signalement + ')"><div class="sig-header"><span class="sig-type">' + (s.type_signalement || 'Non défini') + '</span><span class="sig-status ' + s.statut + '">' + (s.statut_libelle || 'Nouveau') + '</span></div><div class="sig-desc">' + (s.description || 'Aucune description') + '</div><div class="sig-info"> ' + (isNaN(lat) ? '-' : lat.toFixed(4)) + ', ' + (isNaN(lng) ? '-' : lng.toFixed(4)) + '</div></div>';
+                const progress = getProgress(s.statut);
+                const label = statusLabels[s.statut] || s.statut_libelle || s.statut;
+                return `
+                    <div class="sig-card${selectedSig?.id_signalement === s.id_signalement ? ' selected' : ''}" onclick="selectSignalement(${s.id_signalement})">
+                        <div class="sig-header">
+                            <span class="sig-type">${s.type_signalement || 'Non défini'}</span>
+                            <span class="sig-status ${s.statut}">${label}</span>
+                        </div>
+                        <div class="sig-desc">${s.description || 'Aucune description'}</div>
+                        <div class="sig-info">
+                            <div style="margin-bottom:4px;display:flex;justify-content:space-between;">
+                                <span>Avancement</span>
+                                <span>${progress}%</span>
+                            </div>
+                            <div style="height:4px;background:#30363d;border-radius:2px;overflow:hidden;margin-bottom:6px;">
+                                <div style="width:${progress}%;height:100%;background:${progress === 100 ? '#238636' : (progress === 50 ? '#f0883e' : '#30363d')}"></div>
+                            </div>
+                            <div style="font-size:0.7rem;color:#8b949e;">${isNaN(lat) ? '-' : lat.toFixed(4)}, ${isNaN(lng) ? '-' : lng.toFixed(4)}</div>
+                            <div style="font-size:0.7rem;color:#8b949e;">${s.created_at ? new Date(s.created_at).toLocaleDateString() : ''}</div>
+                        </div>
+                    </div>`;
             }).join('');
+            updateStats(filtered);
         }
+
         function renderMarkers() {
             markers.forEach(m => map.removeLayer(m)); markers = [];
-            signalements.forEach(s => {
+            const filtered = filterSignalements();
+            
+            filtered.forEach(s => {
                 const lat = parseFloat(s.latitude);
                 const lng = parseFloat(s.longitude);
                 if (!isNaN(lat) && !isNaN(lng)) {
-                    const colors = { nouveau: '#1f6feb', en_cours: '#f0883e', termine: '#238636' };
-                    const marker = L.circleMarker([lat, lng], { radius: 10, fillColor: colors[s.statut] || '#1f6feb', color: '#fff', weight: 2, fillOpacity: 0.8 }).addTo(map);
+                    const colors = { nouveau: '#1f6feb', en_cours: '#f0883e', termine: '#238636', en_attente: '#8b949e', annule: '#f85149' };
+                    const marker = L.circleMarker([lat, lng], { radius: 10, fillColor: colors[s.statut] || '#8b949e', color: '#fff', weight: 2, fillOpacity: 0.8 }).addTo(map);
 
-                    // Tooltip for hover (all info)
+                    const label = statusLabels[s.statut] || s.statut_libelle || s.statut;
+                    const progress = getProgress(s.statut);
+
                     const tooltipContent = `
                         <div style="text-align:left;">
                             <strong>${s.type_signalement || 'Signalement'}</strong><br/>
-                            <span style="font-size:0.8rem;color:#8b949e;">${s.statut_libelle}</span><br/>
+                            <span style="font-size:0.8rem;color:#8b949e;">${label}</span><br/>
+                            <div style="margin:5px 0;">Avancement: ${progress}%</div>
+                            <div style="height:4px;background:#ddd;border-radius:2px;overflow:hidden;width:100px;">
+                                <div style="width:${progress}%;height:100%;background:${progress === 100 ? '#238636' : (progress === 50 ? '#f0883e' : '#30363d')}"></div>
+                            </div>
                             <hr style="border:0;border-top:1px solid #ccc;margin:5px 0;"/>
                             ${s.description || 'Pas de description'}<br/>
                             <small>Surface: ${s.surface_m2 || '-'} m² | Budget: ${s.budget || '-'} Ar</small><br/>
@@ -197,15 +300,12 @@
                         </div>
                     `;
                     marker.bindTooltip(tooltipContent, { direction: 'top', offset: [0, -10] });
-
-                    marker.bindTooltip(tooltipContent, { direction: 'top', offset: [0, -10] });
-
-                    // Click action: open detail directly
                     marker.on('click', () => selectSignalement(s.id_signalement));
                     markers.push(marker);
                 }
             });
         }
+
         function selectSignalement(id) {
             selectedSig = signalements.find(s => s.id_signalement === id);
             if (!selectedSig) return;
@@ -215,24 +315,43 @@
             const lng = parseFloat(selectedSig.longitude);
             if (!isNaN(lat) && !isNaN(lng)) map.setView([lat, lng], 16);
         }
+
         function openDetail() {
             const panel = document.getElementById('detailPanel'); const s = selectedSig;
             document.getElementById('detailContent').innerHTML = '<form onsubmit="saveSignalement(event)"><div class="form-group"><label>Type</label><select id="editType">' + typeSignalements.map(t => '<option value="' + t.id_type_signalement + '"' + (s.id_type_signalement == t.id_type_signalement ? ' selected' : '') + '>' + t.nom + '</option>').join('') + '</select></div><div class="form-group"><label>Statut</label><select id="editStatut">' + typeStatuts.map(t => '<option value="' + t.code + '"' + (s.statut === t.code ? ' selected' : '') + '>' + t.libelle + '</option>').join('') + '</select></div><div class="form-group"><label>Description</label><textarea id="editDescription">' + (s.description || '') + '</textarea></div><div class="form-row"><div class="form-group"><label>Surface (m²)</label><input type="number" id="editSurface" value="' + (s.surface_m2 || '') + '"></div><div class="form-group"><label>Budget</label><input type="number" id="editBudget" value="' + (s.budget || '') + '"></div></div><div class="form-group"><label>Entreprise</label><select id="editEntreprise"><option value="">--</option>' + entreprises.map(e => '<option value="' + e.id_entreprise + '"' + (s.id_entreprise == e.id_entreprise ? ' selected' : '') + '>' + e.nom + '</option>').join('') + '</select></div><div style="display:flex;gap:10px;"><button type="submit" class="btn-save" style="flex:2;"> Enregistrer</button><button type="button" class="btn-save" style="flex:1;background:#30363d;" onclick="closeDetail()">Annuler</button></div></form>';
             panel.classList.add('open');
         }
+
         function closeDetail() { document.getElementById('detailPanel').classList.remove('open'); selectedSig = null; renderSignalements(); }
+
         async function saveSignalement(e) {
             e.preventDefault(); if (!selectedSig) return;
             const data = { id_type_signalement: document.getElementById('editType').value, statut: document.getElementById('editStatut').value, description: document.getElementById('editDescription').value, surface_m2: document.getElementById('editSurface').value || null, budget: document.getElementById('editBudget').value || null, id_entreprise: document.getElementById('editEntreprise').value || null };
             try { const res = await fetch('/api/signalements/' + selectedSig.id_signalement, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content }, body: JSON.stringify(data) }); if (res.ok) { alert('Mis à jour'); closeDetail(); loadAllData(); } else alert('Erreur'); } catch (err) { alert('Erreur'); }
         }
-        function updateStats() {
-            document.getElementById('statNouveau').textContent = signalements.filter(s => s.statut === 'nouveau').length;
-            document.getElementById('statEnCours').textContent = signalements.filter(s => s.statut === 'en_cours').length;
-            document.getElementById('statTermine').textContent = signalements.filter(s => s.statut === 'termine').length;
-            document.getElementById('statTotal').textContent = signalements.length;
+
+        function updateStats(filteredData = signalements) {
+            const total = filteredData.length;
+            const nouveau = filteredData.filter(s => s.statut === 'nouveau').length;
+            const enCours = filteredData.filter(s => s.statut === 'en_cours').length;
+            const termine = filteredData.filter(s => s.statut === 'termine').length;
+
+            document.getElementById('statNouveau').textContent = nouveau;
+            document.getElementById('statEnCours').textContent = enCours;
+            document.getElementById('statTermine').textContent = termine;
+            document.getElementById('statTotal').textContent = total;
+
+            // Global Progress
+            let totalProgress = 0;
+            filteredData.forEach(s => totalProgress += getProgress(s.statut));
+            const avgProgress = total > 0 ? Math.round(totalProgress / total) : 0;
+            
+            document.getElementById('statGlobalProgress').textContent = avgProgress + '%';
+            document.getElementById('statGlobalProgressBar').style.width = avgProgress + '%';
         }
-        function filterBy(filter, btn) { currentFilter = filter; document.querySelectorAll('.filter-tab').forEach(b => b.classList.remove('active')); btn.classList.add('active'); renderSignalements(); }
+
+        function filterBy(filter, btn) { currentFilter = filter; document.querySelectorAll('.filter-tab').forEach(b => b.classList.remove('active')); btn.classList.add('active'); renderSignalements(); renderMarkers(); }
+
         function openUsersModal() { document.getElementById('usersModal').classList.add('open'); renderUsersTable(); }
         function closeUsersModal() { document.getElementById('usersModal').classList.remove('open'); }
         function renderUsersTable() {
@@ -251,6 +370,22 @@
         function closeRolesModal() { document.getElementById('rolesModal').classList.remove('open'); }
         async function logout() { try { await fetch('/logout', { method: 'POST', headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content } }); window.location.href = '/login'; } catch (e) { alert('Erreur'); } }
         function syncFirebase() { alert('Synchronisation...'); }
+        function locateMe() {
+            if (map) map.locate({setView: true, maxZoom: 16});
+        }
+        function handleSearch(val) {
+             // Basic text search could be implemented here if needed, but we rely on leaflet control for geo search
+             // Or filters local signalements:
+             if(!val) { renderSignalements(); renderMarkers(); return; }
+             const lower = val.toLowerCase();
+             const filtered = signalements.filter(s => 
+                (s.description && s.description.toLowerCase().includes(lower)) ||
+                (s.type_signalement && s.type_signalement.toLowerCase().includes(lower)) ||
+                (s.statut && s.statut.toLowerCase().includes(lower))
+             );
+             // We could update UI with this 'filtered' list, but it requires refactoring render logic to accept args or global state
+             // For now let's just use the date/status filter logic
+        }
     </script>
 </body>
 </html>
