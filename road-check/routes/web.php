@@ -51,7 +51,7 @@ Route::get('/', function () {
 Route::get('/register', [FirebaseWebController::class, 'showRegisterForm'])->name('register.form');
 Route::post('/register', [FirebaseWebController::class, 'register'])->name('register.submit');
 
-Route::get('/login', [FirebaseWebController::class, 'showLoginForm'])->name('login.form');
+Route::get('/', [FirebaseWebController::class, 'showLoginForm'])->name('login.form');
 Route::post('/login', [FirebaseWebController::class, 'login'])->name('login.submit');
 
 Route::middleware('firebase.auth')->group(function () {

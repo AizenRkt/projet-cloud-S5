@@ -71,251 +71,238 @@ app.post('/sync-signalements', async (req, res) => {
   res.json({ success: results.failed.length === 0, ...results });
 });
 
-// Route POST pour synchroniser TOUTES les collections PG → Firestore (avec déduplication)
-app.post('/sync-all-to-firestore', async (req, res) => {
-  const { entreprises, types_signalement, utilisateurs, signalements, tentatives_connexion } = req.body;
-  const results = {
-    entreprises: { synced: 0, failed: 0, duplicates_removed: 0 },
-    types_signalement: { synced: 0, failed: 0, duplicates_removed: 0 },
-    utilisateurs: { synced: 0, failed: 0, duplicates_removed: 0 },
-    signalements: { synced: 0, failed: 0, duplicates_removed: 0 },
-    tentatives_connexion: { synced: 0, failed: 0, duplicates_removed: 0 },
-    synced_ids: []
-  };
+// Route POST pour synchroniser TOUTES les collections PG → Firestore (asynchrone, réponse immédiate)
+app.post('/sync-all-to-firestore', (req, res) => {
+  // Répondre immédiatement pour éviter le timeout HTTP
+  res.json({ success: true, message: 'Synchronisation Firestore lancée en arrière-plan.' });
 
-  try {
-    // 1. Entreprises - champs: id, code, nom, logo - dédupliqué par nom
-    if (Array.isArray(entreprises)) {
-      for (const ent of entreprises) {
-        try {
-          const data = {
-            id: ent.id_entreprise,
-            code: slugify(ent.nom || ''),
-            nom: ent.nom || '',
-            logo: ent.logo || null
-          };
-          // Chercher par nom pour éviter les doublons
-          const existing = await db.collection('entreprises').where('nom', '==', ent.nom).get();
-          if (!existing.empty) {
-            // Mettre à jour le premier, supprimer les doublons
-            await existing.docs[0].ref.set(data, { merge: true });
-            for (let i = 1; i < existing.docs.length; i++) {
-              await existing.docs[i].ref.delete();
-              results.entreprises.duplicates_removed++;
-            }
-          } else {
-            // Aussi checker par id pour éviter les doublons avec ancien format ent_X
-            const existingById = await db.collection('entreprises').where('id', '==', ent.id_entreprise).get();
-            if (!existingById.empty) {
-              await existingById.docs[0].ref.set(data, { merge: true });
-              for (let i = 1; i < existingById.docs.length; i++) {
-                await existingById.docs[i].ref.delete();
+  // Lancer la synchronisation en tâche de fond
+  (async () => {
+    const { entreprises, types_signalement, utilisateurs, signalements, tentatives_connexion } = req.body;
+    const results = {
+      entreprises: { synced: 0, failed: 0, duplicates_removed: 0 },
+      types_signalement: { synced: 0, failed: 0, duplicates_removed: 0 },
+      utilisateurs: { synced: 0, failed: 0, duplicates_removed: 0 },
+      signalements: { synced: 0, failed: 0, duplicates_removed: 0 },
+      tentatives_connexion: { synced: 0, failed: 0, duplicates_removed: 0 },
+      synced_ids: []
+    };
+    try {
+      // ...existing code for synchronisation (copié tel quel de la version précédente)...
+      // 1. Entreprises
+      if (Array.isArray(entreprises)) {
+        for (const ent of entreprises) {
+          try {
+            const data = {
+              id: ent.id_entreprise,
+              code: slugify(ent.nom || ''),
+              nom: ent.nom || '',
+              logo: ent.logo || null
+            };
+            const existing = await db.collection('entreprises').where('nom', '==', ent.nom).get();
+            if (!existing.empty) {
+              await existing.docs[0].ref.set(data, { merge: true });
+              for (let i = 1; i < existing.docs.length; i++) {
+                await existing.docs[i].ref.delete();
                 results.entreprises.duplicates_removed++;
               }
             } else {
-              await db.collection('entreprises').doc(`ent_${ent.id_entreprise}`).set(data);
+              const existingById = await db.collection('entreprises').where('id', '==', ent.id_entreprise).get();
+              if (!existingById.empty) {
+                await existingById.docs[0].ref.set(data, { merge: true });
+                for (let i = 1; i < existingById.docs.length; i++) {
+                  await existingById.docs[i].ref.delete();
+                  results.entreprises.duplicates_removed++;
+                }
+              } else {
+                await db.collection('entreprises').doc(`ent_${ent.id_entreprise}`).set(data);
+              }
             }
-          }
-          results.entreprises.synced++;
-        } catch (e) { results.entreprises.failed++; console.error('Erreur entreprise:', e.message); }
+            results.entreprises.synced++;
+          } catch (e) { results.entreprises.failed++; console.error('Erreur entreprise:', e.message); }
+        }
       }
-    }
-
-    // 2. Types signalement - champs: id, code, nom, icon - dédupliqué par nom
-    if (Array.isArray(types_signalement)) {
-      for (const ts of types_signalement) {
-        try {
-          const data = {
-            id: ts.id_type_signalement,
-            code: slugify(ts.nom || ''),
-            nom: ts.nom || '',
-            icon: ts.icon || null
-          };
-          const existing = await db.collection('types_signalement').where('nom', '==', ts.nom).get();
-          if (!existing.empty) {
-            await existing.docs[0].ref.set(data, { merge: true });
-            for (let i = 1; i < existing.docs.length; i++) {
-              await existing.docs[i].ref.delete();
-              results.types_signalement.duplicates_removed++;
-            }
-          } else {
-            const existingById = await db.collection('types_signalement').where('id', '==', ts.id_type_signalement).get();
-            if (!existingById.empty) {
-              await existingById.docs[0].ref.set(data, { merge: true });
-              for (let i = 1; i < existingById.docs.length; i++) {
-                await existingById.docs[i].ref.delete();
+      // 2. Types signalement
+      if (Array.isArray(types_signalement)) {
+        for (const ts of types_signalement) {
+          try {
+            const data = {
+              id: ts.id_type_signalement,
+              code: slugify(ts.nom || ''),
+              nom: ts.nom || '',
+              icon: ts.icon || null
+            };
+            const existing = await db.collection('types_signalement').where('nom', '==', ts.nom).get();
+            if (!existing.empty) {
+              await existing.docs[0].ref.set(data, { merge: true });
+              for (let i = 1; i < existing.docs.length; i++) {
+                await existing.docs[i].ref.delete();
                 results.types_signalement.duplicates_removed++;
               }
             } else {
-              await db.collection('types_signalement').doc(`ts_${ts.id_type_signalement}`).set(data);
-            }
-          }
-          results.types_signalement.synced++;
-        } catch (e) { results.types_signalement.failed++; console.error('Erreur type_signalement:', e.message); }
-      }
-    }
-
-    // 3. Utilisateurs - champs alignés sur table PG - dédupliqué par email
-    if (Array.isArray(utilisateurs)) {
-      for (const u of utilisateurs) {
-        try {
-          const data = {
-            email: u.email || '',
-            firebase_uid: u.firebase_uid || null,
-            id_role: u.id_role || 3,
-            role: u.role || 'Utilisateur',
-            bloque: u.bloque === true,
-            date_creation: u.date_creation ? new Date(u.date_creation) : new Date()
-          };
-          // N'inclure nom/prenom que s'ils sont non-vides dans PG
-          if (u.nom) data.nom = u.nom;
-          if (u.prenom) data.prenom = u.prenom;
-
-          const existing = await db.collection('utilisateurs').where('email', '==', u.email).get();
-          if (!existing.empty) {
-            const existingData = existing.docs[0].data();
-            // Logique OR pour bloque: si Firestore OU PG a bloque=true, garder true
-            data.bloque = (data.bloque === true) || (existingData.bloque === true);
-            // Préserver nom/prenom de Firestore si PG est vide
-            if (!data.nom && existingData.nom) data.nom = existingData.nom;
-            if (!data.prenom && existingData.prenom) data.prenom = existingData.prenom;
-            await existing.docs[0].ref.set(data, { merge: true });
-            for (let i = 1; i < existing.docs.length; i++) {
-              await existing.docs[i].ref.delete();
-              results.utilisateurs.duplicates_removed++;
-            }
-          } else {
-            if (!data.nom) data.nom = '';
-            if (!data.prenom) data.prenom = '';
-            await db.collection('utilisateurs').doc(`user_${u.id_utilisateur}`).set(data);
-          }
-          results.utilisateurs.synced++;
-        } catch (e) { results.utilisateurs.failed++; console.error('Erreur utilisateur:', e.message); }
-      }
-    }
-
-    // 4. Signalements - dédupliqué par firebase_id ou lat+lng+description
-    if (Array.isArray(signalements)) {
-      for (const sig of signalements) {
-        try {
-          const pgPhotos = Array.isArray(sig.photos) ? sig.photos : [];
-          const firestoreData = {
-            budget: sig.budget || 0,
-            dateSignalement: sig.date_signalement ? new Date(sig.date_signalement) : new Date(),
-            dateStatus: sig.date_status ? new Date(sig.date_status) : new Date(),
-            description: sig.description || '',
-            entrepriseId: sig.id_entreprise ? String(sig.id_entreprise) : null,
-            entrepriseNom: sig.entreprise_nom || null,
-            latitude: sig.latitude,
-            longitude: sig.longitude,
-            status: sig.statut || 'nouveau',
-            surface: sig.surface_m2 || 0,
-            typeSignalementId: sig.id_type_signalement ? String(sig.id_type_signalement) : null,
-            typeSignalementNom: sig.type_signalement || null
-          };
-
-          if (sig.firebase_id) {
-            // Doc ID connu → merge photos PG + Firestore existantes
-            const existingDoc = await db.collection('signalements').doc(sig.firebase_id).get();
-            let mergedPhotos = [...pgPhotos];
-            if (existingDoc.exists) {
-              const existData = existingDoc.data();
-              const existingPhotos = existData.photos || [];
-              for (const p of existingPhotos) {
-                if (p && !mergedPhotos.includes(p)) mergedPhotos.push(p);
+              const existingById = await db.collection('types_signalement').where('id', '==', ts.id_type_signalement).get();
+              if (!existingById.empty) {
+                await existingById.docs[0].ref.set(data, { merge: true });
+                for (let i = 1; i < existingById.docs.length; i++) {
+                  await existingById.docs[i].ref.delete();
+                  results.types_signalement.duplicates_removed++;
+                }
+              } else {
+                await db.collection('types_signalement').doc(`ts_${ts.id_type_signalement}`).set(data);
               }
-              // Préserver l'utilisateur d'origine du signalement
-              if (existData.utilisateurEmail || existData.utilisateurId) {
-                firestoreData.utilisateurEmail = existData.utilisateurEmail;
-                firestoreData.utilisateurId = existData.utilisateurId;
+            }
+            results.types_signalement.synced++;
+          } catch (e) { results.types_signalement.failed++; console.error('Erreur type_signalement:', e.message); }
+        }
+      }
+      // 3. Utilisateurs
+      if (Array.isArray(utilisateurs)) {
+        for (const u of utilisateurs) {
+          try {
+            const data = {
+              email: u.email || '',
+              firebase_uid: u.firebase_uid || null,
+              id_role: u.id_role || 3,
+              role: u.role || 'Utilisateur',
+              bloque: u.bloque === true,
+              date_creation: u.date_creation ? new Date(u.date_creation) : new Date()
+            };
+            if (u.nom) data.nom = u.nom;
+            if (u.prenom) data.prenom = u.prenom;
+            const existing = await db.collection('utilisateurs').where('email', '==', u.email).get();
+            if (!existing.empty) {
+              const existingData = existing.docs[0].data();
+              data.bloque = (data.bloque === true) || (existingData.bloque === true);
+              if (!data.nom && existingData.nom) data.nom = existingData.nom;
+              if (!data.prenom && existingData.prenom) data.prenom = existingData.prenom;
+              await existing.docs[0].ref.set(data, { merge: true });
+              for (let i = 1; i < existing.docs.length; i++) {
+                await existing.docs[i].ref.delete();
+                results.utilisateurs.duplicates_removed++;
+              }
+            } else {
+              if (!data.nom) data.nom = '';
+              if (!data.prenom) data.prenom = '';
+              await db.collection('utilisateurs').doc(`user_${u.id_utilisateur}`).set(data);
+            }
+            results.utilisateurs.synced++;
+          } catch (e) { results.utilisateurs.failed++; console.error('Erreur utilisateur:', e.message); }
+        }
+      }
+      // 4. Signalements
+      if (Array.isArray(signalements)) {
+        for (const sig of signalements) {
+          try {
+            const pgPhotos = Array.isArray(sig.photos) ? sig.photos : [];
+            const firestoreData = {
+              budget: sig.budget || 0,
+              dateSignalement: sig.date_signalement ? new Date(sig.date_signalement) : new Date(),
+              dateStatus: sig.date_status ? new Date(sig.date_status) : new Date(),
+              description: sig.description || '',
+              entrepriseId: sig.id_entreprise ? String(sig.id_entreprise) : null,
+              entrepriseNom: sig.entreprise_nom || null,
+              latitude: sig.latitude,
+              longitude: sig.longitude,
+              status: sig.statut || 'nouveau',
+              surface: sig.surface_m2 || 0,
+              typeSignalementId: sig.id_type_signalement ? String(sig.id_type_signalement) : null,
+              typeSignalementNom: sig.type_signalement || null
+            };
+            if (sig.firebase_id) {
+              const existingDoc = await db.collection('signalements').doc(sig.firebase_id).get();
+              let mergedPhotos = [...pgPhotos];
+              if (existingDoc.exists) {
+                const existData = existingDoc.data();
+                const existingPhotos = existData.photos || [];
+                for (const p of existingPhotos) {
+                  if (p && !mergedPhotos.includes(p)) mergedPhotos.push(p);
+                }
+                if (existData.utilisateurEmail || existData.utilisateurId) {
+                  firestoreData.utilisateurEmail = existData.utilisateurEmail;
+                  firestoreData.utilisateurId = existData.utilisateurId;
+                } else {
+                  firestoreData.utilisateurEmail = sig.utilisateur_email || null;
+                  firestoreData.utilisateurId = sig.utilisateur_id || null;
+                }
               } else {
                 firestoreData.utilisateurEmail = sig.utilisateur_email || null;
                 firestoreData.utilisateurId = sig.utilisateur_id || null;
-              }
-            } else {
-              firestoreData.utilisateurEmail = sig.utilisateur_email || null;
-              firestoreData.utilisateurId = sig.utilisateur_id || null;
-            }
-            firestoreData.photos = mergedPhotos;
-            await db.collection('signalements').doc(sig.firebase_id).set(firestoreData, { merge: true });
-          } else {
-            // Chercher par lat+lng+description pour éviter les doublons
-            const existing = await db.collection('signalements')
-              .where('latitude', '==', sig.latitude)
-              .where('longitude', '==', sig.longitude)
-              .get();
-            const matches = existing.docs.filter(d => (d.data().description || '') === (sig.description || ''));
-            if (matches.length > 0) {
-              const matchData = matches[0].data();
-              const existingPhotos = matchData.photos || [];
-              let mergedPhotos = [...pgPhotos];
-              for (const p of existingPhotos) {
-                if (p && !mergedPhotos.includes(p)) mergedPhotos.push(p);
               }
               firestoreData.photos = mergedPhotos;
-              // Préserver l'utilisateur d'origine
-              if (matchData.utilisateurEmail || matchData.utilisateurId) {
-                firestoreData.utilisateurEmail = matchData.utilisateurEmail;
-                firestoreData.utilisateurId = matchData.utilisateurId;
+              await db.collection('signalements').doc(sig.firebase_id).set(firestoreData, { merge: true });
+            } else {
+              const existing = await db.collection('signalements')
+                .where('latitude', '==', sig.latitude)
+                .where('longitude', '==', sig.longitude)
+                .get();
+              const matches = existing.docs.filter(d => (d.data().description || '') === (sig.description || ''));
+              if (matches.length > 0) {
+                const matchData = matches[0].data();
+                const existingPhotos = matchData.photos || [];
+                let mergedPhotos = [...pgPhotos];
+                for (const p of existingPhotos) {
+                  if (p && !mergedPhotos.includes(p)) mergedPhotos.push(p);
+                }
+                firestoreData.photos = mergedPhotos;
+                if (matchData.utilisateurEmail || matchData.utilisateurId) {
+                  firestoreData.utilisateurEmail = matchData.utilisateurEmail;
+                  firestoreData.utilisateurId = matchData.utilisateurId;
+                } else {
+                  firestoreData.utilisateurEmail = sig.utilisateur_email || null;
+                  firestoreData.utilisateurId = sig.utilisateur_id || null;
+                }
+                await matches[0].ref.set(firestoreData, { merge: true });
+                sig.firebase_id = matches[0].id;
+                for (let i = 1; i < matches.length; i++) {
+                  await matches[i].ref.delete();
+                  results.signalements.duplicates_removed++;
+                }
               } else {
                 firestoreData.utilisateurEmail = sig.utilisateur_email || null;
                 firestoreData.utilisateurId = sig.utilisateur_id || null;
+                firestoreData.photos = pgPhotos;
+                const docRef = await db.collection('signalements').add(firestoreData);
+                sig.firebase_id = docRef.id;
               }
-              await matches[0].ref.set(firestoreData, { merge: true });
-              sig.firebase_id = matches[0].id;
-              for (let i = 1; i < matches.length; i++) {
-                await matches[i].ref.delete();
-                results.signalements.duplicates_removed++;
+            }
+            results.signalements.synced++;
+            results.synced_ids.push(sig.local_id || sig.firebase_id);
+          } catch (e) { results.signalements.failed++; console.error('Erreur signalement:', e.message); }
+        }
+      }
+      // 5. Tentatives connexion
+      if (Array.isArray(tentatives_connexion)) {
+        for (const tc of tentatives_connexion) {
+          try {
+            const timestamp = tc.date_tentative ? new Date(tc.date_tentative).getTime() : Date.now();
+            const data = {
+              email: tc.utilisateur_email || null,
+              success: tc.succes || false,
+              timestamp: timestamp
+            };
+            const existing = await db.collection('tentatives_connexion')
+              .where('email', '==', data.email)
+              .where('timestamp', '==', timestamp)
+              .get();
+            if (!existing.empty) {
+              await existing.docs[0].ref.set(data, { merge: true });
+              for (let i = 1; i < existing.docs.length; i++) {
+                await existing.docs[i].ref.delete();
+                results.tentatives_connexion.duplicates_removed++;
               }
             } else {
-              // Nouveau signalement: on met l'utilisateur
-              firestoreData.utilisateurEmail = sig.utilisateur_email || null;
-              firestoreData.utilisateurId = sig.utilisateur_id || null;
-              firestoreData.photos = pgPhotos;
-              const docRef = await db.collection('signalements').add(firestoreData);
-              sig.firebase_id = docRef.id;
+              await db.collection('tentatives_connexion').doc(`tc_${tc.id_tentative}`).set(data);
             }
-          }
-          results.signalements.synced++;
-          results.synced_ids.push(sig.local_id || sig.firebase_id);
-        } catch (e) { results.signalements.failed++; console.error('Erreur signalement:', e.message); }
+            results.tentatives_connexion.synced++;
+          } catch (e) { results.tentatives_connexion.failed++; console.error('Erreur tentative_connexion:', e.message); }
+        }
       }
+      // Résumé log
+      console.log('[SYNC] Synchronisation Firestore terminée', results);
+    } catch (e) {
+      console.error('Erreur sync-all-to-firestore:', e.message);
     }
-
-    // 5. Tentatives connexion - champs: email, success, timestamp - dédupliqué par email+timestamp
-    if (Array.isArray(tentatives_connexion)) {
-      for (const tc of tentatives_connexion) {
-        try {
-          const timestamp = tc.date_tentative ? new Date(tc.date_tentative).getTime() : Date.now();
-          const data = {
-            email: tc.utilisateur_email || null,
-            success: tc.succes || false,
-            timestamp: timestamp
-          };
-          // Chercher par email+timestamp pour éviter les doublons
-          const existing = await db.collection('tentatives_connexion')
-            .where('email', '==', data.email)
-            .where('timestamp', '==', timestamp)
-            .get();
-          if (!existing.empty) {
-            await existing.docs[0].ref.set(data, { merge: true });
-            for (let i = 1; i < existing.docs.length; i++) {
-              await existing.docs[i].ref.delete();
-              results.tentatives_connexion.duplicates_removed++;
-            }
-          } else {
-            await db.collection('tentatives_connexion').doc(`tc_${tc.id_tentative}`).set(data);
-          }
-          results.tentatives_connexion.synced++;
-        } catch (e) { results.tentatives_connexion.failed++; console.error('Erreur tentative_connexion:', e.message); }
-      }
-    }
-
-    res.json({ success: true, results });
-  } catch (e) {
-    console.error('Erreur sync-all-to-firestore:', e.message);
-    res.status(500).json({ success: false, message: e.message, results });
-  }
+  })();
 });
 
 // ==================== REVERSE SYNC: Firestore → PostgreSQL ====================
