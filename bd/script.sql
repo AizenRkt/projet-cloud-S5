@@ -100,7 +100,7 @@ CREATE TABLE signalement_status (
 CREATE TABLE photo_signalement (
     id_photo SERIAL PRIMARY KEY,
     id_signalement INT NOT NULL REFERENCES signalement(id_signalement),
-    path VARCHAR(255) NOT NULL
+    path TEXT NOT NULL
 );
 
 CREATE TABLE modification_signalement (

@@ -281,6 +281,7 @@ class SignalementController extends Controller
     public function syncBidirectional(Request $request)
     {
         $resultsPgToFs = [
+            'roles' => 0,
             'entreprises' => 0,
             'types_signalement' => 0,
             'utilisateurs' => 0,
@@ -288,6 +289,7 @@ class SignalementController extends Controller
             'tentatives_connexion' => 0,
         ];
         $resultsFsToPg = [
+            'roles' => ['inserted' => 0, 'updated' => 0, 'errors' => []],
             'entreprises' => ['inserted' => 0, 'updated' => 0, 'errors' => []],
             'types_signalement' => ['inserted' => 0, 'updated' => 0, 'errors' => []],
             'utilisateurs' => ['inserted' => 0, 'updated' => 0, 'errors' => []],
@@ -304,6 +306,12 @@ class SignalementController extends Controller
             $sessionUser = session('utilisateur');
 
             // Préparer toutes les données PG dans le bon ordre
+            // 0. Roles (nouveau - nécessaire pour les utilisateurs)
+            $roles = Role::all()->map(fn($r) => [
+                'id_role' => $r->id_role,
+                'nom' => $r->nom,
+            ])->toArray();
+
             $entreprises = Entreprise::all()->map(fn($e) => [
                 'id_entreprise' => $e->id_entreprise,
                 'nom' => $e->nom,
@@ -366,7 +374,8 @@ class SignalementController extends Controller
             })->toArray();
 
             // Envoyer tout au microservice Node.js (PG → Firestore)
-            $pgToFsResponse = Http::timeout(30)->post('http://firestore-sync:4000/sync-all-to-firestore', [
+            $pgToFsResponse = Http::timeout(120)->post('http://firestore-sync:4000/sync-all-to-firestore', [
+                'roles' => $roles,
                 'entreprises' => $entreprises,
                 'types_signalement' => $typesSignalement,
                 'utilisateurs' => $utilisateurs,
@@ -377,6 +386,7 @@ class SignalementController extends Controller
             if ($pgToFsResponse->successful()) {
                 $pgResult = $pgToFsResponse->json()['results'] ?? [];
                 $resultsPgToFs = [
+                    'roles' => $pgResult['roles']['synced'] ?? 0,
                     'entreprises' => $pgResult['entreprises']['synced'] ?? 0,
                     'types_signalement' => $pgResult['types_signalement']['synced'] ?? 0,
                     'utilisateurs' => $pgResult['utilisateurs']['synced'] ?? 0,
@@ -401,10 +411,25 @@ class SignalementController extends Controller
             // Même ordre: entreprises → types_signalement → utilisateurs → signalements → tentatives_connexion
             // =============================================
 
-            $fsResponse = Http::timeout(30)->get('http://firestore-sync:4000/get-all-collections');
+            $fsResponse = Http::timeout(120)->get('http://firestore-sync:4000/get-all-collections');
 
             if ($fsResponse->successful()) {
                 $firestoreData = $fsResponse->json()['data'] ?? [];
+
+                // 0. Roles (AVANT les utilisateurs !)
+                foreach ($firestoreData['roles'] ?? [] as $doc) {
+                    try {
+                        $existing = Role::where('nom', $doc['nom'] ?? '')->first();
+                        if ($existing) {
+                            $resultsFsToPg['roles']['updated']++;
+                        } else {
+                            Role::create(['nom' => $doc['nom'] ?? 'Utilisateur']);
+                            $resultsFsToPg['roles']['inserted']++;
+                        }
+                    } catch (\Exception $e) {
+                        $resultsFsToPg['roles']['errors'][] = $e->getMessage();
+                    }
+                }
 
                 // 1. Entreprises
                 foreach ($firestoreData['entreprises'] ?? [] as $doc) {
@@ -438,59 +463,91 @@ class SignalementController extends Controller
                     }
                 }
 
-                // 3. Utilisateurs
+                // 3. Utilisateurs (AVANT les signalements pour que les FK soient valides)
                 foreach ($firestoreData['utilisateurs'] ?? [] as $doc) {
                     try {
                         $email = $doc['email'] ?? $doc['utilisateurEmail'] ?? null;
                         if (!$email) continue;
 
+                        // Chercher par email OU par firebase_uid
                         $existing = Utilisateur::where('email', $email)->first();
+                        if (!$existing && !empty($doc['firebase_uid'])) {
+                            $existing = Utilisateur::where('firebase_uid', $doc['firebase_uid'])->first();
+                        }
+
                         if ($existing) {
                             // Ne mettre à jour que les champs non-vides de Firestore
                             $updateData = [];
-                            // nom: ne pas écraser si Firestore est vide
                             if (!empty($doc['nom'])) {
                                 $updateData['nom'] = $doc['nom'];
                             }
-                            // prenom: ne pas écraser si Firestore est vide
                             if (!empty($doc['prenom'])) {
                                 $updateData['prenom'] = $doc['prenom'];
                             }
-                            // firebase_uid: préférer la valeur non-null
-                            if (!empty($doc['firebase_uid'])) {
-                                $updateData['firebase_uid'] = $doc['firebase_uid'];
+                            // firebase_uid: préférer la valeur non-null, vérifier unicité
+                            if (!empty($doc['firebase_uid']) && $doc['firebase_uid'] !== $existing->firebase_uid) {
+                                // Vérifier qu'aucun autre utilisateur n'a déjà ce firebase_uid
+                                $uidConflict = Utilisateur::where('firebase_uid', $doc['firebase_uid'])
+                                    ->where('id_utilisateur', '!=', $existing->id_utilisateur)->first();
+                                if (!$uidConflict) {
+                                    $updateData['firebase_uid'] = $doc['firebase_uid'];
+                                }
                             }
                             // bloque: toujours synchroniser (logique OR déjà appliquée dans Node.js)
                             if (isset($doc['bloque'])) {
                                 $updateData['bloque'] = $doc['bloque'];
                             }
-                            // id_role: synchroniser si présent et valide
+                            // id_role: synchroniser si présent et valide (vérifier FK role)
                             if (isset($doc['id_role']) && (int)$doc['id_role'] > 0) {
-                                $updateData['id_role'] = (int)$doc['id_role'];
+                                if (Role::where('id_role', (int)$doc['id_role'])->exists()) {
+                                    $updateData['id_role'] = (int)$doc['id_role'];
+                                }
                             }
                             if (!empty($updateData)) {
                                 $existing->update($updateData);
                             }
                             $resultsFsToPg['utilisateurs']['updated']++;
                         } else {
-                            $roleId = 3;
+                            // Résoudre le rôle avec validation FK
+                            $roleId = 3; // Default: Utilisateur
                             if (isset($doc['role'])) {
                                 $role = Role::where('nom', $doc['role'])->first();
                                 if ($role) $roleId = $role->id_role;
-                            } elseif (isset($doc['id_role'])) {
-                                $roleId = (int) $doc['id_role'];
+                            } elseif (isset($doc['id_role']) && (int)$doc['id_role'] > 0) {
+                                if (Role::where('id_role', (int)$doc['id_role'])->exists()) {
+                                    $roleId = (int) $doc['id_role'];
+                                }
                             }
+                            // Fallback: vérifier que le rôle 3 existe, sinon prendre le premier
+                            if (!Role::where('id_role', $roleId)->exists()) {
+                                $firstRole = Role::first();
+                                $roleId = $firstRole ? $firstRole->id_role : 3;
+                            }
+
+                            // Générer un firebase_uid unique
+                            $firebaseUid = $doc['firebase_uid'] ?? null;
+                            if ($firebaseUid) {
+                                // Vérifier unicité
+                                if (Utilisateur::where('firebase_uid', $firebaseUid)->exists()) {
+                                    $firebaseUid = $firebaseUid . '-' . uniqid();
+                                }
+                            } else {
+                                $firebaseUid = 'firestore-' . uniqid();
+                            }
+
                             Utilisateur::create([
                                 'email' => $email,
                                 'password' => \Illuminate\Support\Facades\Hash::make('firebase_user'),
-                                'firebase_uid' => $doc['firebase_uid'] ?? $doc['firestore_id'] ?? 'firestore-' . uniqid(),
-                                'nom' => $doc['nom'] ?? '', 'prenom' => $doc['prenom'] ?? '',
-                                'id_role' => $roleId, 'bloque' => $doc['bloque'] ?? false,
+                                'firebase_uid' => $firebaseUid,
+                                'nom' => $doc['nom'] ?? '',
+                                'prenom' => $doc['prenom'] ?? '',
+                                'id_role' => $roleId,
+                                'bloque' => $doc['bloque'] ?? false,
                             ]);
                             $resultsFsToPg['utilisateurs']['inserted']++;
                         }
                     } catch (\Exception $e) {
-                        $resultsFsToPg['utilisateurs']['errors'][] = $e->getMessage();
+                        $resultsFsToPg['utilisateurs']['errors'][] = ($doc['email'] ?? 'unknown') . ': ' . $e->getMessage();
                     }
                 }
 
@@ -500,31 +557,74 @@ class SignalementController extends Controller
                         $firestoreId = $doc['firestore_id'] ?? null;
                         $existing = $firestoreId ? Signalement::where('firebase_id', $firestoreId)->first() : null;
 
+                        // Résoudre type_signalement avec validation FK
                         $typeSignalementId = null;
                         if (isset($doc['typeSignalementId'])) {
-                            $typeSignalementId = (int) $doc['typeSignalementId'];
-                        } elseif (isset($doc['typeSignalementNom'])) {
+                            $candidateId = (int) $doc['typeSignalementId'];
+                            // Vérifier que le type existe dans PG
+                            if (TypeSignalement::where('id_type_signalement', $candidateId)->exists()) {
+                                $typeSignalementId = $candidateId;
+                            }
+                        }
+                        if (!$typeSignalementId && isset($doc['typeSignalementNom'])) {
                             $ts = TypeSignalement::where('nom', $doc['typeSignalementNom'])->first();
                             $typeSignalementId = $ts ? $ts->id_type_signalement : null;
                         }
-                        if (!$typeSignalementId) $typeSignalementId = 1;
+                        // Fallback: premier type existant dans PG
+                        if (!$typeSignalementId) {
+                            $firstType = TypeSignalement::first();
+                            $typeSignalementId = $firstType ? $firstType->id_type_signalement : 1;
+                        }
 
+                        // Résoudre entreprise avec validation FK
                         $entrepriseId = null;
                         if (isset($doc['entrepriseId']) && $doc['entrepriseId']) {
-                            $entrepriseId = (int) $doc['entrepriseId'];
-                        } elseif (isset($doc['entrepriseNom']) && $doc['entrepriseNom']) {
+                            $candidateId = (int) $doc['entrepriseId'];
+                            if (Entreprise::where('id_entreprise', $candidateId)->exists()) {
+                                $entrepriseId = $candidateId;
+                            }
+                        }
+                        if (!$entrepriseId && isset($doc['entrepriseNom']) && $doc['entrepriseNom']) {
                             $ent = Entreprise::where('nom', $doc['entrepriseNom'])->first();
                             $entrepriseId = $ent ? $ent->id_entreprise : null;
                         }
 
+                        // Résoudre utilisateur avec validation FK
                         $utilisateurId = null;
                         if (isset($doc['utilisateurId']) && $doc['utilisateurId']) {
                             $user = Utilisateur::where('firebase_uid', $doc['utilisateurId'])->first();
                             $utilisateurId = $user ? $user->id_utilisateur : null;
                         }
-                        if (!$utilisateurId && isset($doc['utilisateurEmail'])) {
+                        if (!$utilisateurId && isset($doc['utilisateurEmail']) && $doc['utilisateurEmail']) {
                             $user = Utilisateur::where('email', $doc['utilisateurEmail'])->first();
                             $utilisateurId = $user ? $user->id_utilisateur : null;
+                        }
+                        // Auto-créer l'utilisateur s'il n'existe pas dans PG
+                        if (!$utilisateurId && (isset($doc['utilisateurEmail']) && $doc['utilisateurEmail'])) {
+                            try {
+                                $defaultRoleId = 3;
+                                if (!Role::where('id_role', $defaultRoleId)->exists()) {
+                                    $firstRole = Role::first();
+                                    $defaultRoleId = $firstRole ? $firstRole->id_role : 3;
+                                }
+                                $firebaseUid = $doc['utilisateurId'] ?? ('firestore-auto-' . uniqid());
+                                // Vérifier unicité firebase_uid
+                                if (Utilisateur::where('firebase_uid', $firebaseUid)->exists()) {
+                                    $firebaseUid = $firebaseUid . '-' . uniqid();
+                                }
+                                $newUser = Utilisateur::create([
+                                    'email' => $doc['utilisateurEmail'],
+                                    'password' => \Illuminate\Support\Facades\Hash::make('firebase_user'),
+                                    'firebase_uid' => $firebaseUid,
+                                    'nom' => '', 'prenom' => '',
+                                    'id_role' => $defaultRoleId,
+                                    'bloque' => false,
+                                ]);
+                                $utilisateurId = $newUser->id_utilisateur;
+                                Log::info("Auto-created user {$doc['utilisateurEmail']} (id={$utilisateurId}) for signalement");
+                            } catch (\Exception $userEx) {
+                                Log::warning("Could not auto-create user {$doc['utilisateurEmail']}: " . $userEx->getMessage());
+                            }
                         }
 
                         $signalementData = [

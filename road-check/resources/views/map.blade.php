@@ -483,7 +483,7 @@
         }
 
         async function syncBidirectional() {
-            const confirmed = await showConfirm('Lancer la synchronisation bidirectionnelle ?\n\n1. PostgreSQL → Firestore\n2. Firestore → PostgreSQL\n\nOrdre: entreprises → types → utilisateurs → signalements → tentatives');
+            const confirmed = await showConfirm('Lancer la synchronisation bidirectionnelle ?\n\n1. PostgreSQL → Firestore\n2. Firestore → PostgreSQL\n\nOrdre: rôles → entreprises → types → utilisateurs → signalements → tentatives');
             if (!confirmed) return;
             showLoading('Synchronisation bidirectionnelle en cours...');
             try {
@@ -494,32 +494,34 @@
                 const data = await res.json();
                 hideLoading();
 
-                if (data.success) {
-                    showToast(data.message, 'success');
-                    // Détail PG → Firestore
-                    if (data.pg_to_firestore) {
-                        const pg = data.pg_to_firestore;
-                        const totalPg = Object.values(pg).reduce((a, b) => a + b, 0);
-                        if (totalPg > 0) {
-                            showToast(`PG→Firestore: ${totalPg} document(s) envoyé(s)`, 'info', 5000);
-                        }
+                // Afficher le résumé (succès ou avec erreurs)
+                showToast(data.message, data.success ? 'success' : 'warning', 6000);
+                // Détail PG → Firestore
+                if (data.pg_to_firestore) {
+                    const pg = data.pg_to_firestore;
+                    const totalPg = Object.values(pg).reduce((a, b) => a + b, 0);
+                    if (totalPg > 0) {
+                        showToast(`PG→Firestore: ${totalPg} document(s) envoyé(s)`, 'info', 5000);
                     }
-                    // Détail Firestore → PG
-                    if (data.firestore_to_pg) {
-                        for (const [col, info] of Object.entries(data.firestore_to_pg)) {
-                            if (info.inserted > 0 || info.updated > 0) {
-                                showToast(`FS→PG ${col}: ${info.inserted} inséré(s), ${info.updated} mis à jour`, 'info', 5000);
-                            }
-                            if (info.errors && info.errors.length > 0) {
-                                showToast(`${col}: ${info.errors.length} erreur(s)`, 'warning', 5000);
-                            }
-                        }
-                    }
-                    loadSyncStatus();
-                    loadSignalements();
-                } else {
-                    showToast(data.message || 'Erreur de synchronisation', 'error');
                 }
+                // Détail Firestore → PG
+                if (data.firestore_to_pg) {
+                    for (const [col, info] of Object.entries(data.firestore_to_pg)) {
+                        if (info.inserted > 0 || info.updated > 0) {
+                            showToast(`FS→PG ${col}: ${info.inserted} inséré(s), ${info.updated} mis à jour`, 'info', 5000);
+                        }
+                        if (info.errors && info.errors.length > 0) {
+                            showToast(`${col}: ${info.errors.length} erreur(s)`, 'warning', 6000);
+                            // Afficher chaque erreur en détail
+                            info.errors.forEach(err => {
+                                console.error(`Sync erreur ${col}:`, err);
+                                showToast(`⚠ ${col}: ${err}`, 'error', 8000);
+                            });
+                        }
+                    }
+                }
+                loadSyncStatus();
+                loadAllData();
             } catch (e) {
                 hideLoading();
                 showToast('Erreur de connexion au service de synchronisation', 'error');

@@ -71,24 +71,41 @@ app.post('/sync-signalements', async (req, res) => {
   res.json({ success: results.failed.length === 0, ...results });
 });
 
-// Route POST pour synchroniser TOUTES les collections PG → Firestore (asynchrone, réponse immédiate)
-app.post('/sync-all-to-firestore', (req, res) => {
-  // Répondre immédiatement pour éviter le timeout HTTP
-  res.json({ success: true, message: 'Synchronisation Firestore lancée en arrière-plan.' });
-
-  // Lancer la synchronisation en tâche de fond
-  (async () => {
-    const { entreprises, types_signalement, utilisateurs, signalements, tentatives_connexion } = req.body;
-    const results = {
-      entreprises: { synced: 0, failed: 0, duplicates_removed: 0 },
-      types_signalement: { synced: 0, failed: 0, duplicates_removed: 0 },
-      utilisateurs: { synced: 0, failed: 0, duplicates_removed: 0 },
+// Route POST pour synchroniser TOUTES les collections PG → Firestore (avec déduplication)
+app.post('/sync-all-to-firestore', async (req, res) => {
+  const { roles, entreprises, types_signalement, utilisateurs, signalements, tentatives_connexion } = req.body;
+  const results = {
+    roles: { synced: 0, failed: 0, duplicates_removed: 0 },
+    entreprises: { synced: 0, failed: 0, duplicates_removed: 0 },
+    types_signalement: { synced: 0, failed: 0, duplicates_removed: 0 },
+    utilisateurs: { synced: 0, failed: 0, duplicates_removed: 0 },
       signalements: { synced: 0, failed: 0, duplicates_removed: 0 },
       tentatives_connexion: { synced: 0, failed: 0, duplicates_removed: 0 },
       synced_ids: []
     };
     try {
-      // ...existing code for synchronisation (copié tel quel de la version précédente)...
+      // 0. Roles (AVANT les utilisateurs)
+      if (Array.isArray(roles)) {
+        for (const r of roles) {
+          try {
+            const data = {
+              id: r.id_role,
+              nom: r.nom || ''
+            };
+            const existing = await db.collection('roles').where('nom', '==', r.nom).get();
+            if (!existing.empty) {
+              await existing.docs[0].ref.set(data, { merge: true });
+              for (let i = 1; i < existing.docs.length; i++) {
+                await existing.docs[i].ref.delete();
+                results.roles.duplicates_removed++;
+              }
+            } else {
+              await db.collection('roles').doc(`role_${r.id_role}`).set(data);
+            }
+            results.roles.synced++;
+          } catch (e) { results.roles.failed++; console.error('Erreur role:', e.message); }
+        }
+      }
       // 1. Entreprises
       if (Array.isArray(entreprises)) {
         for (const ent of entreprises) {
@@ -299,10 +316,11 @@ app.post('/sync-all-to-firestore', (req, res) => {
       }
       // Résumé log
       console.log('[SYNC] Synchronisation Firestore terminée', results);
+      res.json({ success: true, results });
     } catch (e) {
       console.error('Erreur sync-all-to-firestore:', e.message);
+      res.status(500).json({ success: false, message: e.message, results });
     }
-  })();
 });
 
 // ==================== REVERSE SYNC: Firestore → PostgreSQL ====================
@@ -331,7 +349,7 @@ app.post('/update-user-bloque', async (req, res) => {
 // Route GET pour lire une collection Firestore
 app.get('/get-collection/:name', async (req, res) => {
   const collectionName = req.params.name;
-  const allowed = ['entreprises', 'signalements', 'tentatives_connexion', 'types_signalement', 'utilisateurs'];
+  const allowed = ['entreprises', 'roles', 'signalements', 'tentatives_connexion', 'types_signalement', 'utilisateurs'];
   if (!allowed.includes(collectionName)) {
     return res.status(400).json({ success: false, message: `Collection "${collectionName}" non autorisée` });
   }
@@ -350,7 +368,7 @@ app.get('/get-collection/:name', async (req, res) => {
 
 // Route GET pour lire toutes les collections d'un coup (reverse sync complet)
 app.get('/get-all-collections', async (req, res) => {
-  const collections = ['entreprises', 'signalements', 'tentatives_connexion', 'types_signalement', 'utilisateurs'];
+  const collections = ['roles', 'entreprises', 'signalements', 'tentatives_connexion', 'types_signalement', 'utilisateurs'];
   const result = {};
   try {
     for (const name of collections) {
