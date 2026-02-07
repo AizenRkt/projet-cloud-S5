@@ -76,40 +76,6 @@
         .action-btn { padding: 4px 10px; border: 1px solid #30363d; background: transparent; color: #8b949e; border-radius: 4px; cursor: pointer; }
         .action-btn:hover { border-color: #58a6ff; }
         .loading { text-align: center; padding: 40px; color: #8b949e; }
-
-        /* Toast Notifications */
-        .toast-container { position: fixed; top: 70px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
-        .toast { padding: 14px 20px; border-radius: 8px; display: flex; align-items: center; gap: 12px; min-width: 300px; max-width: 450px; animation: slideIn 0.3s ease; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
-        .toast.success { background: linear-gradient(135deg, #238636, #2ea043); color: #fff; border: 1px solid #2ea043; }
-        .toast.error { background: linear-gradient(135deg, #da3633, #f85149); color: #fff; border: 1px solid #f85149; }
-        .toast.info { background: linear-gradient(135deg, #1f6feb, #388bfd); color: #fff; border: 1px solid #388bfd; }
-        .toast.warning { background: linear-gradient(135deg, #9e6a03, #d29922); color: #fff; border: 1px solid #d29922; }
-        .toast-icon { font-size: 1.2rem; }
-        .toast-message { flex: 1; font-size: 0.9rem; }
-        .toast-close { background: none; border: none; color: rgba(255,255,255,0.7); cursor: pointer; font-size: 1.2rem; padding: 0; }
-        .toast-close:hover { color: #fff; }
-        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-        @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
-
-        /* Loading Overlay */
-        .loading-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(13,17,23,0.85); z-index: 10000; display: none; align-items: center; justify-content: center; flex-direction: column; gap: 20px; }
-        .loading-overlay.show { display: flex; }
-        .spinner { width: 50px; height: 50px; border: 4px solid #30363d; border-top-color: #58a6ff; border-radius: 50%; animation: spin 1s linear infinite; }
-        .loading-text { color: #c9d1d9; font-size: 1rem; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-
-        /* Confirm Modal */
-        .confirm-modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 10001; display: none; align-items: center; justify-content: center; }
-        .confirm-modal.show { display: flex; }
-        .confirm-box { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 24px; max-width: 400px; text-align: center; }
-        .confirm-icon { font-size: 3rem; margin-bottom: 15px; }
-        .confirm-title { color: #c9d1d9; font-size: 1.1rem; margin-bottom: 20px; }
-        .confirm-buttons { display: flex; gap: 12px; justify-content: center; }
-        .confirm-btn { padding: 10px 24px; border-radius: 6px; border: none; cursor: pointer; font-weight: 600; }
-        .confirm-btn.yes { background: #238636; color: #fff; }
-        .confirm-btn.yes:hover { background: #2ea043; }
-        .confirm-btn.no { background: #21262d; color: #c9d1d9; border: 1px solid #30363d; }
-        .confirm-btn.no:hover { background: #30363d; }
     </style>
 </head>
 <body>
@@ -136,15 +102,32 @@
                     <button class="filter-tab" onclick="filterBy('termine', this)"> Terminé</button>
                 </div>
             </div>
+            <div class="search-container">
+                <input type="text" id="searchInput" class="search-input" placeholder="Rechercher un signalement..." oninput="handleSearch(this.value)">
+                <div class="date-filters">
+                    <input type="date" id="dateStart" class="search-input" onchange="renderSignalements(); renderMarkers();" placeholder="Du">
+                    <input type="date" id="dateEnd" class="search-input" onchange="renderSignalements(); renderMarkers();" placeholder="Au">
+                </div>
+            </div>
             <div class="sidebar-content" id="signalementsList"><div class="loading">Chargement...</div></div>
         </aside>
         <div class="map-container">
             <div id="map"></div>
+            <button class="locate-btn" onclick="locateMe()" title="Ma position">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+            </button>
             <div class="stats-bar">
-                <div class="stat-item"><div class="stat-value nouveau" id="statNouveau">0</div><div class="stat-label">Nouveaux</div></div>
+                <div class="stat-item"><div class="stat-value nouveau" id="statNouveau">0</div><div class="stat-label">Validés</div></div>
                 <div class="stat-item"><div class="stat-value en_cours" id="statEnCours">0</div><div class="stat-label">En cours</div></div>
                 <div class="stat-item"><div class="stat-value termine" id="statTermine">0</div><div class="stat-label">Terminés</div></div>
                 <div class="stat-item"><div class="stat-value" id="statTotal">0</div><div class="stat-label">Total</div></div>
+                <div class="stat-item" style="min-width: 100px;">
+                    <div class="stat-value" id="statGlobalProgress" style="color: #58a6ff;">0%</div>
+                    <div class="stat-label">Avancement Global</div>
+                    <div style="height:4px;background:#30363d;border-radius:2px;overflow:hidden;margin-top:4px;width:100%;">
+                        <div id="statGlobalProgressBar" style="width:0%;height:100%;background:#58a6ff;"></div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -234,54 +217,10 @@
     <script>
         let map, markers = [], signalements = [], entreprises = [], typeSignalements = [], typeStatuts = [], utilisateurs = [], roles = [];
         let currentFilter = 'all', selectedSig = null;
-        let confirmCallback = null;
-
-        // ========== Toast Notification System ==========
-        function showToast(message, type = 'info', duration = 4000) {
-            const container = document.getElementById('toastContainer');
-            const toast = document.createElement('div');
-            toast.className = `toast ${type}`;
-            const icons = { success: '✓', error: '✗', info: 'ℹ', warning: '⚠' };
-            toast.innerHTML = `
-                <span class="toast-icon">${icons[type] || 'ℹ'}</span>
-                <span class="toast-message">${message}</span>
-                <button class="toast-close" onclick="this.parentElement.remove()">×</button>
-            `;
-            container.appendChild(toast);
-            setTimeout(() => {
-                toast.style.animation = 'slideOut 0.3s ease forwards';
-                setTimeout(() => toast.remove(), 300);
-            }, duration);
-        }
-
-        // ========== Loading Overlay ==========
-        function showLoading(text = 'Chargement...') {
-            document.getElementById('loadingText').textContent = text;
-            document.getElementById('loadingOverlay').classList.add('show');
-        }
-        function hideLoading() {
-            document.getElementById('loadingOverlay').classList.remove('show');
-        }
-
-        // ========== Confirm Modal ==========
-        function showConfirm(message, icon = '') {
-            return new Promise((resolve) => {
-                document.getElementById('confirmTitle').textContent = message;
-                document.getElementById('confirmIcon').textContent = icon;
-                document.getElementById('confirmModal').classList.add('show');
-                confirmCallback = resolve;
-            });
-        }
-        function closeConfirm(result) {
-            document.getElementById('confirmModal').classList.remove('show');
-            if (confirmCallback) {
-                confirmCallback(result);
-                confirmCallback = null;
-            }
-        }
-
         document.addEventListener('DOMContentLoaded', () => { initMap(); loadAllData(); });
+        
         function initMap() { map = L.map('map').setView([-18.9137, 47.5361], 13); L.tileLayer('http://localhost:8081/styles/Basic/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map); }
+        
         async function loadAllData() {
             try {
                 const [sigRes, entRes, typeRes, statRes, userRes, roleRes] = await Promise.all([
@@ -294,30 +233,91 @@
                 renderSignalements(); renderMarkers(); updateStats();
             } catch (e) { console.error(e); document.getElementById('signalementsList').innerHTML = '<div style="padding:20px;color:#f85149;">Erreur: ' + e.message + '</div>'; }
         }
+
+        function getProgress(status) {
+            if (status === 'termine') return 100;
+            if (status === 'en_cours') return 50;
+            return 0;
+        }
+
+        function filterSignalements() {
+            const start = document.getElementById('dateStart').value;
+            const end = document.getElementById('dateEnd').value;
+            const startDate = start ? new Date(start) : null;
+            const endDate = end ? new Date(end) : null;
+
+            return signalements.filter(s => {
+                const statusMatch = currentFilter === 'all' || s.statut === currentFilter;
+                let dateMatch = true;
+                if (s.created_at || s.date_signalement) {
+                    const sDate = new Date(s.created_at || s.date_signalement);
+                    if (startDate && sDate < startDate) dateMatch = false;
+                    if (endDate) {
+                        const eDate = new Date(endDate);
+                        eDate.setHours(23,59,59);
+                        if (sDate > eDate) dateMatch = false;
+                    }
+                }
+                return statusMatch && dateMatch;
+            });
+        }
+
         function renderSignalements() {
             const container = document.getElementById('signalementsList');
-            const filtered = currentFilter === 'all' ? signalements : signalements.filter(s => s.statut === currentFilter);
+            const filtered = filterSignalements();
+            
             if (filtered.length === 0) { container.innerHTML = '<div style="padding:30px;text-align:center;color:#8b949e;">Aucun signalement</div>'; return; }
+            
             container.innerHTML = filtered.map(s => {
                 const lat = parseFloat(s.latitude);
                 const lng = parseFloat(s.longitude);
-                return '<div class="sig-card' + (selectedSig?.id_signalement === s.id_signalement ? ' selected' : '') + '" onclick="selectSignalement(' + s.id_signalement + ')"><div class="sig-header"><span class="sig-type">' + (s.type_signalement || 'Non défini') + '</span><span class="sig-status ' + s.statut + '">' + (s.statut_libelle || 'Nouveau') + '</span></div><div class="sig-desc">' + (s.description || 'Aucune description') + '</div><div class="sig-info"> ' + (isNaN(lat) ? '-' : lat.toFixed(4)) + ', ' + (isNaN(lng) ? '-' : lng.toFixed(4)) + '</div></div>';
+                const progress = getProgress(s.statut);
+                const label = statusLabels[s.statut] || s.statut_libelle || s.statut;
+                return `
+                    <div class="sig-card${selectedSig?.id_signalement === s.id_signalement ? ' selected' : ''}" onclick="selectSignalement(${s.id_signalement})">
+                        <div class="sig-header">
+                            <span class="sig-type">${s.type_signalement || 'Non défini'}</span>
+                            <span class="sig-status ${s.statut}">${label}</span>
+                        </div>
+                        <div class="sig-desc">${s.description || 'Aucune description'}</div>
+                        <div class="sig-info">
+                            <div style="margin-bottom:4px;display:flex;justify-content:space-between;">
+                                <span>Avancement</span>
+                                <span>${progress}%</span>
+                            </div>
+                            <div style="height:4px;background:#30363d;border-radius:2px;overflow:hidden;margin-bottom:6px;">
+                                <div style="width:${progress}%;height:100%;background:${progress === 100 ? '#238636' : (progress === 50 ? '#f0883e' : '#30363d')}"></div>
+                            </div>
+                            <div style="font-size:0.7rem;color:#8b949e;">${isNaN(lat) ? '-' : lat.toFixed(4)}, ${isNaN(lng) ? '-' : lng.toFixed(4)}</div>
+                            <div style="font-size:0.7rem;color:#8b949e;">${s.created_at ? new Date(s.created_at).toLocaleDateString() : ''}</div>
+                        </div>
+                    </div>`;
             }).join('');
+            updateStats(filtered);
         }
+
         function renderMarkers() {
             markers.forEach(m => map.removeLayer(m)); markers = [];
-            signalements.forEach(s => {
+            const filtered = filterSignalements();
+            
+            filtered.forEach(s => {
                 const lat = parseFloat(s.latitude);
                 const lng = parseFloat(s.longitude);
                 if (!isNaN(lat) && !isNaN(lng)) {
-                    const colors = { nouveau: '#1f6feb', en_cours: '#f0883e', termine: '#238636' };
-                    const marker = L.circleMarker([lat, lng], { radius: 10, fillColor: colors[s.statut] || '#1f6feb', color: '#fff', weight: 2, fillOpacity: 0.8 }).addTo(map);
+                    const colors = { nouveau: '#1f6feb', en_cours: '#f0883e', termine: '#238636', en_attente: '#8b949e', annule: '#f85149' };
+                    const marker = L.circleMarker([lat, lng], { radius: 10, fillColor: colors[s.statut] || '#8b949e', color: '#fff', weight: 2, fillOpacity: 0.8 }).addTo(map);
 
-                    // Tooltip for hover (all info)
+                    const label = statusLabels[s.statut] || s.statut_libelle || s.statut;
+                    const progress = getProgress(s.statut);
+
                     const tooltipContent = `
                         <div style="text-align:left;">
                             <strong>${s.type_signalement || 'Signalement'}</strong><br/>
-                            <span style="font-size:0.8rem;color:#8b949e;">${s.statut_libelle}</span><br/>
+                            <span style="font-size:0.8rem;color:#8b949e;">${label}</span><br/>
+                            <div style="margin:5px 0;">Avancement: ${progress}%</div>
+                            <div style="height:4px;background:#ddd;border-radius:2px;overflow:hidden;width:100px;">
+                                <div style="width:${progress}%;height:100%;background:${progress === 100 ? '#238636' : (progress === 50 ? '#f0883e' : '#30363d')}"></div>
+                            </div>
                             <hr style="border:0;border-top:1px solid #ccc;margin:5px 0;"/>
                             ${s.description || 'Pas de description'}<br/>
                             <small>Surface: ${s.surface_m2 || '-'} m² | Budget: ${s.budget || '-'} Ar</small><br/>
@@ -325,15 +325,12 @@
                         </div>
                     `;
                     marker.bindTooltip(tooltipContent, { direction: 'top', offset: [0, -10] });
-
-                    marker.bindTooltip(tooltipContent, { direction: 'top', offset: [0, -10] });
-
-                    // Click action: open detail directly
                     marker.on('click', () => selectSignalement(s.id_signalement));
                     markers.push(marker);
                 }
             });
         }
+
         function selectSignalement(id) {
             selectedSig = signalements.find(s => s.id_signalement === id);
             if (!selectedSig) return;
@@ -343,12 +340,15 @@
             const lng = parseFloat(selectedSig.longitude);
             if (!isNaN(lat) && !isNaN(lng)) map.setView([lat, lng], 16);
         }
+
         function openDetail() {
             const panel = document.getElementById('detailPanel'); const s = selectedSig;
             document.getElementById('detailContent').innerHTML = '<form onsubmit="saveSignalement(event)"><div class="form-group"><label>Type</label><select id="editType">' + typeSignalements.map(t => '<option value="' + t.id_type_signalement + '"' + (s.id_type_signalement == t.id_type_signalement ? ' selected' : '') + '>' + t.nom + '</option>').join('') + '</select></div><div class="form-group"><label>Statut</label><select id="editStatut">' + typeStatuts.map(t => '<option value="' + t.code + '"' + (s.statut === t.code ? ' selected' : '') + '>' + t.libelle + '</option>').join('') + '</select></div><div class="form-group"><label>Description</label><textarea id="editDescription">' + (s.description || '') + '</textarea></div><div class="form-row"><div class="form-group"><label>Surface (m²)</label><input type="number" id="editSurface" value="' + (s.surface_m2 || '') + '"></div><div class="form-group"><label>Budget</label><input type="number" id="editBudget" value="' + (s.budget || '') + '"></div></div><div class="form-group"><label>Entreprise</label><select id="editEntreprise"><option value="">--</option>' + entreprises.map(e => '<option value="' + e.id_entreprise + '"' + (s.id_entreprise == e.id_entreprise ? ' selected' : '') + '>' + e.nom + '</option>').join('') + '</select></div><div style="display:flex;gap:10px;"><button type="submit" class="btn-save" style="flex:2;"> Enregistrer</button><button type="button" class="btn-save" style="flex:1;background:#30363d;" onclick="closeDetail()">Annuler</button></div></form>';
             panel.classList.add('open');
         }
+
         function closeDetail() { document.getElementById('detailPanel').classList.remove('open'); selectedSig = null; renderSignalements(); }
+
         async function saveSignalement(e) {
             e.preventDefault(); if (!selectedSig) return;
             const data = { id_type_signalement: document.getElementById('editType').value, statut: document.getElementById('editStatut').value, description: document.getElementById('editDescription').value, surface_m2: document.getElementById('editSurface').value || null, budget: document.getElementById('editBudget').value || null, id_entreprise: document.getElementById('editEntreprise').value || null };
@@ -368,13 +368,29 @@
                 showToast('Erreur de connexion', 'error');
             }
         }
-        function updateStats() {
-            document.getElementById('statNouveau').textContent = signalements.filter(s => s.statut === 'nouveau').length;
-            document.getElementById('statEnCours').textContent = signalements.filter(s => s.statut === 'en_cours').length;
-            document.getElementById('statTermine').textContent = signalements.filter(s => s.statut === 'termine').length;
-            document.getElementById('statTotal').textContent = signalements.length;
+
+        function updateStats(filteredData = signalements) {
+            const total = filteredData.length;
+            const nouveau = filteredData.filter(s => s.statut === 'nouveau').length;
+            const enCours = filteredData.filter(s => s.statut === 'en_cours').length;
+            const termine = filteredData.filter(s => s.statut === 'termine').length;
+
+            document.getElementById('statNouveau').textContent = nouveau;
+            document.getElementById('statEnCours').textContent = enCours;
+            document.getElementById('statTermine').textContent = termine;
+            document.getElementById('statTotal').textContent = total;
+
+            // Global Progress
+            let totalProgress = 0;
+            filteredData.forEach(s => totalProgress += getProgress(s.statut));
+            const avgProgress = total > 0 ? Math.round(totalProgress / total) : 0;
+            
+            document.getElementById('statGlobalProgress').textContent = avgProgress + '%';
+            document.getElementById('statGlobalProgressBar').style.width = avgProgress + '%';
         }
-        function filterBy(filter, btn) { currentFilter = filter; document.querySelectorAll('.filter-tab').forEach(b => b.classList.remove('active')); btn.classList.add('active'); renderSignalements(); }
+
+        function filterBy(filter, btn) { currentFilter = filter; document.querySelectorAll('.filter-tab').forEach(b => b.classList.remove('active')); btn.classList.add('active'); renderSignalements(); renderMarkers(); }
+
         function openUsersModal() { document.getElementById('usersModal').classList.add('open'); renderUsersTable(); }
         function closeUsersModal() { document.getElementById('usersModal').classList.remove('open'); }
         function renderUsersTable() {
@@ -425,104 +441,8 @@
         }
         function openRolesModal() { document.getElementById('rolesModal').classList.add('open'); document.getElementById('rolesModalBody').innerHTML = '<table class="data-table"><thead><tr><th>ID</th><th>Nom</th></tr></thead><tbody>' + roles.map(r => '<tr><td>' + r.id_role + '</td><td>' + r.nom + '</td></tr>').join('') + '</tbody></table>'; }
         function closeRolesModal() { document.getElementById('rolesModal').classList.remove('open'); }
-
-        // ========== Sync Modal ==========
-        function openSyncModal() {
-            document.getElementById('syncModal').classList.add('open');
-            loadSyncStatus();
-        }
-        function closeSyncModal() { document.getElementById('syncModal').classList.remove('open'); }
-
-        async function loadSyncStatus() {
-            try {
-                const res = await fetch('/api/sync/status');
-                const data = await res.json();
-                document.getElementById('syncStatusContent').innerHTML = `
-                    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:15px;text-align:center;">
-                        <div><div style="font-size:1.5rem;font-weight:700;color:#c9d1d9;">${data.total}</div><div style="font-size:0.75rem;color:#8b949e;">Total</div></div>
-                        <div><div style="font-size:1.5rem;font-weight:700;color:#238636;">${data.synced}</div><div style="font-size:0.75rem;color:#8b949e;">Synchronises</div></div>
-                        <div><div style="font-size:1.5rem;font-weight:700;color:#f0883e;">${data.pending}</div><div style="font-size:0.75rem;color:#8b949e;">En attente</div></div>
-                        <div><div style="font-size:1.5rem;font-weight:700;color:#f85149;">${data.with_errors}</div><div style="font-size:0.75rem;color:#8b949e;">Erreurs</div></div>
-                    </div>
-                    <div style="margin-top:12px;background:#30363d;border-radius:4px;height:8px;overflow:hidden;">
-                        <div style="background:#238636;height:100%;width:${data.sync_percentage}%;transition:width 0.3s;"></div>
-                    </div>
-                    <div style="text-align:center;margin-top:8px;font-size:0.8rem;color:#8b949e;">${data.sync_percentage}% synchronise</div>
-                `;
-            } catch (e) {
-                document.getElementById('syncStatusContent').innerHTML = '<div style="color:#f85149;">Erreur de chargement du statut</div>';
-            }
-        }
-
-        async function syncSignalementsToFirebase() {
-            showLoading('Synchronisation des signalements vers Firebase...');
-            try {
-                const res = await fetch('/api/sync/to-firebase', {
-                    method: 'POST',
-                    headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content }
-                });
-                const data = await res.json();
-                hideLoading();
-
-                if (res.status === 429) {
-                    showToast(data.message, 'warning');
-                    return;
-                }
-                if (res.status === 403) {
-                    showToast(data.message, 'error');
-                    return;
-                }
-
-                if (data.success) {
-                    showToast(data.message, 'success');
-                    if (data.synced.length > 0) {
-                        showToast(`IDs synchronises: ${data.synced.join(', ')}`, 'info', 6000);
-                    }
-                } else {
-                    showToast(data.message, 'error');
-                    if (data.failed.length > 0) {
-                        showToast(`IDs en echec: ${data.failed.join(', ')}`, 'warning', 6000);
-                    }
-                }
-                loadSyncStatus();
-            } catch (e) {
-                hideLoading();
-                showToast('Erreur de connexion', 'error');
-            }
-        }
-
-        async function syncUsersToFirebase() {
-            showLoading('Synchronisation des utilisateurs vers Firebase...');
-            try {
-                const res = await fetch('/api/sync-users', {
-                    method: 'POST',
-                    headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content }
-                });
-                const data = await res.json();
-                hideLoading();
-                if (res.ok) {
-                    showToast(data.message || 'Synchronisation reussie', 'success');
-                } else {
-                    showToast(data.message || 'Erreur de synchronisation', 'error');
-                }
-            } catch (e) {
-                hideLoading();
-                showToast('Erreur de connexion a Firebase', 'error');
-            }
-        }
-
-        async function logout() {
-            const confirmed = await showConfirm('Voulez-vous vraiment vous déconnecter ?');
-            if (!confirmed) return;
-            showLoading('Déconnexion...');
-            try {
-                await fetch('/logout', { method: 'POST', headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content } });
-                window.location.href = '/login';
-            } catch (e) {
-                hideLoading();
-                showToast('Erreur lors de la deconnexion', 'error');
-            }
-        }
+        async function logout() { try { await fetch('/logout', { method: 'POST', headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content } }); window.location.href = '/login'; } catch (e) { alert('Erreur'); } }
+        function syncFirebase() { alert('Synchronisation...'); }
     </script>
 </body>
 </html>

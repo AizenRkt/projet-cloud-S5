@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }).setView([-18.9369, 47.4481], 12);
 
         // Tile layer from local tileserver (Raster tiles with style-baked labels)
-        const tileUrl = 'http://localhost:8081/styles/Basic/{z}/{x}/{y}.png';
+        const tileUrl = 'http://localhost:8081/data/antananarivo_analamanga/{z}/{x}/{y}.pbf';
 
         L.tileLayer(tileUrl, {
             attribution: '&copy; <a href="https://openmaptiles.org/">OpenMapTiles</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',

@@ -140,6 +140,7 @@ function node_function()
 	if housenumber~="" then
 		Layer("housenumber", false)
 		Attribute("housenumber", housenumber)
+		Attribute("addr:housenumber", housenumber)
 	end
 
 	-- Write 'place'
@@ -176,9 +177,10 @@ function node_function()
 
 		Layer("place", false)
 		Attribute("class", place)
+		Attribute("place", place)
 		MinZoom(mz)
-		if rank then AttributeInteger("rank", rank) end
-		if capital then AttributeInteger("capital", capital) end
+		if rank then AttributeNumeric("rank", rank) end
+		if capital then AttributeNumeric("capital", capital) end
 		if place=="country" then
 			local iso_a2 = Find("ISO3166-1:alpha2")
 			while iso_a2 == "" do
@@ -203,7 +205,7 @@ function node_function()
 	if natural == "peak" or natural == "volcano" then
 		Layer("mountain_peak", false)
 		SetEleAttributes()
-		AttributeInteger("rank", 1)
+		AttributeNumeric("rank", 1)
 		Attribute("class", natural)
 		SetNameAttributes()
 		return
@@ -311,11 +313,12 @@ function write_to_transportation_layer(minzoom, highway_class, subclass, ramp, s
 	Layer("transportation", is_area)
 	SetZOrder()
 	Attribute("class", highway_class)
+	Attribute("highway", highway_class)
 	if subclass and subclass ~= "" then
 		Attribute("subclass", subclass)
 	end
 	local layer = tonumber(Find("layer")) or 0
-	AttributeInteger("layer", math.floor(layer), accessMinzoom)
+	AttributeNumeric("layer", math.floor(layer))
 	SetBrunnelAttributes()
 	-- We do not write any other attributes for areas.
 	if is_area then
@@ -323,7 +326,7 @@ function write_to_transportation_layer(minzoom, highway_class, subclass, ramp, s
 		return
 	end
 	MinZoom(minzoom)
-	if ramp then AttributeInteger("ramp",1) end
+	if ramp then AttributeNumeric("ramp",1) end
 
 	-- Service
 	if (is_rail or highway_class == "service") and (service and service ~="") then Attribute("service", service) end
@@ -332,7 +335,7 @@ function write_to_transportation_layer(minzoom, highway_class, subclass, ramp, s
 	if is_road then
 		local oneway = Find("oneway")
 		if oneway == "yes" or oneway == "1" then
-			AttributeInteger("oneway",1)
+			AttributeNumeric("oneway",1)
 		end
 		if oneway == "-1" then
 			-- **** TODO
@@ -398,7 +401,7 @@ function way_function()
 		local pop = tonumber(Find("population")) or 0
 		local capital = capitalLevel(Find("capital"))
 		local rank = calcRank(place, pop, nil)
-		if rank then AttributeInteger("rank", rank) end
+		if rank then AttributeNumeric("rank", rank) end
 		SetNameAttributes()
 	end
 
@@ -431,14 +434,14 @@ function way_function()
 		end
 
 		Layer("boundary",false)
-		AttributeInteger("admin_level", admin_level)
+		AttributeNumeric("admin_level", admin_level)
 		MinZoom(mz)
 		-- disputed status (0 or 1). some styles need to have the 0 to show it.
 		local disputed = Find("disputed")
 		if disputed=="yes" then
-			AttributeInteger("disputed", 1)
+			AttributeNumeric("disputed", 1)
 		else
-			AttributeInteger("disputed", 0)
+			AttributeNumeric("disputed", 0)
 		end
 	end
 
@@ -544,7 +547,7 @@ function way_function()
 				local ref = Find("ref")
 				if ref~="" then
 					Attribute("ref",ref)
-					AttributeInteger("ref_length",ref:len())
+					AttributeNumeric("ref_length",ref:len())
 				end
 			end
 		end
@@ -599,6 +602,7 @@ function way_function()
 	if aeroway~="" then
 		Layer("aeroway", is_closed)
 		Attribute("class",aeroway)
+		Attribute("aeroway",aeroway)
 		Attribute("ref",Find("ref"))
 		write_name = true
 	end
@@ -624,8 +628,9 @@ function way_function()
 		else
 			Layer("waterway_detail", false)
 		end
-		if Find("intermittent")=="yes" then AttributeInteger("intermittent", 1) else AttributeInteger("intermittent", 0) end
+		if Find("intermittent")=="yes" then AttributeNumeric("intermittent", 1) else AttributeNumeric("intermittent", 0) end
 		Attribute("class", waterway)
+		Attribute("waterway", waterway)
 		SetNameAttributes()
 		SetBrunnelAttributes()
 	elseif waterway == "boatyard"  then Layer("landuse", is_closed); Attribute("class", "industrial"); MinZoom(12)
@@ -647,6 +652,7 @@ function way_function()
 	-- Set 'building' and associated
 	if building~="" then
 		Layer("building", true)
+		Attribute("building", building)
 		SetBuildingHeightAttributes()
 		SetMinZoomByArea()
 	end
@@ -665,6 +671,7 @@ function way_function()
 		Layer("water",true)
 		SetMinZoomByArea(way)
 		Attribute("class",class)
+		Attribute("natural", "water")
 
 		if Find("intermittent")=="yes" then Attribute("intermittent",1) end
 		-- we only want to show the names of actual lakes not every man-made basin that probably doesn't even have a name other than "basin"
@@ -702,6 +709,7 @@ function way_function()
 		if landuseKeys[l] then
 			Layer("landuse", true)
 			Attribute("class", l)
+			Attribute("landuse", l)
 			if l=="residential" then
 				if Area()<ZRES8^2 then MinZoom(8)
 				else SetMinZoomByArea() end
@@ -724,7 +732,7 @@ function way_function()
 		LayerAsCentroid("poi_detail")
 		SetNameAttributes()
 		if write_name then rank=6 else rank=25 end
-		AttributeInteger("rank", rank)
+		AttributeNumeric("rank", rank)
 	end
 end
 
@@ -752,18 +760,23 @@ function WritePOI(class,subclass,rank)
 	if rank>4 then layer="poi_detail" end
 	LayerAsCentroid(layer)
 	SetNameAttributes()
-	AttributeInteger("rank", rank)
+	AttributeNumeric("rank", rank)
 	Attribute("class", class)
 	Attribute("subclass", subclass)
+	if poiTags[class] then Attribute(class, subclass) end
+	-- fallback for many tags
+	if Find("amenity") ~= "" then Attribute("amenity", Find("amenity")) end
+	if Find("shop") ~= "" then Attribute("shop", Find("shop")) end
+	if Find("tourism") ~= "" then Attribute("tourism", Find("tourism")) end
 	-- layer defaults to 0
 	local layer = tonumber(Find("layer")) or 0
-	AttributeInteger("layer", math.floor(layer))
+	AttributeNumeric("layer", math.floor(layer))
 	-- indoor defaults to false
 	AttributeBoolean("indoor", (Find("indoor") == "yes"))
 	-- level has no default
 	local level = tonumber(Find("level"))
 	if level then
-		AttributeInteger("level", math.floor(level))
+		AttributeNumeric("level", math.floor(level))
 	end
 end
 
@@ -793,11 +806,12 @@ function SetNameAttributes()
 		else main_written = iname end
 	else
 		Attribute(preferred_language_attribute, name)
+		Attribute("name", name)
 	end
 	-- then set any additional languages
 	for i,lang in ipairs(additional_languages) do
 		iname = Find("name:"..lang)
-		if iname=="" then iname=name end
+		if iname~="" then iname=name end
 		if iname~=main_written then Attribute("name:"..lang, iname) end
 	end
 end
