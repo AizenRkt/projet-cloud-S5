@@ -142,8 +142,10 @@ INSERT INTO type_signalement (nom, icon) VALUES
 -- Insertion des types de statut
 INSERT INTO signalement_type_status (code, libelle, pourcentage) VALUES
     ('nouveau', 'Nouveau', 0),
+    ('en_attente', 'En attente', 10),
     ('en_cours', 'En cours', 50),
-    ('termine', 'Terminé', 100);
+    ('termine', 'Terminé', 100),
+    ('annule', 'Annulé', 0);
 
 -- Insertion de signalements de test à Antananarivo
 INSERT INTO signalement (id_type_signalement, latitude, longitude, description, surface_m2, budget, id_entreprise) VALUES

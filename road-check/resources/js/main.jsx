@@ -165,6 +165,13 @@ function ProfileApp({ token }) {
                                                 {u.bloque && <span className="badge bg-danger">Bloqué</span>}
                                                 <button
                                                     type="button"
+                                                    className="btn btn-sm btn-outline-primary"
+                                                    onClick={(e) => { e.stopPropagation(); handleSelectUser(u.id); }}
+                                                >
+                                                    Modifier
+                                                </button>
+                                                <button
+                                                    type="button"
                                                     className="btn btn-sm btn-outline-danger"
                                                     onClick={(e) => { e.stopPropagation(); handleDelete(u.id); }}
                                                 >

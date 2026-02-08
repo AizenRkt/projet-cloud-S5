@@ -71,8 +71,10 @@ class SignalementController extends Controller
         $totalBudget = $signalements->sum('budget');
 
         $nouveau = 0;
+        $enAttente = 0;
         $enCours = 0;
         $termine = 0;
+        $annule = 0;
         $avancementTotal = 0;
 
         foreach ($signalements as $s) {
@@ -84,8 +86,10 @@ class SignalementController extends Controller
                 : 0;
 
             if ($code === 'nouveau') $nouveau++;
+            elseif ($code === 'en_attente') $enAttente++;
             elseif ($code === 'en_cours') $enCours++;
             elseif ($code === 'termine') $termine++;
+            elseif ($code === 'annule') $annule++;
 
             $avancementTotal += $pourcentage;
         }
@@ -93,8 +97,10 @@ class SignalementController extends Controller
         return response()->json([
             'total' => $total,
             'nouveau' => $nouveau,
+            'en_attente' => $enAttente,
             'en_cours' => $enCours,
             'termine' => $termine,
+            'annule' => $annule,
             'total_surface' => $totalSurface,
             'total_budget' => $totalBudget,
             'avancement' => $total > 0 ? round($avancementTotal / $total, 2) : 0

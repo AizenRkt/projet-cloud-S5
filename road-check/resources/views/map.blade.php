@@ -33,8 +33,10 @@
         .sig-type { font-weight: 600; color: #c9d1d9; }
         .sig-status { padding: 2px 8px; border-radius: 12px; font-size: 0.7rem; }
         .sig-status.nouveau { background: #1f6feb; color: #fff; }
+        .sig-status.en_attente { background: #d29922; color: #fff; }
         .sig-status.en_cours { background: #f0883e; color: #fff; }
         .sig-status.termine { background: #238636; color: #fff; }
+        .sig-status.annule { background: #f85149; color: #fff; }
         .sig-desc { font-size: 0.8rem; color: #8b949e; margin-bottom: 8px; }
         .sig-info { font-size: 0.75rem; color: #8b949e; }
         .map-container { flex: 1; position: relative; }
@@ -43,8 +45,10 @@
         .stat-item { text-align: center; }
         .stat-value { font-size: 1.4rem; font-weight: 700; }
         .stat-value.nouveau { color: #1f6feb; }
+        .stat-value.en_attente { color: #d29922; }
         .stat-value.en_cours { color: #f0883e; }
         .stat-value.termine { color: #238636; }
+        .stat-value.annule { color: #f85149; }
         .stat-label { font-size: 0.7rem; color: #8b949e; }
         .detail-panel { position: fixed; top: 56px; right: -420px; width: 420px; height: calc(100vh - 56px); background: #161b22; border-left: 1px solid #30363d; z-index: 900; transition: right 0.3s; overflow-y: auto; }
         .detail-panel.open { right: 0; }
@@ -139,8 +143,10 @@
                 <div class="filter-tabs">
                     <button class="filter-tab active" onclick="filterBy('all', this)">Tous</button>
                     <button class="filter-tab" onclick="filterBy('nouveau', this)"> Nouveau</button>
+                    <button class="filter-tab" onclick="filterBy('en_attente', this)"> En attente</button>
                     <button class="filter-tab" onclick="filterBy('en_cours', this)"> En cours</button>
                     <button class="filter-tab" onclick="filterBy('termine', this)"> Terminé</button>
+                    <button class="filter-tab" onclick="filterBy('annule', this)"> Annulé</button>
                 </div>
             </div>
             <div class="sidebar-content" id="signalementsList"><div class="loading">Chargement...</div></div>
@@ -149,8 +155,10 @@
             <div id="map"></div>
             <div class="stats-bar">
                 <div class="stat-item"><div class="stat-value nouveau" id="statNouveau">0</div><div class="stat-label">Nouveaux</div></div>
+                <div class="stat-item"><div class="stat-value en_attente" id="statEnAttente">0</div><div class="stat-label">En attente</div></div>
                 <div class="stat-item"><div class="stat-value en_cours" id="statEnCours">0</div><div class="stat-label">En cours</div></div>
                 <div class="stat-item"><div class="stat-value termine" id="statTermine">0</div><div class="stat-label">Terminés</div></div>
+                <div class="stat-item"><div class="stat-value annule" id="statAnnule">0</div><div class="stat-label">Annulés</div></div>
                 <div class="stat-item"><div class="stat-value" id="statTotal">0</div><div class="stat-label">Total</div></div>
             </div>
         </div>
@@ -212,6 +220,27 @@
                     <div class="form-group"><label>Mot de passe</label><input type="password" id="newUserPassword" required></div>
                     <div class="form-group"><label>Rôle</label><select id="newUserRole"></select></div>
                     <button type="submit" class="btn-save">Créer</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="modal-overlay" id="editUserModal">
+        <div class="modal" style="max-width:520px;">
+            <div class="modal-header"><h3> Modifier utilisateur</h3><button class="close-btn" onclick="closeEditUserModal()">&times;</button></div>
+            <div class="modal-body">
+                <form id="editUserForm" onsubmit="updateUser(event)">
+                    <input type="hidden" id="editUserId">
+                    <div class="form-group"><label>Email</label><input type="email" id="editUserEmail" disabled></div>
+                    <div class="form-row">
+                        <div class="form-group"><label>Nom</label><input type="text" id="editUserNom" required></div>
+                        <div class="form-group"><label>Prénom</label><input type="text" id="editUserPrenom" required></div>
+                    </div>
+                    <div class="form-group"><label>Rôle</label><select id="editUserRole"></select></div>
+                    <div class="form-group" style="display:flex;align-items:center;gap:8px;">
+                        <input type="checkbox" id="editUserBloque">
+                        <label for="editUserBloque" style="margin:0;">Bloqué</label>
+                    </div>
+                    <button type="submit" class="btn-save">Enregistrer</button>
                 </form>
             </div>
         </div>
@@ -318,7 +347,7 @@
                 const lat = parseFloat(s.latitude);
                 const lng = parseFloat(s.longitude);
                 if (!isNaN(lat) && !isNaN(lng)) {
-                    const colors = { nouveau: '#1f6feb', en_cours: '#f0883e', termine: '#238636' };
+                    const colors = { nouveau: '#1f6feb', en_attente: '#d29922', en_cours: '#f0883e', termine: '#238636', annule: '#f85149' };
                     const marker = L.circleMarker([lat, lng], { radius: 10, fillColor: colors[s.statut] || '#1f6feb', color: '#fff', weight: 2, fillOpacity: 0.8 }).addTo(map);
 
                     // Tooltip for hover (all info)
@@ -378,8 +407,10 @@
         }
         function updateStats() {
             document.getElementById('statNouveau').textContent = signalements.filter(s => s.statut === 'nouveau').length;
+            document.getElementById('statEnAttente').textContent = signalements.filter(s => s.statut === 'en_attente').length;
             document.getElementById('statEnCours').textContent = signalements.filter(s => s.statut === 'en_cours').length;
             document.getElementById('statTermine').textContent = signalements.filter(s => s.statut === 'termine').length;
+            document.getElementById('statAnnule').textContent = signalements.filter(s => s.statut === 'annule').length;
             document.getElementById('statTotal').textContent = signalements.length;
         }
         function filterBy(filter, btn) { currentFilter = filter; document.querySelectorAll('.filter-tab').forEach(b => b.classList.remove('active')); btn.classList.add('active'); renderSignalements(); }
@@ -387,7 +418,11 @@
         function closeUsersModal() { document.getElementById('usersModal').classList.remove('open'); }
         function renderUsersTable() {
             const body = document.getElementById('usersModalBody');
-            body.innerHTML = '<table class="data-table"><thead><tr><th>Nom</th><th>Email</th><th>Rôle</th><th>Statut</th><th>Actions</th></tr></thead><tbody>' + utilisateurs.map(u => '<tr><td>' + (u.prenom || '') + ' ' + (u.nom || '') + '</td><td>' + u.email + '</td><td><span class="badge ' + (u.role || '').toLowerCase() + '">' + (u.role || 'N/A') + '</span></td><td>' + (u.bloque ? '<span class="badge blocked">Bloqué</span>' : '<span class="badge active">Actif</span>') + '</td><td>' + (u.bloque ? '<button class="action-btn" onclick="unblockUser(' + u.id_utilisateur + ')">Débloquer</button>' : '') + '</td></tr>').join('') + '</tbody></table>';
+            body.innerHTML = '<table class="data-table"><thead><tr><th>Nom</th><th>Email</th><th>Rôle</th><th>Statut</th><th>Actions</th></tr></thead><tbody>' + utilisateurs.map(u => {
+                const actionButtons = '<button class="action-btn" onclick="openEditUserForm(' + u.id_utilisateur + ')">Modifier</button>' +
+                    (u.bloque ? ' <button class="action-btn" onclick="unblockUser(' + u.id_utilisateur + ')">Débloquer</button>' : '');
+                return '<tr><td>' + (u.prenom || '') + ' ' + (u.nom || '') + '</td><td>' + u.email + '</td><td><span class="badge ' + (u.role || '').toLowerCase() + '">' + (u.role || 'N/A') + '</span></td><td>' + (u.bloque ? '<span class="badge blocked">Bloqué</span>' : '<span class="badge active">Actif</span>') + '</td><td>' + actionButtons + '</td></tr>';
+            }).join('') + '</tbody></table>';
         }
         async function unblockUser(id) {
             const confirmed = await showConfirm('Voulez-vous débloquer cet utilisateur ?');
@@ -425,6 +460,51 @@
                 } else {
                     const err = await res.json();
                     showToast(err.message || 'Erreur lors de la création', 'error');
+                }
+            } catch (e) {
+                hideLoading();
+                showToast('Erreur de connexion', 'error');
+            }
+        }
+        function openEditUserForm(id) {
+            const user = utilisateurs.find(u => u.id_utilisateur === id);
+            if (!user) return;
+            closeUsersModal();
+            document.getElementById('editUserId').value = user.id_utilisateur;
+            document.getElementById('editUserEmail').value = user.email || '';
+            document.getElementById('editUserNom').value = user.nom || '';
+            document.getElementById('editUserPrenom').value = user.prenom || '';
+            document.getElementById('editUserRole').innerHTML = roles.map(r => '<option value="' + r.id_role + '">' + r.nom + '</option>').join('');
+            document.getElementById('editUserRole').value = user.id_role || '';
+            document.getElementById('editUserBloque').checked = Boolean(user.bloque);
+            document.getElementById('editUserModal').classList.add('open');
+        }
+        function closeEditUserModal() { document.getElementById('editUserModal').classList.remove('open'); }
+        async function updateUser(e) {
+            e.preventDefault();
+            const id = document.getElementById('editUserId').value;
+            const data = {
+                nom: document.getElementById('editUserNom').value,
+                prenom: document.getElementById('editUserPrenom').value,
+                id_role: document.getElementById('editUserRole').value,
+                bloque: document.getElementById('editUserBloque').checked
+            };
+            showLoading('Mise à jour de l\'utilisateur...');
+            try {
+                const res = await fetch('/api/utilisateurs/' + id, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content },
+                    body: JSON.stringify(data)
+                });
+                hideLoading();
+                if (res.ok) {
+                    showToast('Utilisateur mis à jour', 'success');
+                    closeEditUserModal();
+                    await loadAllData();
+                    openUsersModal();
+                } else {
+                    const err = await res.json();
+                    showToast(err.message || 'Erreur lors de la mise à jour', 'error');
                 }
             } catch (e) {
                 hideLoading();
