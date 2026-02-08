@@ -25,7 +25,7 @@ class SignalementController extends Controller
     // Liste des signalements avec relations
     public function index()
     {
-        $signalements = Signalement::with(['typeSignalement', 'entreprise', 'utilisateur', 'dernierStatut.typeStatus', 'photos'])
+        $signalements = Signalement::with(['typeSignalement', 'entreprise', 'utilisateur', 'dernierStatut.typeStatus', 'photos', 'statuts.typeStatus'])
             ->orderBy('date_signalement', 'desc')
             ->get()
             ->map(function ($s) {
@@ -46,7 +46,14 @@ class SignalementController extends Controller
                     'statut' => $s->dernierStatut && $s->dernierStatut->typeStatus ? $s->dernierStatut->typeStatus->code : 'nouveau',
                     'statut_libelle' => $s->dernierStatut && $s->dernierStatut->typeStatus ? $s->dernierStatut->typeStatus->libelle : 'Nouveau',
                     'pourcentage' => $s->dernierStatut && $s->dernierStatut->typeStatus ? $s->dernierStatut->typeStatus->pourcentage : 0,
-                    'photos' => $s->photos->pluck('path')
+                    'photos' => $s->photos->pluck('path'),
+                    'history' => $s->statuts->sortBy('date_modification')->map(function($h) {
+                        return [
+                            'libelle' => $h->typeStatus->libelle,
+                            'date' => $h->date_modification,
+                            'pourcentage' => $h->typeStatus->pourcentage
+                        ];
+                    })->values()
                 ];
             });
 
@@ -93,7 +100,6 @@ class SignalementController extends Controller
         ]);
     }
 
-    // Mise à jour d'un signalement (Manager)
     public function update(Request $request, $id)
     {
         $signalement = Signalement::findOrFail($id);
@@ -120,6 +126,26 @@ class SignalementController extends Controller
         }
 
         return response()->json(['message' => 'Signalement mis à jour', 'data' => $signalement]);
+    }
+
+    // Historique des statuts d'un signalement
+    public function getHistory($id)
+    {
+        $history = SignalementStatus::with('typeStatus')
+            ->where('id_signalement', $id)
+            ->orderBy('date_modification', 'asc')
+            ->get()
+            ->map(function ($h) {
+                return [
+                    'id_signalement_status' => $h->id_signalement_status,
+                    'code' => $h->typeStatus->code,
+                    'libelle' => $h->typeStatus->libelle,
+                    'pourcentage' => $h->typeStatus->pourcentage,
+                    'date' => $h->date_modification
+                ];
+            });
+
+        return response()->json($history);
     }
 
     // Liste des entreprises
