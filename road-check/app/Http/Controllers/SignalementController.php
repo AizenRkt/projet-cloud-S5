@@ -19,6 +19,7 @@ use Kreait\Firebase\Exception\FirebaseException;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Validator;
 
 class SignalementController extends Controller
 {
@@ -62,9 +63,30 @@ class SignalementController extends Controller
     }
 
     // Statistiques pour le tableau récap
-    public function stats()
+    public function stats(Request $request)
     {
-        $signalements = Signalement::with('dernierStatut.typeStatus')->get();
+        $validator = Validator::make($request->all(), [
+            'start_date' => 'nullable|date',
+            'end_date' => 'nullable|date|after_or_equal:start_date'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Invalid date range',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $signalementQuery = Signalement::with('dernierStatut.typeStatus');
+
+        if ($request->filled('start_date')) {
+            $signalementQuery->whereDate('date_signalement', '>=', $request->start_date);
+        }
+        if ($request->filled('end_date')) {
+            $signalementQuery->whereDate('date_signalement', '<=', $request->end_date);
+        }
+
+        $signalements = $signalementQuery->get();
 
         $total = $signalements->count();
         $totalSurface = $signalements->sum('surface_m2');

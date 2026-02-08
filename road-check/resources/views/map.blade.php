@@ -132,6 +132,7 @@
         </div>
         <div class="navbar-menu">
             <button class="nav-btn" onclick="openUsersModal()">Utilisateurs</button>
+            <button class="nav-btn" onclick="openStatsModal()">Statistiques</button>
             <button class="nav-btn" onclick="openSyncModal()">Synchronisation</button>
             <button class="nav-btn" onclick="logout()">Deconnexion</button>
         </div>
@@ -141,9 +142,9 @@
             <div class="sidebar-header">
                 <div class="sidebar-title"> Signalements</div>
                 <div class="filter-tabs">
-                    <button class="filter-tab active" onclick="filterBy('all', this)">Tous</button>
+                    <button class="filter-tab" onclick="filterBy('all', this)">Tous</button>
                     <button class="filter-tab" onclick="filterBy('nouveau', this)"> Nouveau</button>
-                    <button class="filter-tab" onclick="filterBy('en_attente', this)"> En attente</button>
+                    <button class="filter-tab active" onclick="filterBy('en_attente', this)"> En attente</button>
                     <button class="filter-tab" onclick="filterBy('en_cours', this)"> En cours</button>
                     <button class="filter-tab" onclick="filterBy('termine', this)"> Terminé</button>
                     <button class="filter-tab" onclick="filterBy('annule', this)"> Annulé</button>
@@ -204,6 +205,24 @@
                         <button class="btn-save" style="background:#1f6feb;" onclick="syncUsersToFirebaseAuth()">Synchroniser les utilisateurs vers Firebase Auth</button>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-overlay" id="statsModal">
+        <div class="modal" style="max-width:700px;">
+            <div class="modal-header"><h3>Statistiques</h3><button class="close-btn" onclick="closeStatsModal()">&times;</button></div>
+            <div class="modal-body">
+                <form id="statsFilterForm" onsubmit="loadStats(event)">
+                    <div class="form-row">
+                        <div class="form-group"><label>Date debut</label><input type="date" id="statsStartDate"></div>
+                        <div class="form-group"><label>Date fin</label><input type="date" id="statsEndDate"></div>
+                    </div>
+                    <div style="display:flex;gap:10px;">
+                        <button type="submit" class="btn-save" style="flex:2;">Appliquer</button>
+                        <button type="button" class="btn-save" style="flex:1;background:#30363d;" onclick="resetStatsFilters()">Reinitialiser</button>
+                    </div>
+                </form>
+                <div id="statsContent" style="margin-top:16px;">Chargement...</div>
             </div>
         </div>
     </div>
@@ -270,7 +289,7 @@
     <script src="{{ asset('leaflet/leaflet.js') }}"></script>
     <script>
         let map, markers = [], signalements = [], entreprises = [], typeSignalements = [], typeStatuts = [], utilisateurs = [], roles = [];
-        let currentFilter = 'all', selectedSig = null;
+        let currentFilter = 'en_attente', selectedSig = null;
         let confirmCallback = null;
 
         // ========== Toast Notification System ==========
@@ -520,6 +539,86 @@
             loadSyncStatus();
         }
         function closeSyncModal() { document.getElementById('syncModal').classList.remove('open'); }
+
+        // ========== Stats Modal ==========
+        function openStatsModal() {
+            document.getElementById('statsModal').classList.add('open');
+            loadStats();
+        }
+        function closeStatsModal() { document.getElementById('statsModal').classList.remove('open'); }
+        function resetStatsFilters() {
+            document.getElementById('statsStartDate').value = '';
+            document.getElementById('statsEndDate').value = '';
+            loadStats();
+        }
+        async function loadStats(e) {
+            if (e) e.preventDefault();
+            const startDate = document.getElementById('statsStartDate').value;
+            const endDate = document.getElementById('statsEndDate').value;
+            const params = new URLSearchParams();
+            if (startDate) params.append('start_date', startDate);
+            if (endDate) params.append('end_date', endDate);
+            const url = '/api/signalements/stats' + (params.toString() ? ('?' + params.toString()) : '');
+
+            document.getElementById('statsContent').innerHTML = 'Chargement...';
+            try {
+                const res = await fetch(url);
+                if (!res.ok) {
+                    const err = await res.json();
+                    document.getElementById('statsContent').innerHTML = '<div style="color:#f85149;">' + (err.message || 'Erreur de chargement') + '</div>';
+                    return;
+                }
+                const data = await res.json();
+                const formatNumber = (value) => {
+                    const num = Number(value || 0);
+                    return Number.isFinite(num) ? num.toLocaleString('fr-FR') : '0';
+                };
+                document.getElementById('statsContent').innerHTML = `
+                    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+                        <div style="background:#21262d;border:1px solid #30363d;border-radius:8px;padding:12px;">
+                            <div style="font-size:0.75rem;color:#8b949e;">Total</div>
+                            <div style="font-size:1.4rem;font-weight:700;">${formatNumber(data.total)}</div>
+                        </div>
+                        <div style="background:#21262d;border:1px solid #30363d;border-radius:8px;padding:12px;">
+                            <div style="font-size:0.75rem;color:#8b949e;">Nouveaux</div>
+                            <div style="font-size:1.4rem;font-weight:700;color:#1f6feb;">${formatNumber(data.nouveau)}</div>
+                        </div>
+                        <div style="background:#21262d;border:1px solid #30363d;border-radius:8px;padding:12px;">
+                            <div style="font-size:0.75rem;color:#8b949e;">En attente</div>
+                            <div style="font-size:1.4rem;font-weight:700;color:#d29922;">${formatNumber(data.en_attente)}</div>
+                        </div>
+                        <div style="background:#21262d;border:1px solid #30363d;border-radius:8px;padding:12px;">
+                            <div style="font-size:0.75rem;color:#8b949e;">En cours</div>
+                            <div style="font-size:1.4rem;font-weight:700;color:#f0883e;">${formatNumber(data.en_cours)}</div>
+                        </div>
+                        <div style="background:#21262d;border:1px solid #30363d;border-radius:8px;padding:12px;">
+                            <div style="font-size:0.75rem;color:#8b949e;">Termines</div>
+                            <div style="font-size:1.4rem;font-weight:700;color:#238636;">${formatNumber(data.termine)}</div>
+                        </div>
+                        <div style="background:#21262d;border:1px solid #30363d;border-radius:8px;padding:12px;">
+                            <div style="font-size:0.75rem;color:#8b949e;">Annules</div>
+                            <div style="font-size:1.4rem;font-weight:700;color:#f85149;">${formatNumber(data.annule)}</div>
+                        </div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px;">
+                        <div style="background:#21262d;border:1px solid #30363d;border-radius:8px;padding:12px;">
+                            <div style="font-size:0.75rem;color:#8b949e;">Surface totale (m2)</div>
+                            <div style="font-size:1.2rem;font-weight:700;">${formatNumber(data.total_surface)}</div>
+                        </div>
+                        <div style="background:#21262d;border:1px solid #30363d;border-radius:8px;padding:12px;">
+                            <div style="font-size:0.75rem;color:#8b949e;">Budget total</div>
+                            <div style="font-size:1.2rem;font-weight:700;">${formatNumber(data.total_budget)} Ar</div>
+                        </div>
+                        <div style="background:#21262d;border:1px solid #30363d;border-radius:8px;padding:12px;">
+                            <div style="font-size:0.75rem;color:#8b949e;">Avancement moyen</div>
+                            <div style="font-size:1.2rem;font-weight:700;">${formatNumber(data.avancement)}%</div>
+                        </div>
+                    </div>
+                `;
+            } catch (err) {
+                document.getElementById('statsContent').innerHTML = '<div style="color:#f85149;">Erreur de connexion</div>';
+            }
+        }
 
         async function loadSyncStatus() {
             try {
