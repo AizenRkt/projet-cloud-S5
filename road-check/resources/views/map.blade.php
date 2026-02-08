@@ -76,6 +76,31 @@
         .action-btn { padding: 4px 10px; border: 1px solid #30363d; background: transparent; color: #8b949e; border-radius: 4px; cursor: pointer; }
         .action-btn:hover { border-color: #58a6ff; }
         .loading { text-align: center; padding: 40px; color: #8b949e; }
+        
+        /* Search & Filter Styles */
+        .search-container { padding: 15px; border-bottom: 1px solid #30363d; background: #1c2128; }
+        .search-input { width: 100%; padding: 8px 12px; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #c9d1d9; font-size: 0.9rem; transition: border-color 0.2s; }
+        .search-input:focus { border-color: #58a6ff; outline: none; }
+        .search-input::placeholder { color: #8b949e; }
+        .date-filters { display: flex; gap: 8px; margin-top: 10px; }
+        .date-filters .search-input { flex: 1; }
+
+        /* Scrollbar Styling */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #161b22; }
+        ::-webkit-scrollbar-thumb { background: #30363d; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #58a6ff; }
+
+        /* History Styles */
+        .history-section { margin-top: 20px; padding-top: 15px; border-top: 1px solid #30363d; }
+        .history-title { font-size: 0.9rem; font-weight: 600; color: #58a6ff; margin-bottom: 10px; }
+        .history-list { display: flex; flex-direction: column; gap: 8px; }
+        .history-item { display: flex; align-items: flex-start; gap: 12px; }
+        .history-dot { width: 8px; height: 8px; border-radius: 50%; background: #30363d; margin-top: 5px; flex-shrink: 0; }
+        .history-dot.active { background: #238636; box-shadow: 0 0 5px #238636; }
+        .history-info { display: flex; flex-direction: column; }
+        .history-label { font-size: 0.85rem; color: #c9d1d9; }
+        .history-date { font-size: 0.75rem; color: #8b949e; }
     </style>
 </head>
 <body>
@@ -243,11 +268,21 @@
         function filterSignalements() {
             const start = document.getElementById('dateStart').value;
             const end = document.getElementById('dateEnd').value;
+            const search = document.getElementById('searchInput').value.toLowerCase();
             const startDate = start ? new Date(start) : null;
             const endDate = end ? new Date(end) : null;
 
             return signalements.filter(s => {
                 const statusMatch = currentFilter === 'all' || s.statut === currentFilter;
+                
+                let searchMatch = true;
+                if (search) {
+                    searchMatch = (s.description && s.description.toLowerCase().includes(search)) ||
+                                 (s.type_signalement && s.type_signalement.toLowerCase().includes(search)) ||
+                                 (s.statut && s.statut.toLowerCase().includes(search)) ||
+                                 (s.statut_libelle && s.statut_libelle.toLowerCase().includes(search));
+                }
+
                 let dateMatch = true;
                 if (s.created_at || s.date_signalement) {
                     const sDate = new Date(s.created_at || s.date_signalement);
@@ -258,7 +293,7 @@
                         if (sDate > eDate) dateMatch = false;
                     }
                 }
-                return statusMatch && dateMatch;
+                return statusMatch && searchMatch && dateMatch;
             });
         }
 
@@ -343,7 +378,43 @@
 
         function openDetail() {
             const panel = document.getElementById('detailPanel'); const s = selectedSig;
-            document.getElementById('detailContent').innerHTML = '<form onsubmit="saveSignalement(event)"><div class="form-group"><label>Type</label><select id="editType">' + typeSignalements.map(t => '<option value="' + t.id_type_signalement + '"' + (s.id_type_signalement == t.id_type_signalement ? ' selected' : '') + '>' + t.nom + '</option>').join('') + '</select></div><div class="form-group"><label>Statut</label><select id="editStatut">' + typeStatuts.map(t => '<option value="' + t.code + '"' + (s.statut === t.code ? ' selected' : '') + '>' + t.libelle + '</option>').join('') + '</select></div><div class="form-group"><label>Description</label><textarea id="editDescription">' + (s.description || '') + '</textarea></div><div class="form-row"><div class="form-group"><label>Surface (m²)</label><input type="number" id="editSurface" value="' + (s.surface_m2 || '') + '"></div><div class="form-group"><label>Budget</label><input type="number" id="editBudget" value="' + (s.budget || '') + '"></div></div><div class="form-group"><label>Entreprise</label><select id="editEntreprise"><option value="">--</option>' + entreprises.map(e => '<option value="' + e.id_entreprise + '"' + (s.id_entreprise == e.id_entreprise ? ' selected' : '') + '>' + e.nom + '</option>').join('') + '</select></div><div style="display:flex;gap:10px;"><button type="submit" class="btn-save" style="flex:2;"> Enregistrer</button><button type="button" class="btn-save" style="flex:1;background:#30363d;" onclick="closeDetail()">Annuler</button></div></form>';
+            let historyHtml = '';
+            if (s.history && s.history.length > 0) {
+                historyHtml = `
+                    <div class="history-section">
+                        <div class="history-title">Historique des avancements</div>
+                        <div class="history-list">
+                            ${s.history.map((h, i) => `
+                                <div class="history-item">
+                                    <div class="history-dot ${i === s.history.length - 1 ? 'active' : ''}"></div>
+                                    <div class="history-info">
+                                        <div class="history-label">${h.libelle} (${h.pourcentage}%)</div>
+                                        <div class="history-date">${new Date(h.date).toLocaleString()}</div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            document.getElementById('detailContent').innerHTML = `
+                <form onsubmit="saveSignalement(event)">
+                    <div class="form-group"><label>Type</label><select id="editType">${typeSignalements.map(t => `<option value="${t.id_type_signalement}" ${s.id_type_signalement == t.id_type_signalement ? 'selected' : ''}>${t.nom}</option>`).join('')}</select></div>
+                    <div class="form-group"><label>Statut</label><select id="editStatut">${typeStatuts.map(t => `<option value="${t.code}" ${s.statut === t.code ? 'selected' : ''}>${t.libelle}</option>`).join('')}</select></div>
+                    <div class="form-group"><label>Description</label><textarea id="editDescription">${s.description || ''}</textarea></div>
+                    <div class="form-row">
+                        <div class="form-group"><label>Surface (m²)</label><input type="number" id="editSurface" value="${s.surface_m2 || ''}"></div>
+                        <div class="form-group"><label>Budget</label><input type="number" id="editBudget" value="${s.budget || ''}"></div>
+                    </div>
+                    <div class="form-group"><label>Entreprise</label><select id="editEntreprise"><option value="">--</option>${entreprises.map(e => `<option value="${e.id_entreprise}" ${s.id_entreprise == e.id_entreprise ? 'selected' : ''}>${e.nom}</option>`).join('')}</select></div>
+                    <div style="display:flex;gap:10px;margin-bottom:20px;">
+                        <button type="submit" class="btn-save" style="flex:2;">Enregistrer</button>
+                        <button type="button" class="btn-save" style="flex:1;background:#30363d;" onclick="closeDetail()">Annuler</button>
+                    </div>
+                </form>
+                ${historyHtml}
+            `;
             panel.classList.add('open');
         }
 
@@ -443,6 +514,13 @@
         function closeRolesModal() { document.getElementById('rolesModal').classList.remove('open'); }
         async function logout() { try { await fetch('/logout', { method: 'POST', headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content } }); window.location.href = '/login'; } catch (e) { alert('Erreur'); } }
         function syncFirebase() { alert('Synchronisation...'); }
+        function locateMe() {
+            if (map) map.locate({setView: true, maxZoom: 16});
+        }
+        function handleSearch(val) {
+             renderSignalements(); 
+             renderMarkers();
+        }
     </script>
 </body>
 </html>
