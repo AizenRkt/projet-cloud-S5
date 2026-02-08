@@ -7,10 +7,13 @@
         "dev": "vite"
     },
     "dependencies": {
+        "react": "^18.3.1",
+        "react-dom": "^18.3.1",
         "leaflet": "^1.9.4",
         "leaflet.vectorgrid": "^1.3.0"
     },
     "devDependencies": {
+        "@vitejs/plugin-react": "^4.3.2",
         "@tailwindcss/vite": "^4.0.0",
         "axios": "^1.11.0",
         "concurrently": "^9.0.1",

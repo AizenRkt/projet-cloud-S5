@@ -64,6 +64,19 @@ services:
     environment:
       - NODE_ENV=production
 
+  vite:
+    image: node:20-alpine
+    container_name: laravel_vite
+    working_dir: /var/www/html/road-check
+    volumes:
+      - ./:/var/www/html
+    command: sh -c "npm install; npm run dev -- --host 0.0.0.0 --port 5173"
+    ports:
+      - "5173:5173"
+    networks:
+      - laravel
+    restart: unless-stopped
+
 networks:
   laravel:
     driver: bridge

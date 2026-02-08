@@ -6,6 +6,7 @@
     <title>Connexion - Road Check</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    @vite(['resources/js/app.js'])
     <style>
         :root {
             --rc-primary: #0d9488;
@@ -86,57 +87,17 @@
     </style>
 </head>
 <body>
-    <div class="login-card">
-        @if(isset($firestoreStatus))
-            <div class="alert alert-info mb-3">
-                <i class="bi bi-cloud-check me-2"></i>
-                Firestore (Kreait) : {{ $firestoreStatus }}
-            </div>
-        @endif
-        <div class="brand-logo">
-            <i class="bi bi-car-front-fill"></i>
-        </div>
-        <h4 class="text-center mb-1 fw-bold">Road Check</h4>
-        <p class="text-center text-muted mb-4">Connectez-vous à votre compte</p>
-
-        @if ($errors->any())
-            <div class="alert alert-danger mb-3">
-                <i class="bi bi-exclamation-circle me-2"></i>
-                @foreach ($errors->all() as $error)
-                    {{ $error }}@if(!$loop->last)<br>@endif
-                @endforeach
-            </div>
-        @endif
-
-        @if(session('success'))
-            <div class="alert alert-success mb-3">
-                <i class="bi bi-check-circle me-2"></i>{{ session('success') }}
-            </div>
-        @endif
-
-        <form method="POST" action="{{ route('login.submit') }}">
-            @csrf
-            <div class="mb-3 input-icon">
-                <i class="bi bi-envelope"></i>
-                <input type="email" name="email" class="form-control" value="admin@gmail.com" placeholder="Adresse email" value="{{ old('email') }}" required>
-            </div>
-            <div class="mb-4 input-icon">
-                <i class="bi bi-lock"></i>
-                <input type="password" name="password" class="form-control" value="password123" placeholder="Mot de passe" required>
-            </div>
-            <button type="submit" class="btn btn-rc w-100 mb-3">
-                <i class="bi bi-box-arrow-in-right me-2"></i>Se connecter
-            </button>
-        </form>
-
-        <p class="text-center text-muted mb-0">
-            Pas encore de compte ? <a href="{{ route('register.form') }}" class="text-decoration-none" style="color: var(--rc-primary);">S'inscrire</a>
-        </p>
-        <p class="text-center mt-2">
-            <a href="{{ url('/api/documentation') }}" class="text-decoration-none" style="color: var(--rc-primary);" target="_blank">
-                <i class="bi bi-file-earmark-text me-1"></i>Documentation API
-            </a>
-        </p>
-    </div>
+    <div
+        id="login-app"
+        data-csrf-token="{{ csrf_token() }}"
+        data-login-action="{{ route('login.submit') }}"
+        data-register-url="{{ route('register.form') }}"
+        data-docs-url="{{ url('/api/documentation') }}"
+        data-default-email="admin@gmail.com"
+        data-default-password="password123"
+        data-success='@json(session('success'))'
+        data-firestore-status='@json($firestoreStatus ?? null)'
+        data-errors='@json($errors->all())'
+    ></div>
 </body>
 </html>
