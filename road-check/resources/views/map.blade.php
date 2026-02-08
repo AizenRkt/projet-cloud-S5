@@ -407,7 +407,25 @@
         function closeDetail() { document.getElementById('detailPanel').classList.remove('open'); selectedSig = null; renderSignalements(); }
         async function saveSignalement(e) {
             e.preventDefault(); if (!selectedSig) return;
-            const data = { id_type_signalement: document.getElementById('editType').value, statut: document.getElementById('editStatut').value, description: document.getElementById('editDescription').value, surface_m2: document.getElementById('editSurface').value || null, budget: document.getElementById('editBudget').value || null, id_entreprise: document.getElementById('editEntreprise').value || null };
+            const nextStatus = document.getElementById('editStatut').value;
+            const currentStatus = selectedSig.statut || 'nouveau';
+            const statusOrder = { en_attente: 0, annule: 0, nouveau: 1, en_cours: 2, termine: 3 };
+            const currentRank = statusOrder[currentStatus];
+            const nextRank = statusOrder[nextStatus];
+            const getStatusLabel = (code) => {
+                const match = typeStatuts.find(t => t.code === code);
+                return match ? match.libelle : code;
+            };
+
+            if (currentStatus !== nextStatus && Number.isFinite(currentRank) && Number.isFinite(nextRank)) {
+                const isOutOfOrder = nextRank < currentRank || nextRank > currentRank + 1;
+                if (isOutOfOrder) {
+                    const confirmed = await showConfirm(`Voulez-vous passer le statut actuel "${getStatusLabel(currentStatus)}" a "${getStatusLabel(nextStatus)}" ?`);
+                    if (!confirmed) return;
+                }
+            }
+
+            const data = { id_type_signalement: document.getElementById('editType').value, statut: nextStatus, description: document.getElementById('editDescription').value, surface_m2: document.getElementById('editSurface').value || null, budget: document.getElementById('editBudget').value || null, id_entreprise: document.getElementById('editEntreprise').value || null };
             showLoading('Mise à jour du signalement...');
             try {
                 const res = await fetch('/api/signalements/' + selectedSig.id_signalement, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content }, body: JSON.stringify(data) });
