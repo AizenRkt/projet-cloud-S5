@@ -42,6 +42,8 @@ Route::middleware('firebase.auth')->group(function () {
     Route::get('/map', function () {
         return view('map');
     })->name('map');
+
+    Route::get('/stats', [SignalementController::class, 'detailedStats'])->name('stats');
 });
 
 Route::get('/', function () {

@@ -135,6 +135,7 @@
             <span class="subtitle">| Manager</span>
         </div>
         <div class="navbar-menu">
+            <a href="{{ route('stats') }}" class="nav-btn">Statistiques</a>
             <button class="nav-btn" onclick="openUsersModal()">Utilisateurs</button>
             <button class="nav-btn" onclick="openSyncModal()">Synchronisation</button>
             <button class="nav-btn" onclick="logout()">Deconnexion</button>
