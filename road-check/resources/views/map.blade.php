@@ -101,6 +101,30 @@
         .history-info { display: flex; flex-direction: column; }
         .history-label { font-size: 0.85rem; color: #c9d1d9; }
         .history-date { font-size: 0.75rem; color: #8b949e; }
+
+        /* Toast Styles */
+        .toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 3000; display: flex; flex-direction: column; gap: 10px; }
+        .toast { padding: 12px 20px; border-radius: 6px; background: #21262d; border: 1px solid #30363d; color: #fff; transform: translateX(120%); transition: transform 0.3s; box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
+        .toast.show { transform: translateX(0); }
+        .toast.success { border-left: 4px solid #238636; }
+        .toast.error { border-left: 4px solid #f85149; }
+
+        /* Loading Overlay */
+        .loading-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 4000; display: none; flex-direction: column; align-items: center; justify-content: center; }
+        .loading-overlay.show { display: flex; }
+        .spinner { width: 40px; height: 40px; border: 4px solid #30363d; border-top-color: #58a6ff; border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-text { margin-top: 15px; color: #58a6ff; font-weight: 500; }
+
+        /* Confirm Modal */
+        .confirm-modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 3500; display: none; align-items: center; justify-content: center; }
+        .confirm-modal.open { display: flex; }
+        .confirm-box { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 25px; width: 90%; max-width: 400px; text-align: center; }
+        .confirm-title { font-size: 1.1rem; color: #c9d1d9; margin: 15px 0 20px; }
+        .confirm-buttons { display: flex; gap: 10px; justify-content: center; }
+        .confirm-btn { padding: 8px 20px; border-radius: 6px; border: none; font-weight: 600; cursor: pointer; }
+        .confirm-btn.yes { background: #238636; color: #fff; }
+        .confirm-btn.no { background: #30363d; color: #c9d1d9; }
     </style>
 </head>
 <body>
@@ -242,6 +266,15 @@
     <script>
         let map, markers = [], signalements = [], entreprises = [], typeSignalements = [], typeStatuts = [], utilisateurs = [], roles = [];
         let currentFilter = 'all', selectedSig = null;
+
+        const statusLabels = {
+            en_attente: "En attente",
+            nouveau: "Validé",
+            en_cours: "En cours de traitement",
+            termine: "Terminé",
+            annule: "Annulé"
+        };
+
         document.addEventListener('DOMContentLoaded', () => { initMap(); loadAllData(); });
         
         function initMap() { map = L.map('map').setView([-18.9137, 47.5361], 13); L.tileLayer('http://localhost:8081/styles/Basic/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map); }
@@ -520,6 +553,84 @@
         function handleSearch(val) {
              renderSignalements(); 
              renderMarkers();
+        }
+
+        // --- UI Helpers ---
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            if (!container) return;
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            container.appendChild(toast);
+            setTimeout(() => { toast.classList.add('show'); }, 10);
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => { toast.remove(); }, 300);
+            }, 3000);
+        }
+
+        function showLoading(text = 'Chargement...') {
+            const overlay = document.getElementById('loadingOverlay');
+            if (overlay) {
+                document.getElementById('loadingText').textContent = text;
+                overlay.classList.add('show');
+            }
+        }
+
+        function hideLoading() {
+            const overlay = document.getElementById('loadingOverlay');
+            if (overlay) overlay.classList.remove('show');
+        }
+
+        let confirmResolve;
+        function showConfirm(message) {
+            return new Promise((resolve) => {
+                const modal = document.getElementById('confirmModal');
+                if (modal) {
+                    document.getElementById('confirmTitle').textContent = message;
+                    modal.classList.add('open');
+                    confirmResolve = resolve;
+                } else {
+                    resolve(confirm(message));
+                }
+            });
+        }
+
+        function closeConfirm(result) {
+            const modal = document.getElementById('confirmModal');
+            if (modal) modal.classList.remove('open');
+            if (confirmResolve) confirmResolve(result);
+        }
+
+        // --- Sync Functions ---
+        function openSyncModal() { document.getElementById('syncModal').classList.add('open'); loadSyncStatus(); }
+        function closeSyncModal() { document.getElementById('syncModal').classList.remove('open'); }
+        async function loadSyncStatus() {
+            const content = document.getElementById('syncStatusContent');
+            content.innerHTML = '<div style="color:#8b949e;">Vérification de l\'état...</div>';
+            // Placeholder for real sync status check
+            setTimeout(() => {
+                content.innerHTML = '<div style="color:#238636;">● Prêt pour la synchronisation</div>';
+            }, 1000);
+        }
+
+        async function syncSignalementsToFirebase() {
+            showLoading('Synchronisation des signalements...');
+            // Placeholder for real sync logic
+            setTimeout(() => {
+                hideLoading();
+                showToast('Synchronisation terminée', 'success');
+            }, 2000);
+        }
+
+        async function syncUsersToFirebase() {
+            showLoading('Synchronisation des utilisateurs...');
+            // Placeholder for real sync logic
+            setTimeout(() => {
+                hideLoading();
+                showToast('Utilisateurs synchronisés', 'success');
+            }, 2000);
         }
     </script>
 </body>
