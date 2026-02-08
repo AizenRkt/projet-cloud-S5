@@ -748,7 +748,7 @@ function MapApp() {
                 <div className="navbar-brand">
                     <span className="logo"></span>
                     <span className="title">Road Check</span>
-                    <span className="subtitle">| Manager</span>
+                    <span className="subtitle">| Manager nety</span>
                 </div>
                 <div className="navbar-menu">
                     <button className="nav-btn" type="button" onClick={openUsersModal}>Utilisateurs</button>
@@ -817,12 +817,12 @@ function MapApp() {
                         <div style={{ display: 'flex', gap: '12px', flexDirection: 'column' }}>
                             <div style={{ padding: '15px', background: '#21262d', borderRadius: '8px', border: '1px solid #58a6ff' }}>
                                 <h4 style={{ color: '#58a6ff', marginBottom: '10px' }}>Synchronisation bidirectionnelle</h4>
-                                <p style={{ fontSize: '0.85rem', color: '#8b949e', marginBottom: '8px' }}>PostgreSQL -> Firestore puis Firestore -> PostgreSQL</p>
-                                <p style={{ fontSize: '0.8rem', color: '#8b949e', marginBottom: '12px' }}>Ordre: entreprises -> types_signalement -> utilisateurs -> signalements -> tentatives_connexion</p>
+                                <p style={{ fontSize: '0.85rem', color: '#8b949e', marginBottom: '8px' }}>PostgreSQL → Firestore puis Firestore → PostgreSQL</p>
+                                <p style={{ fontSize: '0.8rem', color: '#8b949e', marginBottom: '12px' }}>Ordre: entreprises → types_signalement → utilisateurs → signalements → tentatives_connexion</p>
                                 <button className="btn-save" style={{ background: '#238636', fontSize: '1rem', padding: '12px 24px', width: '100%' }} type="button" onClick={syncBidirectional}>Synchroniser (PostgreSQL ↔ Firestore)</button>
                             </div>
                             <div style={{ padding: '15px', background: '#21262d', borderRadius: '8px' }}>
-                                <h4 style={{ color: '#1f6feb', marginBottom: '10px' }}>Utilisateurs -> Firebase Auth</h4>
+                                <h4 style={{ color: '#1f6feb', marginBottom: '10px' }}>Utilisateurs → Firebase Auth</h4>
                                 <p style={{ fontSize: '0.85rem', color: '#8b949e', marginBottom: '12px' }}>Creer les comptes email/password dans Firebase Authentication</p>
                                 <button className="btn-save" style={{ background: '#1f6feb' }} type="button" onClick={syncUsersToFirebaseAuth}>Synchroniser les utilisateurs vers Firebase Auth</button>
                             </div>

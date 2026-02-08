@@ -6,6 +6,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Road Check - Manager</title>
     <link rel="stylesheet" href="{{ asset('leaflet/leaflet.css') }}" />
+    @viteReactRefresh
     @vite(['resources/js/app.js'])
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
