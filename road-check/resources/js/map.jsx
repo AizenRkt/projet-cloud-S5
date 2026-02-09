@@ -144,6 +144,37 @@ function renderMarkers() {
         const lng = parseFloat(s.longitude);
         if (!isNaN(lat) && !isNaN(lng)) {
             const colors = { nouveau: '#1f6feb', en_attente: '#d29922', en_cours: '#f0883e', termine: '#238636', annule: '#f85149' };
+            const photoUrls = Array.isArray(s.photos) ? s.photos.filter((p) => typeof p === 'string' && p.trim()) : [];
+            const resolvePhotoUrl = (path) => {
+                if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('/')) {
+                    return path;
+                }
+                return `/storage/${path}`;
+            };
+            const escapeHtmlAttribute = (value) =>
+                String(value)
+                    .replace(/&/g, '&amp;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;');
+            const primaryPhotoUrl = photoUrls.length > 0 ? resolvePhotoUrl(photoUrls[0]) : '';
+            const photoHtml =
+                photoUrls.length > 0
+                    ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">
+                        ${photoUrls
+                            .slice(0, 3)
+                            .map(
+                                (path) =>
+                                    `<img src="${resolvePhotoUrl(path)}" alt="Photo signalement" style="width:80px;height:60px;object-fit:cover;border-radius:6px;border:1px solid #ccc;" />`
+                            )
+                            .join('')}
+                        ${photoUrls.length > 3 ? `<span style="font-size:0.75rem;color:#8b949e;align-self:center;">+${photoUrls.length - 3}</span>` : ''}
+                    </div>`
+                    : '';
+            const photoLinkHtml =
+                primaryPhotoUrl
+                    ? `<div style="margin-top:6px;"><a href="#" data-url="${escapeHtmlAttribute(primaryPhotoUrl)}" onclick="openPhotoModal(this.dataset.url); return false;" style="font-size:0.8rem;color:#1f6feb;">Cliquer ici pour voir l'image</a></div>`
+                    : '';
             const marker = L.circleMarker([lat, lng], {
                 radius: 10,
                 fillColor: colors[s.statut] || '#1f6feb',
@@ -160,13 +191,26 @@ function renderMarkers() {
                     ${s.description || 'Pas de description'}<br/>
                     <small>Surface: ${s.surface_m2 || '-'} m2 | Budget: ${s.budget || '-'} Ar</small><br/>
                     <small>Entr: ${s.entreprise || '-'}</small>
+                    ${photoHtml}
+                    ${photoLinkHtml}
                 </div>
             `;
-            marker.bindTooltip(tooltipContent, { direction: 'top', offset: [0, -10] });
-            marker.on('click', () => selectSignalement(s.id_signalement));
+            marker.bindTooltip(tooltipContent, { direction: 'top', offset: [0, -10], interactive: true });
+            marker.bindPopup(tooltipContent, {
+                closeButton: false,
+                autoClose: true,
+                closeOnClick: true,
+                autoPan: false
+            });
+            marker.on('click', (event) => {
+                L.DomEvent.stopPropagation(event);
+                marker.openPopup();
+                selectSignalement(s.id_signalement);
+            });
             markers.push(marker);
         }
     });
+    map.on('click', () => map.closePopup());
 }
 
 function selectSignalement(id) {
@@ -183,6 +227,14 @@ function openDetail() {
     const panel = document.getElementById('detailPanel');
     const s = selectedSig;
     if (!panel || !s) return;
+    const statusOptions =
+        s.statut === 'en_attente'
+            ? [
+                  { code: 'nouveau', libelle: 'Accepter' },
+                  { code: 'annule', libelle: 'Annuler' }
+              ]
+            : typeStatuts;
+    const selectedStatus = s.statut === 'en_attente' ? 'nouveau' : s.statut;
     document.getElementById('detailContent').innerHTML =
         '<form onsubmit="saveSignalement(event)"><div class="form-group"><label>Type</label><select id="editType">' +
         typeSignalements
@@ -198,13 +250,13 @@ function openDetail() {
             )
             .join('') +
         '</select></div><div class="form-group"><label>Statut</label><select id="editStatut">' +
-        typeStatuts
+        statusOptions
             .map(
                 (t) =>
                     '<option value="' +
                     t.code +
                     '"' +
-                    (s.statut === t.code ? ' selected' : '') +
+                    (selectedStatus === t.code ? ' selected' : '') +
                     '>' +
                     t.libelle +
                     '</option>'
@@ -314,6 +366,21 @@ function filterBy(filter, btn) {
 function openUsersModal() {
     document.getElementById('usersModal').classList.add('open');
     renderUsersTable();
+}
+
+function openPhotoModal(photoUrl) {
+    const modal = document.getElementById('photoModal');
+    const image = document.getElementById('photoModalImage');
+    if (!modal || !image || !photoUrl) return;
+    image.src = photoUrl;
+    modal.classList.add('open');
+}
+
+function closePhotoModal() {
+    const modal = document.getElementById('photoModal');
+    const image = document.getElementById('photoModalImage');
+    if (modal) modal.classList.remove('open');
+    if (image) image.src = '';
 }
 
 function closeUsersModal() {
@@ -694,6 +761,8 @@ function MapApp() {
         window.closeConfirm = closeConfirm;
         window.openUsersModal = openUsersModal;
         window.closeUsersModal = closeUsersModal;
+        window.openPhotoModal = openPhotoModal;
+        window.closePhotoModal = closePhotoModal;
         window.openCreateUserForm = openCreateUserForm;
         window.closeCreateUserModal = closeCreateUserModal;
         window.createUser = createUser;
@@ -722,6 +791,8 @@ function MapApp() {
             delete window.closeConfirm;
             delete window.openUsersModal;
             delete window.closeUsersModal;
+            delete window.openPhotoModal;
+            delete window.closePhotoModal;
             delete window.openCreateUserForm;
             delete window.closeCreateUserModal;
             delete window.createUser;
@@ -795,6 +866,14 @@ function MapApp() {
                     <div className="modal-header"><h3> Utilisateurs</h3><button className="close-btn" type="button" onClick={closeUsersModal}>&times;</button></div>
                     <div className="modal-body" id="usersModalBody"></div>
                     <div className="modal-footer"><button className="nav-btn" type="button" onClick={openCreateUserForm}> Nouvel utilisateur</button></div>
+                </div>
+            </div>
+            <div className="modal-overlay" id="photoModal">
+                <div className="modal" style={{ maxWidth: '900px' }}>
+                    <div className="modal-header"><h3>Photo</h3><button className="close-btn" type="button" onClick={closePhotoModal}>&times;</button></div>
+                    <div className="modal-body" id="photoModalBody" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                        <img id="photoModalImage" alt="Photo signalement" style={{ width: '100%', height: 'auto', maxHeight: '70vh', objectFit: 'contain', background: '#0d1117' }} />
+                    </div>
                 </div>
             </div>
             <div className="modal-overlay" id="rolesModal">
