@@ -67,10 +67,10 @@ function LoginApp({ data }) {
 
             <p className="text-center text-muted mb-0">
                 Pas encore de compte ?{' '}
-                <a href={data.registerUrl} className="text-decoration-none" style={{ color: 'var(--rc-primary)' }}>S'inscrire</a>
+                <a href={data.registerUrl} className="text-decoration-none rc-link">S'inscrire</a>
             </p>
             <p className="text-center mt-2">
-                <a href={data.docsUrl} className="text-decoration-none" style={{ color: 'var(--rc-primary)' }} target="_blank" rel="noreferrer">
+                <a href={data.docsUrl} className="text-decoration-none rc-link" target="_blank" rel="noreferrer">
                     <i className="bi bi-file-earmark-text me-1"></i>Documentation API
                 </a>
             </p>

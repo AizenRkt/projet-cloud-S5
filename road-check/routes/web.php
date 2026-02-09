@@ -44,11 +44,9 @@ Route::middleware('firebase.auth')->group(function () {
         return view('map');
     })->name('map');
 
-    Route::get('/statistiques', [SignalementController::class, 'detailedStats'])->name('stats');
-});
-
-Route::get('/', function () {
-    return view('welcome');
+    Route::get('/statistiques', function () {
+        return redirect()->route('map');
+    })->name('stats');
 });
 
 // ==================== Auth Firebase Web ====================

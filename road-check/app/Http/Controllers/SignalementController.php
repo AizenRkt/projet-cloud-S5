@@ -527,10 +527,11 @@ class SignalementController extends Controller
                 ->map(function ($s) use ($sessionUser) {
                     $email = $s->utilisateur ? $s->utilisateur->email : ($sessionUser ? $sessionUser->email : null);
                     $uid = $s->utilisateur ? $s->utilisateur->firebase_uid : ($sessionUser ? $sessionUser->firebase_uid : null);
+                    $budgetValue = is_numeric($s->budget) ? (int) $s->budget : 0;
                     return [
                         'local_id' => $s->id_signalement,
                         'firebase_id' => $s->firebase_id,
-                        'budget' => $s->budget,
+                        'budget' => $budgetValue,
                         'date_signalement' => $s->date_signalement,
                         'date_status' => $s->dernierStatut ? $s->dernierStatut->date_modification : $s->date_signalement,
                         'description' => $s->description,
@@ -813,13 +814,14 @@ class SignalementController extends Controller
                             }
                         }
 
+                        $budgetValue = isset($doc['budget']) && is_numeric($doc['budget']) ? (int) $doc['budget'] : 0;
                         $signalementData = [
                             'id_type_signalement' => $typeSignalementId,
                             'id_entreprise' => $entrepriseId,
                             'latitude' => $doc['latitude'] ?? 0, 'longitude' => $doc['longitude'] ?? 0,
                             'description' => $doc['description'] ?? '',
                             'surface_m2' => $doc['surface'] ?? $doc['surface_m2'] ?? 0,
-                            'budget' => $doc['budget'] ?? 0,
+                            'budget' => $budgetValue,
                             'date_signalement' => isset($doc['dateSignalement']) ? date('Y-m-d H:i:s', strtotime($doc['dateSignalement'])) : now(),
                             'synced_to_firebase' => true, 'firebase_id' => $firestoreId,
                             'last_sync_attempt' => now(), 'sync_error' => null,
