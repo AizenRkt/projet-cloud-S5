@@ -43,7 +43,7 @@
         .sig-info { font-size: 0.75rem; color: #8b949e; }
         .map-container { flex: 1; position: relative; }
         #map { width: 100%; height: 100%; }
-        .stats-bar { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); background: rgba(22, 27, 34, 0.95); border: 1px solid #30363d; border-radius: 12px; padding: 12px 24px; display: flex; gap: 30px; z-index: 500; }
+        .stats-bar { position: absolute; bottom: 20px; left: 20px; background: rgba(22, 27, 34, 0.95); border: 1px solid #30363d; border-radius: 12px; padding: 12px 24px; display: flex; gap: 30px; z-index: 500; max-width: calc(100% - 460px); flex-wrap: wrap; }
         .stat-item { text-align: center; }
         .stat-value { font-size: 1.4rem; font-weight: 700; }
         .stat-value.nouveau { color: #1f6feb; }
@@ -82,7 +82,15 @@
         .action-btn { padding: 4px 10px; border: 1px solid #30363d; background: transparent; color: #8b949e; border-radius: 4px; cursor: pointer; }
         .action-btn:hover { border-color: #58a6ff; }
         .loading { text-align: center; padding: 40px; color: #8b949e; }
-
+        
+        /* Search & Filter Styles */
+        .search-container { padding: 15px; border-bottom: 1px solid #30363d; background: #1c2128; }
+        .search-input { width: 100%; padding: 8px 12px; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #c9d1d9; font-size: 0.9rem; transition: border-color 0.2s; }
+        .search-input:focus { border-color: #58a6ff; outline: none; }
+        .search-input::placeholder { color: #8b949e; }
+        .date-filters { display: flex; gap: 8px; margin-top: 10px; }
+        .date-filters .search-input { flex: 1; }
+        
         .toast-container { position: fixed; top: 70px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
         .toast { padding: 14px 20px; border-radius: 8px; display: flex; align-items: center; gap: 12px; min-width: 300px; max-width: 450px; animation: slideIn 0.3s ease; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
         .toast.success { background: linear-gradient(135deg, #238636, #2ea043); color: #fff; border: 1px solid #2ea043; }
@@ -97,10 +105,36 @@
         @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
 
         .loading-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(13,17,23,0.85); z-index: 10000; display: none; align-items: center; justify-content: center; flex-direction: column; gap: 20px; }
+        /* Scrollbar Styling */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #161b22; }
+        ::-webkit-scrollbar-thumb { background: #30363d; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #58a6ff; }
+
+        /* History Styles */
+        .history-section { margin-top: 20px; padding-top: 15px; border-top: 1px solid #30363d; }
+        .history-title { font-size: 0.9rem; font-weight: 600; color: #58a6ff; margin-bottom: 10px; }
+        .history-list { display: flex; flex-direction: column; gap: 8px; }
+        .history-item { display: flex; align-items: flex-start; gap: 12px; }
+        .history-dot { width: 8px; height: 8px; border-radius: 50%; background: #30363d; margin-top: 5px; flex-shrink: 0; }
+        .history-dot.active { background: #238636; box-shadow: 0 0 5px #238636; }
+        .history-info { display: flex; flex-direction: column; }
+        .history-label { font-size: 0.85rem; color: #c9d1d9; }
+        .history-date { font-size: 0.75rem; color: #8b949e; }
+
+        /* Toast Styles */
+        .toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 3000; display: flex; flex-direction: column; gap: 10px; }
+        .toast { padding: 12px 20px; border-radius: 6px; background: #21262d; border: 1px solid #30363d; color: #fff; transform: translateX(120%); transition: transform 0.3s; box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
+        .toast.show { transform: translateX(0); }
+        .toast.success { border-left: 4px solid #238636; }
+        .toast.error { border-left: 4px solid #f85149; }
+
+        /* Loading Overlay */
+        .loading-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 4000; display: none; flex-direction: column; align-items: center; justify-content: center; }
         .loading-overlay.show { display: flex; }
-        .spinner { width: 50px; height: 50px; border: 4px solid #30363d; border-top-color: #58a6ff; border-radius: 50%; animation: spin 1s linear infinite; }
-        .loading-text { color: #c9d1d9; font-size: 1rem; }
+        .spinner { width: 40px; height: 40px; border: 4px solid #30363d; border-top-color: #58a6ff; border-radius: 50%; animation: spin 1s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-text { margin-top: 15px; color: #58a6ff; font-weight: 500; }
 
         .confirm-modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 10001; display: none; align-items: center; justify-content: center; }
         .confirm-modal.show { display: flex; }
@@ -109,13 +143,20 @@
         .confirm-title { color: #c9d1d9; font-size: 1.1rem; margin-bottom: 20px; }
         .confirm-buttons { display: flex; gap: 12px; justify-content: center; }
         .confirm-btn { padding: 10px 24px; border-radius: 6px; border: none; cursor: pointer; font-weight: 600; }
+        /* Confirm Modal */
+        .confirm-modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 3500; display: none; align-items: center; justify-content: center; }
+        .confirm-modal.open { display: flex; }
+        .confirm-box { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 25px; width: 90%; max-width: 400px; text-align: center; }
+        .confirm-title { font-size: 1.1rem; color: #c9d1d9; margin: 15px 0 20px; }
+        .confirm-buttons { display: flex; gap: 10px; justify-content: center; }
+        .confirm-btn { padding: 8px 20px; border-radius: 6px; border: none; font-weight: 600; cursor: pointer; }
         .confirm-btn.yes { background: #238636; color: #fff; }
-        .confirm-btn.yes:hover { background: #2ea043; }
-        .confirm-btn.no { background: #21262d; color: #c9d1d9; border: 1px solid #30363d; }
-        .confirm-btn.no:hover { background: #30363d; }
+        .confirm-btn.no { background: #30363d; color: #c9d1d9; }
     </style>
 </head>
 <body>
     <div id="map-app" data-success='@json(session('success'))'></div>
+
+    <script src="{{ asset('leaflet/leaflet.js') }}"></script>
 </body>
 </html>

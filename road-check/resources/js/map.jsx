@@ -1,6 +1,11 @@
 import React, { useEffect } from 'react';
 import ReactDOM from 'react-dom/client';
 import L from 'leaflet';
+import MapNavbar from './components/MapNavbar.jsx';
+import Sidebar from './components/Sidebar.jsx';
+import StatsBar from './components/StatsBar.jsx';
+import DetailPanel from './components/DetailPanel.jsx';
+import MapModals from './components/MapModals.jsx';
 
 let map;
 let markers = [];
@@ -13,6 +18,9 @@ let roles = [];
 let currentFilter = 'en_attente';
 let selectedSig = null;
 let confirmCallback = null;
+let searchText = '';
+let dateStart = '';
+let dateEnd = '';
 
 function showToast(message, type = 'info', duration = 4000) {
     const container = document.getElementById('toastContainer');
@@ -101,18 +109,67 @@ async function loadAllData() {
     }
 }
 
+function getProgress(status) {
+    if (status === 'termine') return 100;
+    if (status === 'en_cours') return 50;
+    return 0;
+}
+
+function filterSignalements() {
+    const startDate = dateStart ? new Date(dateStart) : null;
+    const endDate = dateEnd ? new Date(dateEnd) : null;
+    const search = searchText.toLowerCase();
+
+    return signalements.filter((s) => {
+        const statusMatch = currentFilter === 'all' || s.statut === currentFilter;
+
+        let searchMatch = true;
+        if (search) {
+            searchMatch =
+                (s.description && s.description.toLowerCase().includes(search)) ||
+                (s.type_signalement && s.type_signalement.toLowerCase().includes(search)) ||
+                (s.statut && s.statut.toLowerCase().includes(search)) ||
+                (s.statut_libelle && s.statut_libelle.toLowerCase().includes(search));
+        }
+
+        let dateMatch = true;
+        if (s.created_at || s.date_signalement) {
+            const sDate = new Date(s.created_at || s.date_signalement);
+            if (startDate && sDate < startDate) dateMatch = false;
+            if (endDate) {
+                const eDate = new Date(endDate);
+                eDate.setHours(23, 59, 59);
+                if (sDate > eDate) dateMatch = false;
+            }
+        }
+        return statusMatch && searchMatch && dateMatch;
+    });
+}
+
 function renderSignalements() {
     const container = document.getElementById('signalementsList');
     if (!container) return;
-    const filtered = currentFilter === 'all' ? signalements : signalements.filter((s) => s.statut === currentFilter);
+    const filtered = filterSignalements();
+
     if (filtered.length === 0) {
         container.innerHTML = '<div style="padding:30px;text-align:center;color:#8b949e;">Aucun signalement</div>';
         return;
     }
+
     container.innerHTML = filtered
         .map((s) => {
             const lat = parseFloat(s.latitude);
             const lng = parseFloat(s.longitude);
+            const progress = getProgress(s.statut);
+            const statusLabels = {
+                en_attente: 'En attente',
+                nouveau: 'Validé',
+                en_cours: 'En cours de traitement',
+                termine: 'Terminé',
+                annule: 'Annulé'
+            };
+            const label = statusLabels[s.statut] || s.statut_libelle || s.statut;
+
             return (
                 '<div class="sig-card' +
                 (selectedSig?.id_signalement === s.id_signalement ? ' selected' : '') +
@@ -123,23 +180,38 @@ function renderSignalements() {
                 '</span><span class="sig-status ' +
                 s.statut +
                 '">' +
-                (s.statut_libelle || 'Nouveau') +
+                label +
                 '</span></div><div class="sig-desc">' +
                 (s.description || 'Aucune description') +
-                '</div><div class="sig-info"> ' +
+                '</div><div class="sig-info">' +
+                '<div style="margin-bottom:4px;display:flex;justify-content:space-between;">' +
+                '<span>Avancement</span>' +
+                '<span>' + progress + '%</span>' +
+                '</div>' +
+                '<div style="height:4px;background:#30363d;border-radius:2px;overflow:hidden;margin-bottom:6px;">' +
+                '<div style="width:' + progress + '%;height:100%;background:' + (progress === 100 ? '#238636' : (progress === 50 ? '#f0883e' : '#30363d')) + '"></div>' +
+                '</div>' +
+                '<div style="font-size:0.7rem;color:#8b949e;">' +
                 (isNaN(lat) ? '-' : lat.toFixed(4)) +
                 ', ' +
                 (isNaN(lng) ? '-' : lng.toFixed(4)) +
+                '</div>' +
+                '<div style="font-size:0.7rem;color:#8b949e;">' +
+                (s.created_at ? new Date(s.created_at).toLocaleDateString() : '') +
+                '</div>' +
                 '</div></div>'
             );
         })
         .join('');
+    updateStats(filtered);
 }
 
 function renderMarkers() {
     markers.forEach((m) => map.removeLayer(m));
     markers = [];
-    signalements.forEach((s) => {
+    const filtered = filterSignalements();
+
+    filtered.forEach((s) => {
         const lat = parseFloat(s.latitude);
         const lng = parseFloat(s.longitude);
         if (!isNaN(lat) && !isNaN(lng)) {
@@ -183,10 +255,24 @@ function renderMarkers() {
                 fillOpacity: 0.8
             }).addTo(map);
 
+            const statusLabels = {
+                en_attente: 'En attente',
+                nouveau: 'Validé',
+                en_cours: 'En cours de traitement',
+                termine: 'Terminé',
+                annule: 'Annulé'
+            };
+            const label = statusLabels[s.statut] || s.statut_libelle || s.statut;
+            const progress = getProgress(s.statut);
+
             const tooltipContent = `
                 <div style="text-align:left;">
                     <strong>${s.type_signalement || 'Signalement'}</strong><br/>
-                    <span style="font-size:0.8rem;color:#8b949e;">${s.statut_libelle}</span><br/>
+                    <span style="font-size:0.8rem;color:#8b949e;">${label}</span><br/>
+                    <div style="margin:5px 0;">Avancement: ${progress}%</div>
+                    <div style="height:4px;background:#ddd;border-radius:2px;overflow:hidden;width:100px;">
+                        <div style="width:${progress}%;height:100%;background:${progress === 100 ? '#238636' : (progress === 50 ? '#f0883e' : '#30363d')}"></div>
+                    </div>
                     <hr style="border:0;border-top:1px solid #ccc;margin:5px 0;"/>
                     ${s.description || 'Pas de description'}<br/>
                     <small>Surface: ${s.surface_m2 || '-'} m2 | Budget: ${s.budget || '-'} Ar</small><br/>
@@ -195,12 +281,13 @@ function renderMarkers() {
                     ${photoLinkHtml}
                 </div>
             `;
-            marker.bindTooltip(tooltipContent, { direction: 'top', offset: [0, -10], interactive: true });
+            marker.bindTooltip(tooltipContent, { direction: 'top', offset: [0, -10], interactive: true, className: 'rc-tooltip' });
             marker.bindPopup(tooltipContent, {
                 closeButton: false,
                 autoClose: true,
                 closeOnClick: true,
-                autoPan: false
+                autoPan: false,
+                className: 'rc-popup'
             });
             marker.on('click', (event) => {
                 L.DomEvent.stopPropagation(event);
@@ -235,6 +322,27 @@ function openDetail() {
               ]
             : typeStatuts;
     const selectedStatus = s.statut === 'en_attente' ? 'nouveau' : s.statut;
+
+    let historyHtml = '';
+    if (s.history && s.history.length > 0) {
+        historyHtml = `
+            <div class="history-section">
+                <div class="history-title">Historique des avancements</div>
+                <div class="history-list">
+                    ${s.history.map((h, i) => `
+                        <div class="history-item">
+                            <div class="history-dot ${i === s.history.length - 1 ? 'active' : ''}"></div>
+                            <div class="history-info">
+                                <div class="history-label">${h.libelle} (${h.pourcentage}%)</div>
+                                <div class="history-date">${new Date(h.date).toLocaleString()}</div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+
     document.getElementById('detailContent').innerHTML =
         '<form onsubmit="saveSignalement(event)"><div class="form-group"><label>Type</label><select id="editType">' +
         typeSignalements
@@ -281,7 +389,8 @@ function openDetail() {
                     '</option>'
             )
             .join('') +
-        '</select></div><div style="display:flex;gap:10px;"><button type="submit" class="btn-save" style="flex:2;"> Enregistrer</button><button type="button" class="btn-save" style="flex:1;background:#30363d;" onclick="closeDetail()">Annuler</button></div></form>';
+        '</select></div><div style="display:flex;gap:10px;margin-bottom:20px;"><button type="submit" class="btn-save" style="flex:2;"> Enregistrer</button><button type="button" class="btn-save" style="flex:1;background:#30363d;" onclick="closeDetail()">Annuler</button></div></form>' +
+        historyHtml;
     panel.classList.add('open');
 }
 
@@ -347,13 +456,30 @@ async function saveSignalement(e) {
     }
 }
 
-function updateStats() {
-    document.getElementById('statNouveau').textContent = signalements.filter((s) => s.statut === 'nouveau').length;
-    document.getElementById('statEnAttente').textContent = signalements.filter((s) => s.statut === 'en_attente').length;
-    document.getElementById('statEnCours').textContent = signalements.filter((s) => s.statut === 'en_cours').length;
-    document.getElementById('statTermine').textContent = signalements.filter((s) => s.statut === 'termine').length;
-    document.getElementById('statAnnule').textContent = signalements.filter((s) => s.statut === 'annule').length;
-    document.getElementById('statTotal').textContent = signalements.length;
+function updateStats(filteredData = signalements) {
+    const total = filteredData.length;
+    const nouveau = filteredData.filter((s) => s.statut === 'nouveau').length;
+    const enAttente = filteredData.filter((s) => s.statut === 'en_attente').length;
+    const enCours = filteredData.filter((s) => s.statut === 'en_cours').length;
+    const termine = filteredData.filter((s) => s.statut === 'termine').length;
+    const annule = filteredData.filter((s) => s.statut === 'annule').length;
+
+    document.getElementById('statNouveau').textContent = nouveau;
+    document.getElementById('statEnAttente').textContent = enAttente;
+    document.getElementById('statEnCours').textContent = enCours;
+    document.getElementById('statTermine').textContent = termine;
+    document.getElementById('statAnnule').textContent = annule;
+    document.getElementById('statTotal').textContent = total;
+
+    // Global Progress
+    let totalProgress = 0;
+    filteredData.forEach((s) => totalProgress += getProgress(s.statut));
+    const avgProgress = total > 0 ? Math.round(totalProgress / total) : 0;
+
+    const globalProgressEl = document.getElementById('statGlobalProgress');
+    const globalProgressBarEl = document.getElementById('statGlobalProgressBar');
+    if (globalProgressEl) globalProgressEl.textContent = avgProgress + '%';
+    if (globalProgressBarEl) globalProgressBarEl.style.width = avgProgress + '%';
 }
 
 function filterBy(filter, btn) {
@@ -361,6 +487,20 @@ function filterBy(filter, btn) {
     document.querySelectorAll('.filter-tab').forEach((b) => b.classList.remove('active'));
     if (btn) btn.classList.add('active');
     renderSignalements();
+    renderMarkers();
+}
+
+function handleSearch(value) {
+    searchText = value;
+    renderSignalements();
+    renderMarkers();
+}
+
+function handleDateChange() {
+    dateStart = document.getElementById('dateStart')?.value || '';
+    dateEnd = document.getElementById('dateEnd')?.value || '';
+    renderSignalements();
+    renderMarkers();
 }
 
 function openUsersModal() {
@@ -542,18 +682,6 @@ async function updateUser(e) {
     }
 }
 
-function openRolesModal() {
-    document.getElementById('rolesModal').classList.add('open');
-    document.getElementById('rolesModalBody').innerHTML =
-        '<table class="data-table"><thead><tr><th>ID</th><th>Nom</th></tr></thead><tbody>' +
-        roles.map((r) => `<tr><td>${r.id_role}</td><td>${r.nom}</td></tr>`).join('') +
-        '</tbody></table>';
-}
-
-function closeRolesModal() {
-    document.getElementById('rolesModal').classList.remove('open');
-}
-
 function openSyncModal() {
     document.getElementById('syncModal').classList.add('open');
     loadSyncStatus();
@@ -565,86 +693,10 @@ function closeSyncModal() {
 
 function openStatsModal() {
     document.getElementById('statsModal').classList.add('open');
-    loadStats();
 }
 
 function closeStatsModal() {
     document.getElementById('statsModal').classList.remove('open');
-}
-
-function resetStatsFilters() {
-    document.getElementById('statsStartDate').value = '';
-    document.getElementById('statsEndDate').value = '';
-    loadStats();
-}
-
-async function loadStats(e) {
-    if (e) e.preventDefault();
-    const startDate = document.getElementById('statsStartDate').value;
-    const endDate = document.getElementById('statsEndDate').value;
-    const params = new URLSearchParams();
-    if (startDate) params.append('start_date', startDate);
-    if (endDate) params.append('end_date', endDate);
-    const url = `/api/signalements/stats${params.toString() ? `?${params.toString()}` : ''}`;
-
-    document.getElementById('statsContent').innerHTML = 'Chargement...';
-    try {
-        const res = await fetch(url);
-        if (!res.ok) {
-            const err = await res.json();
-            document.getElementById('statsContent').innerHTML = `<div style="color:#f85149;">${err.message || 'Erreur de chargement'}</div>`;
-            return;
-        }
-        const data = await res.json();
-        const formatNumber = (value) => {
-            const num = Number(value || 0);
-            return Number.isFinite(num) ? num.toLocaleString('fr-FR') : '0';
-        };
-        document.getElementById('statsContent').innerHTML = `
-            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
-                <div style="background:#21262d;border:1px solid #30363d;border-radius:8px;padding:12px;">
-                    <div style="font-size:0.75rem;color:#8b949e;">Total</div>
-                    <div style="font-size:1.4rem;font-weight:700;">${formatNumber(data.total)}</div>
-                </div>
-                <div style="background:#21262d;border:1px solid #30363d;border-radius:8px;padding:12px;">
-                    <div style="font-size:0.75rem;color:#8b949e;">Nouveaux</div>
-                    <div style="font-size:1.4rem;font-weight:700;color:#1f6feb;">${formatNumber(data.nouveau)}</div>
-                </div>
-                <div style="background:#21262d;border:1px solid #30363d;border-radius:8px;padding:12px;">
-                    <div style="font-size:0.75rem;color:#8b949e;">En attente</div>
-                    <div style="font-size:1.4rem;font-weight:700;color:#d29922;">${formatNumber(data.en_attente)}</div>
-                </div>
-                <div style="background:#21262d;border:1px solid #30363d;border-radius:8px;padding:12px;">
-                    <div style="font-size:0.75rem;color:#8b949e;">En cours</div>
-                    <div style="font-size:1.4rem;font-weight:700;color:#f0883e;">${formatNumber(data.en_cours)}</div>
-                </div>
-                <div style="background:#21262d;border:1px solid #30363d;border-radius:8px;padding:12px;">
-                    <div style="font-size:0.75rem;color:#8b949e;">Termines</div>
-                    <div style="font-size:1.4rem;font-weight:700;color:#238636;">${formatNumber(data.termine)}</div>
-                </div>
-                <div style="background:#21262d;border:1px solid #30363d;border-radius:8px;padding:12px;">
-                    <div style="font-size:0.75rem;color:#8b949e;">Annules</div>
-                    <div style="font-size:1.4rem;font-weight:700;color:#f85149;">${formatNumber(data.annule)}</div>
-                </div>
-            </div>
-            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px;">
-                <div style="background:#21262d;border:1px solid #30363d;border-radius:8px;padding:12px;">
-                    <div style="font-size:0.75rem;color:#8b949e;">Surface totale (m2)</div>
-                    <div style="font-size:1.2rem;font-weight:700;">${formatNumber(data.total_surface)}</div>
-                </div>
-                <div style="background:#21262d;border:1px solid #30363d;border-radius:8px;padding:12px;">
-                    <div style="font-size:0.75rem;color:#8b949e;">Budget total</div>
-                    <div style="font-size:1.2rem;font-weight:700;">${formatNumber(data.total_budget)} Ar</div>
-                </div>
-                <div style="background:#21262d;border:1px solid #30363d;border-radius:8px;padding:12px;">
-                    <div style="font-size:0.75rem;color:#8b949e;">Avancement moyen</div>
-                    <div style="font-size:1.2rem;font-weight:700;">${formatNumber(data.avancement)}%</div>
-                </div>
-            </div>
-        `;
-    } catch (err) {
-        document.getElementById('statsContent').innerHTML = '<div style="color:#f85149;">Erreur de connexion</div>';
-    }
 }
 
 async function loadSyncStatus() {
@@ -769,18 +821,16 @@ function MapApp() {
         window.openEditUserForm = openEditUserForm;
         window.closeEditUserModal = closeEditUserModal;
         window.updateUser = updateUser;
-        window.openRolesModal = openRolesModal;
-        window.closeRolesModal = closeRolesModal;
         window.openSyncModal = openSyncModal;
         window.closeSyncModal = closeSyncModal;
         window.openStatsModal = openStatsModal;
         window.closeStatsModal = closeStatsModal;
-        window.resetStatsFilters = resetStatsFilters;
-        window.loadStats = loadStats;
         window.syncUsersToFirebaseAuth = syncUsersToFirebaseAuth;
         window.syncBidirectional = syncBidirectional;
         window.logout = logout;
         window.filterBy = filterBy;
+        window.handleSearch = handleSearch;
+        window.handleDateChange = handleDateChange;
 
         return () => {
             delete window.selectSignalement;
@@ -798,191 +848,50 @@ function MapApp() {
             delete window.createUser;
             delete window.closeEditUserModal;
             delete window.updateUser;
-            delete window.openRolesModal;
-            delete window.closeRolesModal;
             delete window.openSyncModal;
             delete window.closeSyncModal;
             delete window.openStatsModal;
             delete window.closeStatsModal;
-            delete window.resetStatsFilters;
-            delete window.loadStats;
             delete window.syncUsersToFirebaseAuth;
             delete window.syncBidirectional;
             delete window.logout;
             delete window.filterBy;
+            delete window.handleSearch;
+            delete window.handleDateChange;
         };
     }, []);
 
     return (
         <div>
-            <nav className="navbar">
-                <div className="navbar-brand">
-                    <span className="logo"></span>
-                    <span className="title">Road Check</span>
-                    <span className="subtitle">| Manager nety</span>
-                </div>
-                <div className="navbar-menu">
-                    <button className="nav-btn" type="button" onClick={openUsersModal}>Utilisateurs</button>
-                    <button className="nav-btn" type="button" onClick={openStatsModal}>Statistiques</button>
-                    <button className="nav-btn" type="button" onClick={openSyncModal}>Synchronisation</button>
-                    <button className="nav-btn" type="button" onClick={logout}>Deconnexion</button>
-                </div>
-            </nav>
+            <MapNavbar
+                onOpenUsers={openUsersModal}
+                onOpenStats={openStatsModal}
+                onOpenSync={openSyncModal}
+                onLogout={logout}
+            />
             <div className="main-container">
-                <aside className="sidebar" id="sidebar">
-                    <div className="sidebar-header">
-                        <div className="sidebar-title"> Signalements</div>
-                        <div className="filter-tabs">
-                            <button className="filter-tab" type="button" onClick={(e) => filterBy('all', e.currentTarget)}>Tous</button>
-                            <button className="filter-tab" type="button" onClick={(e) => filterBy('nouveau', e.currentTarget)}> Nouveau</button>
-                            <button className="filter-tab active" type="button" onClick={(e) => filterBy('en_attente', e.currentTarget)}> En attente</button>
-                            <button className="filter-tab" type="button" onClick={(e) => filterBy('en_cours', e.currentTarget)}> En cours</button>
-                            <button className="filter-tab" type="button" onClick={(e) => filterBy('termine', e.currentTarget)}> Termine</button>
-                            <button className="filter-tab" type="button" onClick={(e) => filterBy('annule', e.currentTarget)}> Annule</button>
-                        </div>
-                    </div>
-                    <div className="sidebar-content" id="signalementsList">
-                        <div className="loading">Chargement...</div>
-                    </div>
-                </aside>
+                <Sidebar onFilter={filterBy} onSearch={handleSearch} onDateChange={handleDateChange} />
                 <div className="map-container">
                     <div id="map"></div>
-                    <div className="stats-bar">
-                        <div className="stat-item"><div className="stat-value nouveau" id="statNouveau">0</div><div className="stat-label">Nouveaux</div></div>
-                        <div className="stat-item"><div className="stat-value en_attente" id="statEnAttente">0</div><div className="stat-label">En attente</div></div>
-                        <div className="stat-item"><div className="stat-value en_cours" id="statEnCours">0</div><div className="stat-label">En cours</div></div>
-                        <div className="stat-item"><div className="stat-value termine" id="statTermine">0</div><div className="stat-label">Termines</div></div>
-                        <div className="stat-item"><div className="stat-value annule" id="statAnnule">0</div><div className="stat-label">Annules</div></div>
-                        <div className="stat-item"><div className="stat-value" id="statTotal">0</div><div className="stat-label">Total</div></div>
-                    </div>
+                    <StatsBar />
                 </div>
             </div>
-            <div className="detail-panel" id="detailPanel">
-                <div className="detail-header"><h3> Modifier</h3><button className="close-btn" type="button" onClick={closeDetail}>&times;</button></div>
-                <div className="detail-content" id="detailContent"></div>
-            </div>
-            <div className="modal-overlay" id="usersModal">
-                <div className="modal">
-                    <div className="modal-header"><h3> Utilisateurs</h3><button className="close-btn" type="button" onClick={closeUsersModal}>&times;</button></div>
-                    <div className="modal-body" id="usersModalBody"></div>
-                    <div className="modal-footer"><button className="nav-btn" type="button" onClick={openCreateUserForm}> Nouvel utilisateur</button></div>
-                </div>
-            </div>
-            <div className="modal-overlay" id="photoModal">
-                <div className="modal" style={{ maxWidth: '900px' }}>
-                    <div className="modal-header"><h3>Photo</h3><button className="close-btn" type="button" onClick={closePhotoModal}>&times;</button></div>
-                    <div className="modal-body" id="photoModalBody" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                        <img id="photoModalImage" alt="Photo signalement" style={{ width: '100%', height: 'auto', maxHeight: '70vh', objectFit: 'contain', background: '#0d1117' }} />
-                    </div>
-                </div>
-            </div>
-            <div className="modal-overlay" id="rolesModal">
-                <div className="modal" style={{ maxWidth: '500px' }}>
-                    <div className="modal-header"><h3>Roles</h3><button className="close-btn" type="button" onClick={closeRolesModal}>&times;</button></div>
-                    <div className="modal-body" id="rolesModalBody"></div>
-                </div>
-            </div>
-            <div className="modal-overlay" id="syncModal">
-                <div className="modal" style={{ maxWidth: '600px' }}>
-                    <div className="modal-header"><h3>Synchronisation Firebase</h3><button className="close-btn" type="button" onClick={closeSyncModal}>&times;</button></div>
-                    <div className="modal-body">
-                        <div id="syncStatus" style={{ marginBottom: '20px', padding: '15px', background: '#21262d', borderRadius: '8px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-                                <span>Statut de synchronisation</span>
-                                <button className="action-btn" type="button" onClick={loadSyncStatus}>Actualiser</button>
-                            </div>
-                            <div id="syncStatusContent">Chargement...</div>
-                        </div>
-                        <div style={{ display: 'flex', gap: '12px', flexDirection: 'column' }}>
-                            <div style={{ padding: '15px', background: '#21262d', borderRadius: '8px', border: '1px solid #58a6ff' }}>
-                                <h4 style={{ color: '#58a6ff', marginBottom: '10px' }}>Synchronisation bidirectionnelle</h4>
-                                <p style={{ fontSize: '0.85rem', color: '#8b949e', marginBottom: '8px' }}>PostgreSQL → Firestore puis Firestore → PostgreSQL</p>
-                                <p style={{ fontSize: '0.8rem', color: '#8b949e', marginBottom: '12px' }}>Ordre: entreprises → types_signalement → utilisateurs → signalements → tentatives_connexion</p>
-                                <button className="btn-save" style={{ background: '#238636', fontSize: '1rem', padding: '12px 24px', width: '100%' }} type="button" onClick={syncBidirectional}>Synchroniser (PostgreSQL ↔ Firestore)</button>
-                            </div>
-                            <div style={{ padding: '15px', background: '#21262d', borderRadius: '8px' }}>
-                                <h4 style={{ color: '#1f6feb', marginBottom: '10px' }}>Utilisateurs → Firebase Auth</h4>
-                                <p style={{ fontSize: '0.85rem', color: '#8b949e', marginBottom: '12px' }}>Creer les comptes email/password dans Firebase Authentication</p>
-                                <button className="btn-save" style={{ background: '#1f6feb' }} type="button" onClick={syncUsersToFirebaseAuth}>Synchroniser les utilisateurs vers Firebase Auth</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div className="modal-overlay" id="statsModal">
-                <div className="modal" style={{ maxWidth: '700px' }}>
-                    <div className="modal-header"><h3>Statistiques</h3><button className="close-btn" type="button" onClick={closeStatsModal}>&times;</button></div>
-                    <div className="modal-body">
-                        <form id="statsFilterForm" onSubmit={loadStats}>
-                            <div className="form-row">
-                                <div className="form-group"><label>Date debut</label><input type="date" id="statsStartDate" /></div>
-                                <div className="form-group"><label>Date fin</label><input type="date" id="statsEndDate" /></div>
-                            </div>
-                            <div style={{ display: 'flex', gap: '10px' }}>
-                                <button type="submit" className="btn-save" style={{ flex: 2 }}>Appliquer</button>
-                                <button type="button" className="btn-save" style={{ flex: 1, background: '#30363d' }} onClick={resetStatsFilters}>Reinitialiser</button>
-                            </div>
-                        </form>
-                        <div id="statsContent" style={{ marginTop: '16px' }}>Chargement...</div>
-                    </div>
-                </div>
-            </div>
-            <div className="modal-overlay" id="createUserModal">
-                <div className="modal" style={{ maxWidth: '500px' }}>
-                    <div className="modal-header"><h3> Creer utilisateur</h3><button className="close-btn" type="button" onClick={closeCreateUserModal}>&times;</button></div>
-                    <div className="modal-body">
-                        <form id="createUserForm" onSubmit={createUser}>
-                            <div className="form-group"><label>Email</label><input type="email" id="newUserEmail" required /></div>
-                            <div className="form-row">
-                                <div className="form-group"><label>Nom</label><input type="text" id="newUserNom" required /></div>
-                                <div className="form-group"><label>Prenom</label><input type="text" id="newUserPrenom" required /></div>
-                            </div>
-                            <div className="form-group"><label>Mot de passe</label><input type="password" id="newUserPassword" required /></div>
-                            <div className="form-group"><label>Role</label><select id="newUserRole"></select></div>
-                            <button type="submit" className="btn-save">Creer</button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-            <div className="modal-overlay" id="editUserModal">
-                <div className="modal" style={{ maxWidth: '520px' }}>
-                    <div className="modal-header"><h3> Modifier utilisateur</h3><button className="close-btn" type="button" onClick={closeEditUserModal}>&times;</button></div>
-                    <div className="modal-body">
-                        <form id="editUserForm" onSubmit={updateUser}>
-                            <input type="hidden" id="editUserId" />
-                            <div className="form-group"><label>Email</label><input type="email" id="editUserEmail" disabled /></div>
-                            <div className="form-row">
-                                <div className="form-group"><label>Nom</label><input type="text" id="editUserNom" required /></div>
-                                <div className="form-group"><label>Prenom</label><input type="text" id="editUserPrenom" required /></div>
-                            </div>
-                            <div className="form-group"><label>Role</label><select id="editUserRole"></select></div>
-                            <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <input type="checkbox" id="editUserBloque" />
-                                <label htmlFor="editUserBloque" style={{ margin: 0 }}>Bloque</label>
-                            </div>
-                            <button type="submit" className="btn-save">Enregistrer</button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-
-            <div className="toast-container" id="toastContainer"></div>
-
-            <div className="loading-overlay" id="loadingOverlay">
-                <div className="spinner"></div>
-                <div className="loading-text" id="loadingText">Chargement...</div>
-            </div>
-
-            <div className="confirm-modal" id="confirmModal">
-                <div className="confirm-box">
-                    <div className="confirm-icon" id="confirmIcon">⚠️</div>
-                    <div className="confirm-title" id="confirmTitle">Etes-vous sur ?</div>
-                    <div className="confirm-buttons">
-                        <button className="confirm-btn no" type="button" onClick={() => closeConfirm(false)}>Annuler</button>
-                        <button className="confirm-btn yes" type="button" onClick={() => closeConfirm(true)}>Confirmer</button>
-                    </div>
-                </div>
-            </div>
+            <DetailPanel onClose={closeDetail} />
+            <MapModals
+                onCloseUsers={closeUsersModal}
+                onOpenCreateUser={openCreateUserForm}
+                onClosePhoto={closePhotoModal}
+                onCloseSync={closeSyncModal}
+                onCloseStats={closeStatsModal}
+                onCloseCreateUser={closeCreateUserModal}
+                onCloseEditUser={closeEditUserModal}
+                onCloseConfirm={closeConfirm}
+                onCreateUser={createUser}
+                onUpdateUser={updateUser}
+                onSyncBidirectional={syncBidirectional}
+                onSyncUsersToFirebaseAuth={syncUsersToFirebaseAuth}
+                onLoadSyncStatus={loadSyncStatus}
+            />
         </div>
     );
 }

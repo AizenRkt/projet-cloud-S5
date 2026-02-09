@@ -34,7 +34,7 @@ class SignalementController extends Controller
     // Liste des signalements avec relations
     public function index()
     {
-        $signalements = Signalement::with(['typeSignalement', 'entreprise', 'utilisateur', 'dernierStatut.typeStatus', 'photos'])
+        $signalements = Signalement::with(['typeSignalement', 'entreprise', 'utilisateur', 'dernierStatut.typeStatus', 'photos', 'statuts.typeStatus'])
             ->orderBy('date_signalement', 'desc')
             ->get()
             ->map(function ($s) {
@@ -55,7 +55,14 @@ class SignalementController extends Controller
                     'statut' => $s->dernierStatut && $s->dernierStatut->typeStatus ? $s->dernierStatut->typeStatus->code : 'nouveau',
                     'statut_libelle' => $s->dernierStatut && $s->dernierStatut->typeStatus ? $s->dernierStatut->typeStatus->libelle : 'Nouveau',
                     'pourcentage' => $s->dernierStatut && $s->dernierStatut->typeStatus ? $s->dernierStatut->typeStatus->pourcentage : 0,
-                    'photos' => $s->photos->pluck('path')
+                    'photos' => $s->photos->pluck('path'),
+                    'history' => $s->statuts->sortBy('date_modification')->map(function($h) {
+                        return [
+                            'libelle' => $h->typeStatus->libelle,
+                            'date' => $h->date_modification,
+                            'pourcentage' => $h->typeStatus->pourcentage
+                        ];
+                    })->values()
                 ];
             });
 
@@ -129,7 +136,138 @@ class SignalementController extends Controller
         ]);
     }
 
-    // Mise à jour d'un signalement (Manager)
+    // Statistiques détaillées pour la page dédiée
+    public function detailedStats(Request $request)
+    {
+        $query = Signalement::with(['dernierStatut.typeStatus', 'statuts.typeStatus']);
+
+        // Appliquer les filtres de date si fournis
+        if ($request->has('start_date') && $request->start_date) {
+            $query->where('date_signalement', '>=', $request->start_date);
+        }
+        if ($request->has('end_date') && $request->end_date) {
+            $query->where('date_signalement', '<=', $request->end_date . ' 23:59:59');
+        }
+
+        $signalements = $query->get();
+
+        $total = $signalements->count();
+        $totalSurface = $signalements->sum('surface_m2');
+        $totalBudget = $signalements->sum('budget');
+
+        $nouveau = 0;
+        $enCours = 0;
+        $termine = 0;
+        $avancementTotal = 0;
+        $processingTimes = [];
+
+        foreach ($signalements as $s) {
+            $code = $s->dernierStatut && $s->dernierStatut->typeStatus
+                ? $s->dernierStatut->typeStatus->code
+                : 'nouveau';
+            $pourcentage = $s->dernierStatut && $s->dernierStatut->typeStatus
+                ? $s->dernierStatut->typeStatus->pourcentage
+                : 0;
+
+            if ($code === 'nouveau') $nouveau++;
+            elseif ($code === 'en_cours') $enCours++;
+            elseif ($code === 'termine') {
+                $termine++;
+                // Calculate processing time: from date_signalement to date_modification of 'termine' status
+                $completionStatus = $s->statuts->where('typeStatus.code', 'termine')->sortByDesc('date_modification')->first();
+                if ($completionStatus && $s->date_signalement) {
+                    $start = \Carbon\Carbon::parse($s->date_signalement);
+                    $end = \Carbon\Carbon::parse($completionStatus->date_modification);
+                    $days = $start->diffInDays($end);
+                    $processingTimes[] = $days;
+                }
+            }
+
+            $avancementTotal += $pourcentage;
+        }
+
+        $averageProcessingTime = count($processingTimes) > 0 ? round(array_sum($processingTimes) / count($processingTimes), 1) : 0;
+
+        return view('stats', [
+            'stats' => [
+                'total' => $total,
+                'nouveau' => $nouveau,
+                'en_cours' => $enCours,
+                'termine' => $termine,
+                'total_surface' => $totalSurface,
+                'total_budget' => $totalBudget,
+                'avancement' => $total > 0 ? round($avancementTotal / $total, 2) : 0,
+                'average_processing_time' => $averageProcessingTime,
+                'completed_count' => count($processingTimes)
+            ]
+        ]);
+    }
+
+
+    // Statistiques détaillées en JSON pour React
+    public function detailedStatsJson(Request $request)
+    {
+        $query = Signalement::with(['dernierStatut.typeStatus', 'statuts.typeStatus']);
+
+        // Appliquer les filtres de date si fournis
+        if ($request->has('start_date') && $request->start_date) {
+            $query->where('date_signalement', '>=', $request->start_date);
+        }
+        if ($request->has('end_date') && $request->end_date) {
+            $query->where('date_signalement', '<=', $request->end_date . ' 23:59:59');
+        }
+
+        $signalements = $query->get();
+
+        $total = $signalements->count();
+        $totalSurface = $signalements->sum('surface_m2');
+        $totalBudget = $signalements->sum('budget');
+
+        $nouveau = 0;
+        $enCours = 0;
+        $termine = 0;
+        $avancementTotal = 0;
+        $processingTimes = [];
+
+        foreach ($signalements as $s) {
+            $code = $s->dernierStatut && $s->dernierStatut->typeStatus
+                ? $s->dernierStatut->typeStatus->code
+                : 'nouveau';
+            $pourcentage = $s->dernierStatut && $s->dernierStatut->typeStatus
+                ? $s->dernierStatut->typeStatus->pourcentage
+                : 0;
+
+            if ($code === 'nouveau') $nouveau++;
+            elseif ($code === 'en_cours') $enCours++;
+            elseif ($code === 'termine') {
+                $termine++;
+                $completionStatus = $s->statuts->where('typeStatus.code', 'termine')->sortByDesc('date_modification')->first();
+                if ($completionStatus && $s->date_signalement) {
+                    $start = \Carbon\Carbon::parse($s->date_signalement);
+                    $end = \Carbon\Carbon::parse($completionStatus->date_modification);
+                    $days = $start->diffInDays($end);
+                    $processingTimes[] = $days;
+                }
+            }
+
+            $avancementTotal += $pourcentage;
+        }
+
+        $averageProcessingTime = count($processingTimes) > 0 ? round(array_sum($processingTimes) / count($processingTimes), 1) : 0;
+
+        return response()->json([
+            'total' => $total,
+            'nouveau' => $nouveau,
+            'en_cours' => $enCours,
+            'termine' => $termine,
+            'total_surface' => $totalSurface,
+            'total_budget' => $totalBudget,
+            'avancement' => $total > 0 ? round($avancementTotal / $total, 2) : 0,
+            'average_processing_time' => $averageProcessingTime,
+            'completed_count' => count($processingTimes)
+        ]);
+    }
+
     public function update(Request $request, $id)
     {
         $signalement = Signalement::findOrFail($id);
@@ -157,6 +295,26 @@ class SignalementController extends Controller
         }
 
         return response()->json(['message' => 'Signalement mis à jour', 'data' => $signalement]);
+    }
+
+    // Historique des statuts d'un signalement
+    public function getHistory($id)
+    {
+        $history = SignalementStatus::with('typeStatus')
+            ->where('id_signalement', $id)
+            ->orderBy('date_modification', 'asc')
+            ->get()
+            ->map(function ($h) {
+                return [
+                    'id_signalement_status' => $h->id_signalement_status,
+                    'code' => $h->typeStatus->code,
+                    'libelle' => $h->typeStatus->libelle,
+                    'pourcentage' => $h->typeStatus->pourcentage,
+                    'date' => $h->date_modification
+                ];
+            });
+
+        return response()->json($history);
     }
 
     // Liste des entreprises

@@ -9,8 +9,10 @@ use App\Http\Controllers\SignalementController;
 
 // Signalements
 Route::get('/api/signalements', [SignalementController::class, 'index']);
+Route::get('/api/signalements/{id}/history', [SignalementController::class, 'getHistory']);
 Route::put('/api/signalements/{id}', [SignalementController::class, 'update']);
 Route::get('/api/signalements/stats', [SignalementController::class, 'stats']);
+Route::get('/api/stats/detailed', [SignalementController::class, 'detailedStatsJson']);
 
 // Données référentielles
 Route::get('/api/entreprises', [SignalementController::class, 'getEntreprises']);
@@ -41,6 +43,8 @@ Route::middleware('firebase.auth')->group(function () {
     Route::get('/map', function () {
         return view('map');
     })->name('map');
+
+    Route::get('/statistiques', [SignalementController::class, 'detailedStats'])->name('stats');
 });
 
 Route::get('/', function () {
