@@ -6,9 +6,9 @@ function Sidebar({ onFilter, onSearch, onDateChange }) {
             <div className="sidebar-header">
                 <div className="sidebar-title"> Signalements</div>
                 <div className="filter-tabs">
-                    <button className="filter-tab" type="button" onClick={(e) => onFilter('all', e.currentTarget)}>Tous</button>
+                    <button className="filter-tab active" type="button" onClick={(e) => onFilter('all', e.currentTarget)}>Tous</button>
                     <button className="filter-tab" type="button" onClick={(e) => onFilter('nouveau', e.currentTarget)}> Nouveau</button>
-                    <button className="filter-tab active" type="button" onClick={(e) => onFilter('en_attente', e.currentTarget)}> En attente</button>
+                    <button className="filter-tab" type="button" onClick={(e) => onFilter('en_attente', e.currentTarget)}> En attente</button>
                     <button className="filter-tab" type="button" onClick={(e) => onFilter('en_cours', e.currentTarget)}> En cours</button>
                     <button className="filter-tab" type="button" onClick={(e) => onFilter('termine', e.currentTarget)}> Termine</button>
                     <button className="filter-tab" type="button" onClick={(e) => onFilter('annule', e.currentTarget)}> Annule</button>
