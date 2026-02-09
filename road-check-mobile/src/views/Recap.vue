@@ -100,18 +100,21 @@
           </ion-card-header>
           <ion-card-content>
             <div class="stats-list">
-              <div class="stat-item">
-                <span class="stat-label">Signalements en cours</span>
-                <span class="stat-value">{{ statsDetaillees.enCours }}</span>
+              <!-- Affichage dynamique de tous les statuts -->
+              <div 
+                v-for="(status, key) in SignalementStatus" 
+                :key="key"
+                class="stat-item"
+              >
+                <span class="stat-label">{{ SignalementStatusConfig[status].label }}</span>
+                <span 
+                  class="stat-value"
+                  :style="{ backgroundColor: SignalementStatusConfig[status].color + '20', color: SignalementStatusConfig[status].color }"
+                >
+                  {{ statsDetaillees.statusCounts[status] || 0 }}
+                </span>
               </div>
-              <div class="stat-item">
-                <span class="stat-label">Signalements résolus</span>
-                <span class="stat-value">{{ statsDetaillees.resolus }}</span>
-              </div>
-              <div class="stat-item">
-                <span class="stat-label">Signalements urgents</span>
-                <span class="stat-value urgent">{{ statsDetaillees.urgents }}</span>
-              </div>
+              
               <div class="stat-item">
                 <span class="stat-label">Moyenne par mois</span>
                 <span class="stat-value">{{ statsDetaillees.moyenneParMois }}</span>
@@ -155,6 +158,7 @@ import {
 } from 'ionicons/icons';
 import Chart from 'chart.js/auto';
 import { SignalementService } from '@/services/signalement/SignalementService';
+import { SignalementStatus, SignalementStatusConfig } from '@/services/signalement/types';
 import { auth } from '@/firebase';
 
 // Instance du service
@@ -186,24 +190,23 @@ const totalSurface = computed(() => {
 });
 
 const statsDetaillees = computed(() => {
-  // Comme on n'a pas de statut/priorité dans notre structure, on simule les stats
-  const total = signalements.value.length;
-  const enCours = Math.round(total * 0.6); // 60% en cours
-  const resolus = total - enCours; // Le reste résolu
-  const urgents = Math.round(total * 0.1); // 10% urgents
-  
+  // Comptage des vrais statuts depuis les données
+  const statusCounts = signalements.value.reduce((acc, signalement) => {
+    const status = signalement.status || SignalementStatus.EN_ATTENTE;
+    acc[status] = (acc[status] || 0) + 1;
+    return acc;
+  }, {} as Record<SignalementStatus, number>);
+
   // Calcul de la moyenne par mois (sur les 6 derniers mois)
   const sixMoisAgo = new Date();
   sixMoisAgo.setMonth(sixMoisAgo.getMonth() - 6);
-  const recentSignalements = signalements.value.filter(s => 
+  const recentSignalements = signalements.value.filter(s =>
     new Date(s.dateSignalement) >= sixMoisAgo
   );
   const moyenneParMois = Math.round(recentSignalements.length / 6);
 
   return {
-    enCours,
-    resolus,
-    urgents,
+    statusCounts,
     moyenneParMois
   };
 });
@@ -606,11 +609,6 @@ ion-content {
   background: #F1F5F9;
   padding: 0.25rem 0.75rem;
   border-radius: 8px;
-}
-
-.stat-value.urgent {
-  color: #FFFFFF;
-  background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%);
 }
 
 /* ========== Loading ========== */
