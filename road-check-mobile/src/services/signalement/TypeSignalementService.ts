@@ -30,7 +30,8 @@ export class TypeSignalementService {
           id: data.id, // ID numérique du document
           code: data.code,
           nom: data.nom,
-          icon: data.icon
+          icon: data.icon,
+          couleur: data.couleur
         } as TypeSignalement;
       }
       return null;
@@ -58,7 +59,8 @@ export class TypeSignalementService {
           id: data.id, // ID numérique du document
           code: data.code,
           nom: data.nom,
-          icon: data.icon
+          icon: data.icon,
+          couleur: data.couleur
         } as TypeSignalement;
       });
     } catch (error) {
@@ -89,7 +91,8 @@ export class TypeSignalementService {
           id: data.id, // ID numérique du document
           code: data.code,
           nom: data.nom,
-          icon: data.icon
+          icon: data.icon,
+          couleur: data.couleur
         } as TypeSignalement;
       });
     } catch (error) {

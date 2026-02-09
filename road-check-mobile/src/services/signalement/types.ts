@@ -44,6 +44,7 @@ export interface TypeSignalement {
   code : string;
   nom: string;
   icon?: string;
+  couleur?: string;
 }
 
 export interface Entreprise {

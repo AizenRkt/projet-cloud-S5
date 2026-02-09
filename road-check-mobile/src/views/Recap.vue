@@ -63,6 +63,18 @@
               </div>
             </ion-card-content>
           </ion-card>
+
+          <ion-card class="metric-card resolution-card">
+            <ion-card-content>
+              <div class="metric-content">
+                <ion-icon :icon="checkmarkDoneOutline" class="metric-icon metric-resolution"></ion-icon>
+                <div class="metric-info">
+                  <h2>{{ tauxResolution }}%</h2>
+                  <p>Taux de résolution</p>
+                </div>
+              </div>
+            </ion-card-content>
+          </ion-card>
         </div>
 
         <!-- Graphique camembert -->
@@ -154,7 +166,8 @@ import {
 import { 
   alertCircleOutline, 
   cashOutline, 
-  expandOutline 
+  expandOutline,
+  checkmarkDoneOutline
 } from 'ionicons/icons';
 import Chart from 'chart.js/auto';
 import { SignalementService } from '@/services/signalement/SignalementService';
@@ -187,6 +200,12 @@ const totalSurface = computed(() => {
   return signalements.value.reduce((total, signalement) => {
     return total + (signalement.surface || 0);
   }, 0);
+});
+
+const tauxResolution = computed(() => {
+  if (signalements.value.length === 0) return 0;
+  const termines = signalements.value.filter(s => s.status === SignalementStatus.TERMINE).length;
+  return Math.round((termines / signalements.value.length) * 100);
 });
 
 const statsDetaillees = computed(() => {
@@ -474,6 +493,11 @@ ion-content {
 .metric-icon.metric-surface {
   color: #8B5CF6;
   background: linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(139, 92, 246, 0.05) 100%);
+}
+
+.metric-icon.metric-resolution {
+  color: #10B981;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(16, 185, 129, 0.05) 100%);
 }
 
 .metric-info h2 {

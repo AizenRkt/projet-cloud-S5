@@ -146,6 +146,7 @@ import GeolocalisationService from "@/services/geolocalisation";
 import GeoSearchService, { type SearchLocation } from "@/services/geosearch";
 import { signalementService } from "@/services/signalement";
 import { photoService } from "@/services/signalement/PhotoService";
+import { TypeSignalementService } from "@/services/signalement/TypeSignalementService";
 import { onIonViewDidEnter } from "@ionic/vue";
 
 // **Vrai import corrigé**
@@ -179,6 +180,21 @@ import { auth } from '@/firebase';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 
 const router = useRouter();
+
+// Instance des services
+const typeSignalementService = new TypeSignalementService();
+
+// Types de signalement avec leurs couleurs
+const typesSignalement = ref<any[]>([]);
+
+// Fonction pour obtenir la couleur d'un type de signalement
+const getSignalementColor = (typeSignalementNom?: string): string => {
+  if (!typeSignalementNom) return '#FF4444'; // Rouge par défaut
+  
+  // Chercher la couleur dans les types chargés depuis Firestore
+  const typeData = typesSignalement.value.find(t => t.nom === typeSignalementNom);
+  return typeData?.couleur || '#FF4444'; // Rouge si pas de couleur définie
+};
 
 /* Fix icônes Leaflet */
 import { Icon } from "leaflet";
@@ -258,6 +274,9 @@ const initMap = async () => {
     console.warn("Permission localisation non accordée ou position indisponible");
   }
 
+  // Charger les types de signalement pour les couleurs
+  await loadTypesSignalement();
+  
   // Charger les signalements existants
   await loadSignalements();
 
@@ -369,6 +388,18 @@ const closeForm = () => {
   }
 };
 
+// Charger les types de signalement
+const loadTypesSignalement = async () => {
+  try {
+    const types = await typeSignalementService.getAll();
+    typesSignalement.value = types;
+    console.log('Types de signalement chargés:', types);
+  } catch (error) {
+    console.error('Erreur lors du chargement des types de signalement:', error);
+    // Les couleurs de fallback seront utilisées
+  }
+};
+
 // Charger tous les signalements existants
 const loadSignalements = async () => {
   try {
@@ -432,9 +463,11 @@ const displaySignalementsOnMap = () => {
 
   // Ajouter les nouveaux markers
   signalements.value.forEach(signalement => {
+    const markerColor = getSignalementColor(signalement.typeSignalementNom);
+    
     const marker = L.circleMarker([signalement.latitude, signalement.longitude], {
       radius: 8,
-      fillColor: '#FF4444',
+      fillColor: markerColor,
       color: '#ffffff',
       weight: 2,
       opacity: 1,
