@@ -192,7 +192,7 @@
                 <div class="detail-row">
                   <ion-icon :icon="locationOutline" class="detail-icon"></ion-icon>
                   <span class="detail-text">
-                    {{ signalement.latitude.toFixed(4) }}, {{ signalement.longitude.toFixed(4) }}
+                    {{ formatCoordinate(signalement.latitude) }}, {{ formatCoordinate(signalement.longitude) }}
                   </span>
                 </div>
               </div>
@@ -419,6 +419,12 @@ const getTypeIcon = (typeName?: string) => {
   return alertCircleOutline;
 };
 
+// Formater les coordonnées (gère les chaînes et les nombres)
+const formatCoordinate = (coord: number | string): string => {
+  const num = typeof coord === 'string' ? parseFloat(coord) : coord;
+  return isNaN(num) ? '0.0000' : num.toFixed(4);
+};
+
 const formatDate = (date: Date | string) => {
   const d = new Date(date);
   const now = new Date();
@@ -451,10 +457,17 @@ const loadUserSignalements = async () => {
   
   try {
     isLoading.value = true;
+    console.log('Chargement des signalements pour utilisateur:', currentUser.value.uid);
     const data = await signalementService.getByUser(currentUser.value.uid);
+    console.log('Signalements récupérés:', data.length, data);
     signalements.value = data;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Erreur lors du chargement des signalements:', error);
+    // Si c'est une erreur d'index Firestore, afficher le lien
+    if (error?.message?.includes('index') || error?.code === 'failed-precondition') {
+      console.error('INDEX FIRESTORE MANQUANT - Créez un index composite sur signalements: utilisateurId (ASC) + dateSignalement (DESC)');
+      console.error('Ou visitez le lien dans l\'erreur ci-dessus');
+    }
     signalements.value = [];
   } finally {
     isLoading.value = false;
@@ -478,8 +491,8 @@ const loadFilterData = async () => {
     const types = [...new Set(signalements.value.map(s => s.typeSignalementNom).filter(Boolean))];
     const entreprises = [...new Set(signalements.value.map(s => s.entrepriseNom).filter(Boolean))];
     
-    allTypes.value = types.map((nom, index) => ({ id: index + 1, code: '', nom, icon: '' }));
-    allEntreprises.value = entreprises.map((nom, index) => ({ id: index + 1, code: '', nom, logo: '' }));
+    allTypes.value = types.map((nom, index) => ({ id: index + 1, code: '', nom: nom || '', icon: '' }));
+    allEntreprises.value = entreprises.map((nom, index) => ({ id: index + 1, code: '', nom: nom || '', logo: '' }));
   } finally {
     isLoadingFilters.value = false;
   }

@@ -159,12 +159,6 @@ class GeoSearchService {
   getPopularSuggestions(): string[] {
     return [
       'Antananarivo',
-      'Toamasina',
-      'Antsirabe',
-      'Fianarantsoa',
-      'Mahajanga',
-      'Toliara',
-      'Antsiranana',
       'Avenue de l\'Indépendance',
       'Analakely',
       'Behoririka',

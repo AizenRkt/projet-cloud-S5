@@ -254,12 +254,80 @@
         </form>
       </div>
     </div>
+    
+    <!-- Success Modal -->
+    <TransitionRoot appear :show="showSuccessModal" as="template">
+      <Dialog as="div" @close="() => showSuccessModal = false" class="success-modal">
+        <!-- Backdrop -->
+        <TransitionChild
+          as="template"
+          enter="backdrop-enter"
+          enter-from="backdrop-enter-from"
+          enter-to="backdrop-enter-to"
+          leave="backdrop-leave"
+          leave-from="backdrop-leave-from"
+          leave-to="backdrop-leave-to"
+        >
+          <div class="modal-backdrop" aria-hidden="true" />
+        </TransitionChild>
+
+        <div class="modal-container">
+          <!-- Panel -->
+          <TransitionChild
+            as="template"
+            enter="panel-enter"
+            enter-from="panel-enter-from"
+            enter-to="panel-enter-to"
+            leave="panel-leave"
+            leave-from="panel-leave-from"
+            leave-to="panel-leave-to"
+          >
+            <DialogPanel class="success-panel">
+              <!-- Close button -->
+              <button
+                type="button"
+                class="modal-close"
+                @click="showSuccessModal = false"
+              >
+                <ion-icon :icon="close"></ion-icon>
+              </button>
+
+              <!-- Success content -->
+              <div class="success-content">
+                <div class="success-icon-container">
+                  <ion-icon :icon="checkmarkCircle" class="success-icon"></ion-icon>
+                </div>
+                <DialogTitle class="success-title">
+                  Signalement créé !
+                </DialogTitle>
+                <div class="success-message">
+                  <p>{{ successMessage }}</p>
+                  <p class="success-subtitle">Merci de contribuer à l'amélioration de nos routes.</p>
+                </div>
+              </div>
+
+              <!-- Action -->
+              <div class="success-actions">
+                <button
+                  type="button"
+                  class="success-button"
+                  @click="showSuccessModal = false"
+                >
+                  Parfait !
+                </button>
+              </div>
+            </DialogPanel>
+          </TransitionChild>
+        </div>
+      </Dialog>
+    </TransitionRoot>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from "vue";
 import { IonInput, IonTextarea, IonSelect, IonSelectOption, IonButton, IonIcon } from "@ionic/vue";
+import { Dialog, DialogPanel, DialogTitle, TransitionRoot, TransitionChild } from "@headlessui/vue";
 import { typeSignalementService, entrepriseService } from "@/services/signalement";
 import type { TypeSignalement, Entreprise } from "@/services/signalement/types";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
@@ -275,22 +343,32 @@ import {
   business,
   camera,
   closeCircle,
-  addCircle
+  addCircle,
+  checkmarkCircle,
+  close
 } from "ionicons/icons";
 
 interface Props {
   latitude: number;
   longitude: number;
   isOpen?: boolean;
+  isSubmitting?: boolean;
+  submissionSuccess?: boolean;
+  submissionError?: string | null;
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  isOpen: false
+  isOpen: false,
+  isSubmitting: false,
+  submissionSuccess: false,
+  submissionError: null
 });
 
 const emit = defineEmits<{
   close: [];
   submit: [data: any];
+  success: [];
+  error: [message: string];
 }>();
 
 // États du bottom sheet
@@ -349,6 +427,10 @@ const errors = ref({
 
 const isSubmitting = ref(false);
 const isLoadingData = ref(true);
+const showSuccessModal = ref(false);
+const successMessage = ref('');
+const submissionProgress = ref(0);
+const progressInterval = ref<NodeJS.Timeout | null>(null);
 
 // Données dynamiques depuis Firebase
 const typesSignalement = ref<TypeSignalement[]>([]);
@@ -420,6 +502,25 @@ const initAuth = () => {
 onMounted(() => {
   loadData();
   initAuth();
+});
+
+// Watchers pour répondre aux changements des props du parent
+watch(() => props.isSubmitting, (newValue) => {
+  isSubmitting.value = newValue;
+});
+
+watch(() => props.submissionSuccess, (newValue) => {
+  if (newValue) {
+    handleSubmissionSuccess();
+    emit('success');
+  }
+});
+
+watch(() => props.submissionError, (newValue) => {
+  if (newValue) {
+    handleSubmissionError(newValue);
+    emit('error', newValue);
+  }
 });
 
 // Toggle entre les états avec un clic
@@ -597,9 +698,17 @@ const submitForm = async () => {
     return;
   }
 
-  isSubmitting.value = true;
+  // Le parent contrôlera isSubmitting via les props
+  submissionProgress.value = 0;
 
   try {
+    // Simulation du progrès
+    progressInterval.value = setInterval(() => {
+      if (submissionProgress.value < 90) {
+        submissionProgress.value += Math.random() * 20;
+      }
+    }, 300);
+
     // Récupérer les noms correspondants aux IDs sélectionnés
     const selectedType = typesSignalement.value.find(t => t.id === form.value.typeSignalementId);
     const selectedEntreprise = form.value.entrepriseId 
@@ -616,31 +725,66 @@ const submitForm = async () => {
       budget: form.value.budget,
       latitude: props.latitude,
       longitude: props.longitude,
-      utilisateurId: userUid.value, // UID de l'utilisateur
-      utilisateurEmail: userEmail.value, // Email de l'utilisateur (optionnel)
-      photos: [...form.value.photos] // Photos à uploader
+      utilisateurId: userUid.value,
+      utilisateurEmail: userEmail.value,
+      photos: [...form.value.photos]
     };
 
     console.log("Données à envoyer:", signalementData);
-    console.log("Utilisateur:", {
-      uid: userUid.value,
-      email: userEmail.value,
-      displayName: currentUser.value?.displayName || 'N/A'
-    });
+    
+    // Préparer le message de succès
+    successMessage.value = `Signalement "${selectedType?.nom}" créé avec succès !`;
     
     emit('submit', signalementData);
     
-    // Réinitialiser le formulaire après soumission
-    resetForm();
-    
   } catch (error) {
     console.error("Erreur lors de la préparation des données:", error);
-  } finally {
-    isSubmitting.value = false;
+    handleSubmissionError("Une erreur est survenue lors de la création du signalement");
   }
 };
 
+// Gérer le succès de la soumission
+const handleSubmissionSuccess = () => {
+  if (progressInterval.value) {
+    clearInterval(progressInterval.value);
+    progressInterval.value = null;
+  }
+  
+  submissionProgress.value = 100;
+  
+  // Attendre un peu pour montrer le 100%
+  setTimeout(() => {
+    // isSubmitting is now controlled by parent props
+    showSuccessModal.value = true;
+    
+    // Auto-fermer le modal et réinitialiser après 2.5s
+    setTimeout(() => {
+      resetForm();
+    }, 2500);
+  }, 400);
+};
+
+// Gérer l'erreur de soumission
+const handleSubmissionError = (errorMessage: string) => {
+  if (progressInterval.value) {
+    clearInterval(progressInterval.value);
+    progressInterval.value = null;
+  }
+  
+  // isSubmitting is now controlled by parent props
+  submissionProgress.value = 0;
+  
+  // Ici on pourrait afficher un modal d'erreur
+  alert(errorMessage);
+};
+
 const resetForm = () => {
+  // Nettoyer l'interval si il existe
+  if (progressInterval.value) {
+    clearInterval(progressInterval.value);
+    progressInterval.value = null;
+  }
+  
   form.value = {
     typeSignalementId: null,
     entrepriseId: null,
@@ -651,6 +795,10 @@ const resetForm = () => {
   };
   errors.value.typeSignalementId = false;
   currentState.value = 'peek';
+  showSuccessModal.value = false;
+  successMessage.value = '';
+  submissionProgress.value = 0;
+  // isSubmitting is now controlled by parent props
 };
 
 // Gestion des photos
@@ -685,6 +833,19 @@ watch(() => props.isOpen, (newVal) => {
     if (typesSignalement.value.length === 0 || entreprises.value.length === 0) {
       loadData();
     }
+  }
+});
+
+// Watcher pour les états de soumission depuis le parent
+watch(() => props.submissionSuccess, (newVal) => {
+  if (newVal) {
+    handleSubmissionSuccess();
+  }
+});
+
+watch(() => props.submissionError, (newVal) => {
+  if (newVal) {
+    handleSubmissionError(newVal);
   }
 });
 </script>
@@ -1345,19 +1506,284 @@ ion-button.btn-primary {
   text-transform: uppercase;
 }
 
-.loading {
+.loading-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-direction: column;
+}
+
+.loading-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2.5px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.loading-progress {
+  width: 120px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+  overflow: hidden;
+  position: relative;
+}
+
+.progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.8), white);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+  position: relative;
+}
+
+.progress-bar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 20px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.5));
+  animation: shimmer-progress 1.5s infinite;
+}
+
+.loading-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: white;
+  opacity: 0.9;
+}
+
+.button-text {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.spinner {
-  width: 16px;
-  height: 16px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top-color: white;
+.button-icon {
+  width: 18px;
+  height: 18px;
+}
+
+@keyframes shimmer-progress {
+  0% {
+    transform: translateX(-20px);
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(20px);
+    opacity: 0;
+  }
+}
+
+/* Success Modal Styles */
+.success-modal {
+  position: relative;
+  z-index: 1050;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(8px);
+}
+
+.modal-container {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.success-panel {
+  position: relative;
+  background: linear-gradient(145deg, #ffffff, #f8f9fa);
+  border-radius: 20px;
+  padding: 0;
+  max-width: 400px;
+  width: 100%;
+  box-shadow: 
+    0 25px 50px -12px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(255, 255, 255, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  overflow: hidden;
+}
+
+.modal-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 32px;
+  height: 32px;
+  background: rgba(0, 0, 0, 0.1);
+  border: none;
   border-radius: 50%;
-  animation: spin 0.8s linear infinite;
+  color: rgba(0, 0, 0, 0.6);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  z-index: 1;
+}
+
+.modal-close:hover {
+  background: rgba(0, 0, 0, 0.15);
+  color: rgba(0, 0, 0, 0.8);
+  transform: scale(1.05);
+}
+
+.success-content {
+  text-align: center;
+  padding: 3rem 2rem 2rem;
+}
+
+.success-icon-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  height: 80px;
+  background: linear-gradient(135deg, #4CAF50, #66BB6A);
+  border-radius: 50%;
+  margin: 0 auto 1.5rem;
+  box-shadow: 0 8px 24px rgba(76, 175, 80, 0.3);
+  animation: success-bounce 0.6s ease-out;
+}
+
+.success-icon {
+  width: 40px;
+  height: 40px;
+  color: white;
+}
+
+.success-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 1rem;
+  letter-spacing: -0.5px;
+}
+
+.success-message {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.success-message p {
+  margin: 0;
+  font-size: 16px;
+  color: #333;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.success-subtitle {
+  font-size: 14px !important;
+  color: #666 !important;
+  font-weight: 400 !important;
+}
+
+.success-actions {
+  padding: 0 2rem 2rem;
+}
+
+.success-button {
+  width: 100%;
+  padding: 16px;
+  background: linear-gradient(135deg, #4CAF50, #66BB6A);
+  border: none;
+  border-radius: 14px;
+  font-size: 16px;
+  font-weight: 600;
+  color: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 16px rgba(76, 175, 80, 0.3);
+}
+
+.success-button:hover {
+  background: linear-gradient(135deg, #45a049, #5cb85c);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
+}
+
+.success-button:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(76, 175, 80, 0.4);
+}
+
+/* Modal Transitions */
+.backdrop-enter,
+.panel-enter {
+  transition-duration: 300ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.backdrop-enter-from {
+  opacity: 0;
+}
+
+.backdrop-enter-to {
+  opacity: 1;
+}
+
+.panel-enter-from {
+  opacity: 0;
+  transform: scale(0.9) translateY(20px);
+}
+
+.panel-enter-to {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+}
+
+.backdrop-leave,
+.panel-leave {
+  transition-duration: 200ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.backdrop-leave-from {
+  opacity: 1;
+}
+
+.backdrop-leave-to {
+  opacity: 0;
+}
+
+.panel-leave-from {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+}
+
+.panel-leave-to {
+  opacity: 0;
+  transform: scale(0.95) translateY(-10px);
+}
+
+@keyframes success-bounce {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 @keyframes spin {

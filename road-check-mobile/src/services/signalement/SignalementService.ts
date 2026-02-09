@@ -160,6 +160,8 @@ export class SignalementService {
    */
   async getByUser(utilisateurId: string): Promise<Signalement[]> {
     try {
+      console.log('SignalementService.getByUser - Recherche pour:', utilisateurId);
+      
       const q = query(
         collection(db, this.collectionName),
         where('utilisateurId', '==', utilisateurId),
@@ -167,6 +169,7 @@ export class SignalementService {
       );
       
       const querySnapshot = await getDocs(q);
+      console.log('SignalementService.getByUser - Documents trouvés:', querySnapshot.size);
       
       return querySnapshot.docs.map(doc => {
         const data = doc.data();
@@ -179,9 +182,21 @@ export class SignalementService {
           photos: data.photos || []
         } as Signalement;
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erreur lors de la récupération par utilisateur:', error);
-      throw new Error('Impossible de récupérer les signalements de l\'utilisateur');
+      
+      // Si c'est une erreur d'index manquant, afficher des instructions claires
+      if (error?.code === 'failed-precondition' || error?.message?.includes('index')) {
+        console.error('========================================');
+        console.error('INDEX FIRESTORE MANQUANT!');
+        console.error('Créez un index composite dans la console Firebase:');
+        console.error('Collection: signalements');
+        console.error('Champs: utilisateurId (Ascending) + dateSignalement (Descending)');
+        console.error('Ou cliquez sur le lien dans le message d\'erreur ci-dessus');
+        console.error('========================================');
+      }
+      
+      throw error;
     }
   }
 

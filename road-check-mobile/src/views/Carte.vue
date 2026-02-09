@@ -118,8 +118,13 @@
         :latitude="formPosition[0]" 
         :longitude="formPosition[1]"
         :is-open="showSignalementForm"
+        :is-submitting="isSubmittingSignalement"
+        :submission-success="submissionSuccess"
+        :submission-error="submissionError"
         @close="closeForm"
         @submit="handleSubmitSignalement"
+        @success="handleSubmissionSuccess"
+        @error="handleSubmissionError"
       />
 
       <!-- Détails du signalement en bottom sheet -->
@@ -193,6 +198,9 @@ let tooltipPopup: L.Popup | null = null;
 // État pour le formulaire de signalement
 const showSignalementForm = ref(false);
 const formPosition = ref<[number, number] | null>(null);
+const isSubmittingSignalement = ref(false);
+const submissionSuccess = ref(false);
+const submissionError = ref<string | null>(null);
 
 // État pour les signalements existants
 const signalements = ref<Signalement[]>([]);
@@ -227,9 +235,6 @@ const initMap = async () => {
     attribution: "© OpenStreetMap contributors"
   }).addTo(map);
 
-  // Marqueur Antananarivo
-  L.marker([-18.8792, 47.5079])
-    .addTo(map);
 
   // Essayer de récupérer la position actuelle
   const pos = await GeolocalisationService.getCurrentPosition();
@@ -497,6 +502,11 @@ const displaySignalementsOnMap = () => {
 // Gérer la soumission du signalement
 const handleSubmitSignalement = async (data: any) => {
   try {
+    // Réinitialiser les états
+    submissionSuccess.value = false;
+    submissionError.value = null;
+    isSubmittingSignalement.value = true;
+    
     console.log("Données reçues du formulaire:", data);
     
     // Extraire les photos du data
@@ -536,8 +546,6 @@ const handleSubmitSignalement = async (data: any) => {
         console.log(`${photoUrls.length} photo(s) uploadée(s) et sauvegardée(s)`);
       }
     }
-
-    alert("Signalement enregistré avec succès !");
     
     // Recharger les signalements pour afficher le nouveau
     await loadSignalements();
@@ -547,12 +555,30 @@ const handleSubmitSignalement = async (data: any) => {
       await loadMySignalements();
     }
     
-    // Fermer le formulaire et supprimer le marqueur
-    closeForm();
+    // Marquer le succès
+    isSubmittingSignalement.value = false;
+    submissionSuccess.value = true;
+    
   } catch (error) {
     console.error("Erreur lors de l'enregistrement:", error);
-    alert("Erreur lors de l'enregistrement du signalement");
+    isSubmittingSignalement.value = false;
+    submissionError.value = "Erreur lors de l'enregistrement du signalement";
   }
+};
+
+// Gérer le succès de soumission
+const handleSubmissionSuccess = () => {
+  console.log("Signalement soumis avec succès");
+  // Le formulaire se fermera automatiquement après un délai
+  setTimeout(() => {
+    closeForm();
+  }, 3000); // Fermer après 3 secondes
+};
+
+// Gérer les erreurs de soumission
+const handleSubmissionError = (message: string) => {
+  console.error("Erreur de soumission:", message);
+  submissionError.value = message;
 };
 
 // Fermer les détails du signalement
