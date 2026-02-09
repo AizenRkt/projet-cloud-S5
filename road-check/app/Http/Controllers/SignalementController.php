@@ -203,6 +203,71 @@ class SignalementController extends Controller
         ]);
     }
 
+
+    // Statistiques détaillées en JSON pour React
+    public function detailedStatsJson(Request $request)
+    {
+        $query = Signalement::with(['dernierStatut.typeStatus', 'statuts.typeStatus']);
+
+        // Appliquer les filtres de date si fournis
+        if ($request->has('start_date') && $request->start_date) {
+            $query->where('date_signalement', '>=', $request->start_date);
+        }
+        if ($request->has('end_date') && $request->end_date) {
+            $query->where('date_signalement', '<=', $request->end_date . ' 23:59:59');
+        }
+
+        $signalements = $query->get();
+
+        $total = $signalements->count();
+        $totalSurface = $signalements->sum('surface_m2');
+        $totalBudget = $signalements->sum('budget');
+
+        $nouveau = 0;
+        $enCours = 0;
+        $termine = 0;
+        $avancementTotal = 0;
+        $processingTimes = [];
+
+        foreach ($signalements as $s) {
+            $code = $s->dernierStatut && $s->dernierStatut->typeStatus
+                ? $s->dernierStatut->typeStatus->code
+                : 'nouveau';
+            $pourcentage = $s->dernierStatut && $s->dernierStatut->typeStatus
+                ? $s->dernierStatut->typeStatus->pourcentage
+                : 0;
+
+            if ($code === 'nouveau') $nouveau++;
+            elseif ($code === 'en_cours') $enCours++;
+            elseif ($code === 'termine') {
+                $termine++;
+                $completionStatus = $s->statuts->where('typeStatus.code', 'termine')->sortByDesc('date_modification')->first();
+                if ($completionStatus && $s->date_signalement) {
+                    $start = \Carbon\Carbon::parse($s->date_signalement);
+                    $end = \Carbon\Carbon::parse($completionStatus->date_modification);
+                    $days = $start->diffInDays($end);
+                    $processingTimes[] = $days;
+                }
+            }
+
+            $avancementTotal += $pourcentage;
+        }
+
+        $averageProcessingTime = count($processingTimes) > 0 ? round(array_sum($processingTimes) / count($processingTimes), 1) : 0;
+
+        return response()->json([
+            'total' => $total,
+            'nouveau' => $nouveau,
+            'en_cours' => $enCours,
+            'termine' => $termine,
+            'total_surface' => $totalSurface,
+            'total_budget' => $totalBudget,
+            'avancement' => $total > 0 ? round($avancementTotal / $total, 2) : 0,
+            'average_processing_time' => $averageProcessingTime,
+            'completed_count' => count($processingTimes)
+        ]);
+    }
+
     public function update(Request $request, $id)
     {
         $signalement = Signalement::findOrFail($id);

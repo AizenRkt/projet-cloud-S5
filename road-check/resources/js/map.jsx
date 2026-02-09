@@ -13,6 +13,9 @@ let roles = [];
 let currentFilter = 'en_attente';
 let selectedSig = null;
 let confirmCallback = null;
+let searchText = '';
+let dateStart = '';
+let dateEnd = '';
 
 function showToast(message, type = 'info', duration = 4000) {
     const container = document.getElementById('toastContainer');
@@ -101,18 +104,67 @@ async function loadAllData() {
     }
 }
 
+function getProgress(status) {
+    if (status === 'termine') return 100;
+    if (status === 'en_cours') return 50;
+    return 0;
+}
+
+function filterSignalements() {
+    const startDate = dateStart ? new Date(dateStart) : null;
+    const endDate = dateEnd ? new Date(dateEnd) : null;
+    const search = searchText.toLowerCase();
+
+    return signalements.filter((s) => {
+        const statusMatch = currentFilter === 'all' || s.statut === currentFilter;
+
+        let searchMatch = true;
+        if (search) {
+            searchMatch =
+                (s.description && s.description.toLowerCase().includes(search)) ||
+                (s.type_signalement && s.type_signalement.toLowerCase().includes(search)) ||
+                (s.statut && s.statut.toLowerCase().includes(search)) ||
+                (s.statut_libelle && s.statut_libelle.toLowerCase().includes(search));
+        }
+
+        let dateMatch = true;
+        if (s.created_at || s.date_signalement) {
+            const sDate = new Date(s.created_at || s.date_signalement);
+            if (startDate && sDate < startDate) dateMatch = false;
+            if (endDate) {
+                const eDate = new Date(endDate);
+                eDate.setHours(23, 59, 59);
+                if (sDate > eDate) dateMatch = false;
+            }
+        }
+        return statusMatch && searchMatch && dateMatch;
+    });
+}
+
 function renderSignalements() {
     const container = document.getElementById('signalementsList');
     if (!container) return;
-    const filtered = currentFilter === 'all' ? signalements : signalements.filter((s) => s.statut === currentFilter);
+    const filtered = filterSignalements();
+
     if (filtered.length === 0) {
         container.innerHTML = '<div style="padding:30px;text-align:center;color:#8b949e;">Aucun signalement</div>';
         return;
     }
+
     container.innerHTML = filtered
         .map((s) => {
             const lat = parseFloat(s.latitude);
             const lng = parseFloat(s.longitude);
+            const progress = getProgress(s.statut);
+            const statusLabels = {
+                en_attente: 'En attente',
+                nouveau: 'Validé',
+                en_cours: 'En cours de traitement',
+                termine: 'Terminé',
+                annule: 'Annulé'
+            };
+            const label = statusLabels[s.statut] || s.statut_libelle || s.statut;
+
             return (
                 '<div class="sig-card' +
                 (selectedSig?.id_signalement === s.id_signalement ? ' selected' : '') +
@@ -123,23 +175,38 @@ function renderSignalements() {
                 '</span><span class="sig-status ' +
                 s.statut +
                 '">' +
-                (s.statut_libelle || 'Nouveau') +
+                label +
                 '</span></div><div class="sig-desc">' +
                 (s.description || 'Aucune description') +
-                '</div><div class="sig-info"> ' +
+                '</div><div class="sig-info">' +
+                '<div style="margin-bottom:4px;display:flex;justify-content:space-between;">' +
+                '<span>Avancement</span>' +
+                '<span>' + progress + '%</span>' +
+                '</div>' +
+                '<div style="height:4px;background:#30363d;border-radius:2px;overflow:hidden;margin-bottom:6px;">' +
+                '<div style="width:' + progress + '%;height:100%;background:' + (progress === 100 ? '#238636' : (progress === 50 ? '#f0883e' : '#30363d')) + '"></div>' +
+                '</div>' +
+                '<div style="font-size:0.7rem;color:#8b949e;">' +
                 (isNaN(lat) ? '-' : lat.toFixed(4)) +
                 ', ' +
                 (isNaN(lng) ? '-' : lng.toFixed(4)) +
+                '</div>' +
+                '<div style="font-size:0.7rem;color:#8b949e;">' +
+                (s.created_at ? new Date(s.created_at).toLocaleDateString() : '') +
+                '</div>' +
                 '</div></div>'
             );
         })
         .join('');
+    updateStats(filtered);
 }
 
 function renderMarkers() {
     markers.forEach((m) => map.removeLayer(m));
     markers = [];
-    signalements.forEach((s) => {
+    const filtered = filterSignalements();
+
+    filtered.forEach((s) => {
         const lat = parseFloat(s.latitude);
         const lng = parseFloat(s.longitude);
         if (!isNaN(lat) && !isNaN(lng)) {
@@ -152,10 +219,24 @@ function renderMarkers() {
                 fillOpacity: 0.8
             }).addTo(map);
 
+            const statusLabels = {
+                en_attente: 'En attente',
+                nouveau: 'Validé',
+                en_cours: 'En cours de traitement',
+                termine: 'Terminé',
+                annule: 'Annulé'
+            };
+            const label = statusLabels[s.statut] || s.statut_libelle || s.statut;
+            const progress = getProgress(s.statut);
+
             const tooltipContent = `
                 <div style="text-align:left;">
                     <strong>${s.type_signalement || 'Signalement'}</strong><br/>
-                    <span style="font-size:0.8rem;color:#8b949e;">${s.statut_libelle}</span><br/>
+                    <span style="font-size:0.8rem;color:#8b949e;">${label}</span><br/>
+                    <div style="margin:5px 0;">Avancement: ${progress}%</div>
+                    <div style="height:4px;background:#ddd;border-radius:2px;overflow:hidden;width:100px;">
+                        <div style="width:${progress}%;height:100%;background:${progress === 100 ? '#238636' : (progress === 50 ? '#f0883e' : '#30363d')}"></div>
+                    </div>
                     <hr style="border:0;border-top:1px solid #ccc;margin:5px 0;"/>
                     ${s.description || 'Pas de description'}<br/>
                     <small>Surface: ${s.surface_m2 || '-'} m2 | Budget: ${s.budget || '-'} Ar</small><br/>
@@ -183,6 +264,27 @@ function openDetail() {
     const panel = document.getElementById('detailPanel');
     const s = selectedSig;
     if (!panel || !s) return;
+
+    let historyHtml = '';
+    if (s.history && s.history.length > 0) {
+        historyHtml = `
+            <div class="history-section">
+                <div class="history-title">Historique des avancements</div>
+                <div class="history-list">
+                    ${s.history.map((h, i) => `
+                        <div class="history-item">
+                            <div class="history-dot ${i === s.history.length - 1 ? 'active' : ''}"></div>
+                            <div class="history-info">
+                                <div class="history-label">${h.libelle} (${h.pourcentage}%)</div>
+                                <div class="history-date">${new Date(h.date).toLocaleString()}</div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+
     document.getElementById('detailContent').innerHTML =
         '<form onsubmit="saveSignalement(event)"><div class="form-group"><label>Type</label><select id="editType">' +
         typeSignalements
@@ -229,7 +331,8 @@ function openDetail() {
                     '</option>'
             )
             .join('') +
-        '</select></div><div style="display:flex;gap:10px;"><button type="submit" class="btn-save" style="flex:2;"> Enregistrer</button><button type="button" class="btn-save" style="flex:1;background:#30363d;" onclick="closeDetail()">Annuler</button></div></form>';
+        '</select></div><div style="display:flex;gap:10px;margin-bottom:20px;"><button type="submit" class="btn-save" style="flex:2;"> Enregistrer</button><button type="button" class="btn-save" style="flex:1;background:#30363d;" onclick="closeDetail()">Annuler</button></div></form>' +
+        historyHtml;
     panel.classList.add('open');
 }
 
@@ -295,13 +398,30 @@ async function saveSignalement(e) {
     }
 }
 
-function updateStats() {
-    document.getElementById('statNouveau').textContent = signalements.filter((s) => s.statut === 'nouveau').length;
-    document.getElementById('statEnAttente').textContent = signalements.filter((s) => s.statut === 'en_attente').length;
-    document.getElementById('statEnCours').textContent = signalements.filter((s) => s.statut === 'en_cours').length;
-    document.getElementById('statTermine').textContent = signalements.filter((s) => s.statut === 'termine').length;
-    document.getElementById('statAnnule').textContent = signalements.filter((s) => s.statut === 'annule').length;
-    document.getElementById('statTotal').textContent = signalements.length;
+function updateStats(filteredData = signalements) {
+    const total = filteredData.length;
+    const nouveau = filteredData.filter((s) => s.statut === 'nouveau').length;
+    const enAttente = filteredData.filter((s) => s.statut === 'en_attente').length;
+    const enCours = filteredData.filter((s) => s.statut === 'en_cours').length;
+    const termine = filteredData.filter((s) => s.statut === 'termine').length;
+    const annule = filteredData.filter((s) => s.statut === 'annule').length;
+
+    document.getElementById('statNouveau').textContent = nouveau;
+    document.getElementById('statEnAttente').textContent = enAttente;
+    document.getElementById('statEnCours').textContent = enCours;
+    document.getElementById('statTermine').textContent = termine;
+    document.getElementById('statAnnule').textContent = annule;
+    document.getElementById('statTotal').textContent = total;
+
+    // Global Progress
+    let totalProgress = 0;
+    filteredData.forEach((s) => totalProgress += getProgress(s.statut));
+    const avgProgress = total > 0 ? Math.round(totalProgress / total) : 0;
+
+    const globalProgressEl = document.getElementById('statGlobalProgress');
+    const globalProgressBarEl = document.getElementById('statGlobalProgressBar');
+    if (globalProgressEl) globalProgressEl.textContent = avgProgress + '%';
+    if (globalProgressBarEl) globalProgressBarEl.style.width = avgProgress + '%';
 }
 
 function filterBy(filter, btn) {
@@ -309,6 +429,20 @@ function filterBy(filter, btn) {
     document.querySelectorAll('.filter-tab').forEach((b) => b.classList.remove('active'));
     if (btn) btn.classList.add('active');
     renderSignalements();
+    renderMarkers();
+}
+
+function handleSearch(value) {
+    searchText = value;
+    renderSignalements();
+    renderMarkers();
+}
+
+function handleDateChange() {
+    dateStart = document.getElementById('dateStart')?.value || '';
+    dateEnd = document.getElementById('dateEnd')?.value || '';
+    renderSignalements();
+    renderMarkers();
 }
 
 function openUsersModal() {
@@ -712,6 +846,8 @@ function MapApp() {
         window.syncBidirectional = syncBidirectional;
         window.logout = logout;
         window.filterBy = filterBy;
+        window.handleSearch = handleSearch;
+        window.handleDateChange = handleDateChange;
 
         return () => {
             delete window.selectSignalement;
@@ -739,6 +875,8 @@ function MapApp() {
             delete window.syncBidirectional;
             delete window.logout;
             delete window.filterBy;
+            delete window.handleSearch;
+            delete window.handleDateChange;
         };
     }, []);
 
@@ -752,7 +890,7 @@ function MapApp() {
                 </div>
                 <div className="navbar-menu">
                     <button className="nav-btn" type="button" onClick={openUsersModal}>Utilisateurs</button>
-                    <button className="nav-btn" type="button" onClick={openStatsModal}>Statistiques</button>
+                    <a href="/statistiques" className="nav-btn">Statistiques</a>
                     <button className="nav-btn" type="button" onClick={openSyncModal}>Synchronisation</button>
                     <button className="nav-btn" type="button" onClick={logout}>Deconnexion</button>
                 </div>
@@ -770,6 +908,31 @@ function MapApp() {
                             <button className="filter-tab" type="button" onClick={(e) => filterBy('annule', e.currentTarget)}> Annule</button>
                         </div>
                     </div>
+                    <div className="search-container">
+                        <input
+                            type="text"
+                            id="searchInput"
+                            className="search-input"
+                            placeholder="Rechercher un signalement..."
+                            onInput={(e) => handleSearch(e.target.value)}
+                        />
+                        <div className="date-filters">
+                            <input
+                                type="date"
+                                id="dateStart"
+                                className="search-input"
+                                onChange={handleDateChange}
+                                placeholder="Du"
+                            />
+                            <input
+                                type="date"
+                                id="dateEnd"
+                                className="search-input"
+                                onChange={handleDateChange}
+                                placeholder="Au"
+                            />
+                        </div>
+                    </div>
                     <div className="sidebar-content" id="signalementsList">
                         <div className="loading">Chargement...</div>
                     </div>
@@ -783,6 +946,13 @@ function MapApp() {
                         <div className="stat-item"><div className="stat-value termine" id="statTermine">0</div><div className="stat-label">Termines</div></div>
                         <div className="stat-item"><div className="stat-value annule" id="statAnnule">0</div><div className="stat-label">Annules</div></div>
                         <div className="stat-item"><div className="stat-value" id="statTotal">0</div><div className="stat-label">Total</div></div>
+                        <div className="stat-item" style={{ minWidth: '100px' }}>
+                            <div className="stat-value" id="statGlobalProgress" style={{ color: '#58a6ff' }}>0%</div>
+                            <div className="stat-label">Avancement Global</div>
+                            <div style={{ height: '4px', background: '#30363d', borderRadius: '2px', overflow: 'hidden', marginTop: '4px', width: '100%' }}>
+                                <div id="statGlobalProgressBar" style={{ width: '0%', height: '100%', background: '#58a6ff' }}></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
