@@ -27,6 +27,32 @@ export const usePhotoGallery = () => {
     photos.value = [savedImageFile, ...photos.value];
   };
 
+  const pickFromGallery = async () => {
+    const selectedPhoto = await Camera.getPhoto({
+      resultType: CameraResultType.Uri,
+      source: CameraSource.Photos,
+      quality: 100,
+    });
+    
+    const fileName = Date.now() + '.jpeg';
+    const savedImageFile = await savePicture(selectedPhoto, fileName);
+
+    photos.value = [savedImageFile, ...photos.value];
+  };
+
+  const addPhotoFromSource = async (source: CameraSource) => {
+    const photo = await Camera.getPhoto({
+      resultType: CameraResultType.Uri,
+      source: source,
+      quality: 100,
+    });
+    
+    const fileName = Date.now() + '.jpeg';
+    const savedImageFile = await savePicture(photo, fileName);
+
+    return savedImageFile;
+  };
+
   const savePicture = async (photo: Photo, fileName: string): Promise<UserPhoto> => {
 
     const response = await fetch(photo.webPath!);
@@ -70,7 +96,7 @@ export const usePhotoGallery = () => {
         path: photo.filepath,
         directory: Directory.Data,
       });
-      photo.webviewPath = 'data:image/jpeg;base64, ${readFile.data}';
+      photo.webviewPath = `data:image/jpeg;base64,${readFile.data}`;
     }
     
     photos.value = photosInPreferences;
@@ -80,6 +106,8 @@ export const usePhotoGallery = () => {
 
   return {
     addNewToGallery,
+    pickFromGallery,
+    addPhotoFromSource,
     photos,
   };
 };

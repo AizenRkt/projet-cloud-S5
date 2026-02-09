@@ -96,8 +96,8 @@
 
           <!-- Surface et Budget en grid -->
           <div class="form-row">
-            <div class="form-group half" :class="{ 'has-value': form.surface }">
-              <label class="form-label">
+            <div class="form-group half" :class="{ 'has-value': form.surface, 'has-error': errors.surface }">
+              <label class="form-label required">
                 <ion-icon :icon="square" class="label-icon"></ion-icon>
                 Surface (m²)
               </label>
@@ -109,10 +109,11 @@
                 placeholder="0.0"
                 class="custom-input"
               ></ion-input>
+              <span v-if="errors.surface" class="error-message">Ce champ est requis</span>
             </div>
 
-            <div class="form-group half" :class="{ 'has-value': form.budget }">
-              <label class="form-label">
+            <div class="form-group half" :class="{ 'has-value': form.budget, 'has-error': errors.budget }">
+              <label class="form-label required">
                 <ion-icon :icon="time" class="label-icon"></ion-icon>
                 Budget (Ar)
               </label>
@@ -123,12 +124,13 @@
                 placeholder="0"
                 class="custom-input"
               ></ion-input>
+              <span v-if="errors.budget" class="error-message">Ce champ est requis</span>
             </div>
           </div>
 
-          <!-- Entreprise (optionnelle) -->
-          <div class="form-group" :class="{ 'has-value': form.entrepriseId }">
-            <label class="form-label optional">
+          <!-- Entreprise (obligatoire) -->
+          <div class="form-group" :class="{ 'has-value': form.entrepriseId, 'has-error': errors.entrepriseId }">
+            <label class="form-label required">
               <ion-icon :icon="business" class="label-icon"></ion-icon>
               Entreprise responsable
             </label>
@@ -152,6 +154,7 @@
                 </ion-select-option>
               </ion-select>
             </div>
+            <span v-if="errors.entrepriseId" class="error-message">Ce champ est requis</span>
           </div>
 
           <!-- Photos (optionnelles) -->
@@ -173,18 +176,26 @@
                 id="photo-input"
               />
               
-              <!-- Bouton d'ajout -->
-              <label 
-                for="photo-input" 
-                class="photo-upload-button"
-                v-if="form.photos.length < 5"
-              >
-                <ion-icon :icon="addCircle" class="upload-icon"></ion-icon>
-                <span class="upload-text">
-                  {{ form.photos.length === 0 ? 'Ajouter des photos' : 'Ajouter une photo' }}
-                </span>
-                <span class="upload-subtitle">{{ 5 - form.photos.length }} photo{{ (5 - form.photos.length) > 1 ? 's' : '' }} max</span>
-              </label>
+              <!-- Boutons d'ajout -->
+              <div v-if="form.photos.length < 5" class="photo-buttons-container">
+                <button 
+                  type="button"
+                  class="photo-button camera-button"
+                  @click="takePhoto"
+                >
+                  <ion-icon :icon="camera" class="button-icon"></ion-icon>
+                  <span class="button-text">Prendre une photo</span>
+                </button>
+                
+                <button 
+                  type="button"
+                  class="photo-button gallery-button"
+                  @click="pickFromGallery"
+                >
+                  <ion-icon :icon="images" class="button-icon"></ion-icon>
+                  <span class="button-text">Depuis la galerie</span>
+                </button>
+              </div>
               
               <!-- Aperçu des photos -->
               <div v-if="form.photos.length > 0" class="photos-preview">
@@ -331,6 +342,8 @@ import { Dialog, DialogPanel, DialogTitle, TransitionRoot, TransitionChild } fro
 import { typeSignalementService, entrepriseService } from "@/services/signalement";
 import type { TypeSignalement, Entreprise } from "@/services/signalement/types";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { usePhotoGallery } from "@/composables/usePhotoGallery";
+import { CameraSource } from "@capacitor/camera";
 import { 
   chevronUp, 
   chevronDown, 
@@ -345,7 +358,8 @@ import {
   closeCircle,
   addCircle,
   checkmarkCircle,
-  close
+  close,
+  images
 } from "ionicons/icons";
 
 interface Props {
@@ -422,7 +436,10 @@ const form = ref({
 });
 
 const errors = ref({
-  typeSignalementId: false
+  typeSignalementId: false,
+  surface: false,
+  budget: false,
+  entrepriseId: false
 });
 
 const isSubmitting = ref(false);
@@ -441,6 +458,9 @@ const auth = getAuth();
 const currentUser = ref<any>(null);
 const userEmail = ref<string | null>(null);
 const userUid = ref<string | null>(null);
+
+// Photo Gallery
+const { addPhotoFromSource } = usePhotoGallery();
 
 // Charger les données depuis Firebase
 const loadData = async () => {
@@ -687,8 +707,29 @@ const handleClose = () => {
 // Soumettre le formulaire
 const submitForm = async () => {
   // Validation
+  let hasErrors = false;
+  
   if (!form.value.typeSignalementId) {
     errors.value.typeSignalementId = true;
+    hasErrors = true;
+  }
+  
+  if (!form.value.surface || form.value.surface <= 0) {
+    errors.value.surface = true;
+    hasErrors = true;
+  }
+  
+  if (!form.value.budget || form.value.budget <= 0) {
+    errors.value.budget = true;
+    hasErrors = true;
+  }
+  
+  if (!form.value.entrepriseId) {
+    errors.value.entrepriseId = true;
+    hasErrors = true;
+  }
+  
+  if (hasErrors) {
     return;
   }
 
@@ -794,6 +835,9 @@ const resetForm = () => {
     photos: [],
   };
   errors.value.typeSignalementId = false;
+  errors.value.surface = false;
+  errors.value.budget = false;
+  errors.value.entrepriseId = false;
   currentState.value = 'peek';
   showSuccessModal.value = false;
   successMessage.value = '';
@@ -823,6 +867,40 @@ const removePhoto = (index: number) => {
 
 const getPhotoPreviewUrl = (file: File) => {
   return URL.createObjectURL(file);
+};
+
+// Prendre une photo avec l'appareil
+const takePhoto = async () => {
+  try {
+    if (form.value.photos.length >= 5) return;
+    
+    const photo = await addPhotoFromSource(CameraSource.Camera);
+    // Convertir l'objet UserPhoto en File pour la compatibilité
+    const response = await fetch(photo.webviewPath!);
+    const blob = await response.blob();
+    const file = new File([blob], photo.filepath, { type: 'image/jpeg' });
+    
+    form.value.photos.push(file);
+  } catch (error) {
+    console.error('Erreur lors de la prise de photo:', error);
+  }
+};
+
+// Choisir une photo depuis la galerie
+const pickFromGallery = async () => {
+  try {
+    if (form.value.photos.length >= 5) return;
+    
+    const photo = await addPhotoFromSource(CameraSource.Photos);
+    // Convertir l'objet UserPhoto en File pour la compatibilité
+    const response = await fetch(photo.webviewPath!);
+    const blob = await response.blob();
+    const file = new File([blob], photo.filepath, { type: 'image/jpeg' });
+    
+    form.value.photos.push(file);
+  } catch (error) {
+    console.error('Erreur lors de la sélection depuis la galerie:', error);
+  }
 };
 
 // Réinitialiser l'état quand le sheet s'ouvre et recharger les données si nécessaire
@@ -1188,6 +1266,8 @@ watch(() => props.submissionError, (newVal) => {
 
 .select-wrapper {
   position: relative;
+  border-radius: 12px;
+  overflow: hidden;
 }
 
 ion-select {
@@ -1211,6 +1291,7 @@ ion-select:focus,
 .form-group.has-value ion-select {
   --background: white;
   --color: #1a1a1a;
+  --border-radius: 12px;
   border-color: #d32f2f;
   box-shadow: 0 0 0 4px rgba(211, 47, 47, 0.08);
 }
@@ -1237,6 +1318,7 @@ ion-input:focus,
 .form-group.has-value ion-input {
   --background: white;
   --color: #1a1a1a;
+  --border-radius: 12px;
   border-color: #d32f2f;
   box-shadow: 0 0 0 4px rgba(211, 47, 47, 0.08);
 }
@@ -1334,50 +1416,76 @@ ion-input:focus,
   gap: 16px;
 }
 
-.photo-upload-button {
+.photo-buttons-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.photo-button {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 24px 20px;
+  padding: 20px 16px;
   background: #f8f9fa;
-  border: 2px dashed #d32f2f;
-  border-radius: 16px;
+  border: 2px solid #e9ecef;
+  border-radius: 12px;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  min-height: 120px;
+  min-height: 100px;
+  font-family: inherit;
 }
 
-.photo-upload-button:hover {
+.photo-button:hover {
   background: #fff;
-  border-color: #b71c1c;
+  border-color: #d32f2f;
   box-shadow: 0 4px 16px rgba(211, 47, 47, 0.1);
+  transform: translateY(-2px);
 }
 
-.photo-upload-button:active {
-  transform: scale(0.98);
+.photo-button:active {
+  transform: scale(0.98) translateY(0);
 }
 
-.upload-icon {
-  width: 32px;
-  height: 32px;
-  color: #d32f2f;
-  margin-bottom: 4px;
+.camera-button {
+  border-color: #4CAF50;
 }
 
-.upload-text {
-  font-size: 16px;
+.camera-button:hover {
+  border-color: #4CAF50;
+  box-shadow: 0 4px 16px rgba(76, 175, 80, 0.2);
+}
+
+.gallery-button {
+  border-color: #2196F3;
+}
+
+.gallery-button:hover {
+  border-color: #2196F3;
+  box-shadow: 0 4px 16px rgba(33, 150, 243, 0.2);
+}
+
+.button-icon {
+  width: 28px;
+  height: 28px;
+  color: #666;
+}
+
+.camera-button .button-icon {
+  color: #4CAF50;
+}
+
+.gallery-button .button-icon {
+  color: #2196F3;
+}
+
+.button-text {
+  font-size: 14px;
   font-weight: 600;
   color: #1a1a1a;
   text-align: center;
-}
-
-.upload-subtitle {
-  font-size: 12px;
-  color: #666;
-  text-align: center;
-  font-weight: 500;
 }
 
 .photos-preview {
@@ -1805,6 +1913,7 @@ ion-button.btn-primary {
   border-color: #d32f2f;
   --background: #fff5f5;
   --color: #1a1a1a;
+  --border-radius: 12px;
 }
 
 /* Styles supplémentaires pour assurer la visibilité du texte */
