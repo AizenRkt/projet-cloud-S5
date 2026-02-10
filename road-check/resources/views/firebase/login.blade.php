@@ -107,7 +107,6 @@
         .text-muted { color: var(--rc-muted) !important; }
         .rc-link { color: var(--rc-primary); }
         .rc-link:hover { color: #7dd3fc; }
-        }
     </style>
 </head>
 <body>

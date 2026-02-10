@@ -19,6 +19,7 @@ DROP TABLE IF EXISTS signalement_type_status;
 DROP TABLE IF EXISTS type_signalement;
 DROP TABLE IF EXISTS entreprise;
 DROP TABLE IF EXISTS tentative_connexion;
+DROP TABLE IF EXISTS prix_m2;
 DROP TABLE IF EXISTS session;
 DROP TABLE IF EXISTS utilisateur;
 DROP TABLE IF EXISTS role;
@@ -55,6 +56,12 @@ CREATE TABLE tentative_connexion (
     id_utilisateur INT REFERENCES utilisateur(id_utilisateur),
     date_tentative TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     succes BOOLEAN NOT NULL
+);
+
+CREATE TABLE prix_m2 (
+    id_prix_m2 SERIAL PRIMARY KEY,
+    date TIMESTAMP NOT NULL,
+    valeur DOUBLE PRECISION NOT NULL
 );
 
 -- Module Web / Mobile
@@ -125,17 +132,9 @@ CREATE TABLE modification_signalement (
     date_modification TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE prix_m2 (
-    id_prix_m2 SERIAL PRIMARY KEY,
-    date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    valeur DOUBLE PRECISION
-);
-
-
-
 -- ==================== Données de test ====================
 
-/*-- Insertion des rôles par défaut
+-- Insertion des rôles par défaut
 INSERT INTO role (nom) VALUES ('Manager'), ('Visiteur'), ('Utilisateur');
 
 -- Création d'un manager par défaut (password: manager123)
@@ -173,6 +172,10 @@ INSERT INTO signalement_type_status (code, libelle, pourcentage) VALUES
     ('termine', 'Terminé', 100),
     ('annule', 'Annulé', 0);
 
+-- Insertion du prix au m2
+INSERT INTO prix_m2 (date, valeur) VALUES
+    (CURRENT_TIMESTAMP, 5000);
+
 -- Insertion de signalements de test à Antananarivo
 INSERT INTO signalement (id_type_signalement, latitude, longitude, description, surface_m2, budget, id_entreprise) VALUES
     (1, -18.9137, 47.5361, 'Nid de poule important avenue de l''Indépendance', 15.5, 2500000, 1),
@@ -187,6 +190,6 @@ INSERT INTO signalement_status (id_signalement, id_signalement_type_status) VALU
     (2, (SELECT id_signalement_type_status FROM signalement_type_status WHERE code = 'en_cours')),
     (3, (SELECT id_signalement_type_status FROM signalement_type_status WHERE code = 'en_cours')),
     (4, (SELECT id_signalement_type_status FROM signalement_type_status WHERE code = 'en_cours')),
-    (5, (SELECT id_signalement_type_status FROM signalement_type_status WHERE code = 'en_cours'));*/
+    (5, (SELECT id_signalement_type_status FROM signalement_type_status WHERE code = 'en_cours'));
 
 

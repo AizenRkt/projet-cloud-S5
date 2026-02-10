@@ -86,16 +86,33 @@ function initMap() {
     L.tileLayer('http://localhost:8081/styles/Basic/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
 }
 
+async function fetchJson(url) {
+    const res = await fetch(url, { headers: { Accept: 'application/json' } });
+    const contentType = res.headers.get('content-type') || '';
+    const raw = await res.text();
+    if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+    }
+    if (!contentType.includes('application/json')) {
+        throw new Error('Reponse non JSON');
+    }
+    try {
+        return JSON.parse(raw);
+    } catch (e) {
+        throw new Error('JSON invalide');
+    }
+}
+
 async function loadAllData() {
     try {
         const [sigRes, entRes, typeRes, statRes, userRes, roleRes, prixRes] = await Promise.all([
-            fetch('/api/signalements').then((r) => r.json()),
-            fetch('/api/entreprises').then((r) => r.json()),
-            fetch('/api/type-signalements').then((r) => r.json()),
-            fetch('/api/type-statuts').then((r) => r.json()),
-            fetch('/api/utilisateurs').then((r) => r.json()),
-            fetch('/api/roles').then((r) => r.json()),
-            fetch('/api/prix-m2').then((r) => r.json())
+            fetchJson('/api/signalements'),
+            fetchJson('/api/entreprises'),
+            fetchJson('/api/type-signalements'),
+            fetchJson('/api/type-statuts'),
+            fetchJson('/api/utilisateurs'),
+            fetchJson('/api/roles'),
+            fetchJson('/api/prix-m2')
         ]);
         signalements = sigRes || [];
         entreprises = entRes || [];
@@ -337,7 +354,7 @@ window.openPriceModal = function () {
                         <button class="btn-primary" onclick="savePriceM2()" style="padding:10px 20px;background:#238636;color:white;border:none;border-radius:6px;cursor:pointer;">Ajouter</button>
                     </div>
                 </div>
-                
+
                 <h4 style="margin-top:20px;margin-bottom:10px;font-size:1rem;color:#58a6ff;">Historique des prix</h4>
                 <div style="max-height:200px;overflow-y:auto;background:#0d1117;padding:10px;border-radius:4px;border:1px solid #30363d;">
                     ${historyList.length > 0 ? historyList : '<div style="color:#8b949e;">Aucun historique</div>'}
@@ -448,7 +465,7 @@ function openDetail() {
                 { code: 'nouveau', libelle: 'Accepter' },
                 { code: 'annule', libelle: 'Annuler' }
             ]
-            : typeStatuts;
+            : typeStatuts.filter((t) => t.code !== 'en_attente');
     const selectedStatus = s.statut === 'en_attente' ? 'nouveau' : s.statut;
     const isEnAttente = s.statut === 'en_attente';
 
@@ -475,7 +492,7 @@ function openDetail() {
 
     const niveauField = isEnAttente ?
         `<div class="form-group"><label>Niveau</label><input type="number" id="editNiveau" value="${s.niveau || '1'}" oninput="calculateBudget()"></div>`
-        : `<div class="form-group"><label>Niveau</label><input type="number" value="${s.niveau || '1'}" readonly style="background:#f0f0f0;"></div>`;
+        : `<div class="form-group"><label>Niveau</label><input type="number" value="${s.niveau || '1'}" readonly style="background:#1a2230;color:#e6edf3;border:1px solid #293241;"></div>`;
 
     // Logic for auto-calculating budget display on load if needed, but usually we just show estimated.
     // We add a note that budget is estimated.
@@ -513,7 +530,7 @@ function openDetail() {
         (s.surface_m2 || '') +
         '" oninput="calculateBudget()"></div>' + niveauField + '<div class="form-group"><label>Budget (Estimé)</label><input type="number" id="editBudget" value="' +
         (s.budget || '') +
-        '" readonly style="background:#f0f0f0;cursor:not-allowed;"></div></div><div class="form-group"><label>Entreprise</label><select id="editEntreprise"><option value="">--</option>' +
+        '" readonly style="background:#1a2230;color:#e6edf3;border:1px solid #293241;cursor:not-allowed;"></div></div><div class="form-group"><label>Entreprise</label><select id="editEntreprise"><option value="">--</option>' +
         entreprises
             .map(
                 (e) =>
@@ -561,12 +578,14 @@ async function saveSignalement(e) {
         }
     }
 
+    const niveauInput = document.getElementById('editNiveau');
+    const niveauValue = niveauInput ? niveauInput.value : (selectedSig?.niveau || 1);
     const data = {
         id_type_signalement: document.getElementById('editType').value,
         statut: nextStatus,
         description: document.getElementById('editDescription').value,
         surface_m2: document.getElementById('editSurface').value || null,
-        niveau: document.getElementById('editNiveau').value || 1,
+        niveau: niveauValue,
         budget: document.getElementById('editBudget').value || null,
         id_entreprise: document.getElementById('editEntreprise').value || null
     };

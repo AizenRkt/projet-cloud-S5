@@ -46,6 +46,7 @@ class SignalementController extends Controller
                     'description' => $s->description,
                     'surface_m2' => $s->surface_m2,
                     'budget' => $s->budget,
+                    'niveau' => $s->niveau,
                     'date_signalement' => $s->date_signalement,
                     'type_signalement' => $s->typeSignalement ? $s->typeSignalement->nom : null,
                     'id_type_signalement' => $s->id_type_signalement,
@@ -327,7 +328,7 @@ class SignalementController extends Controller
         if ($request->has('statut') && $request->statut === 'nouveau' && $currentStatusCode !== 'nouveau') {
             $prixM2 = PrixM2::orderBy('date', 'desc')->first();
             $valeurPrix = $prixM2 ? $prixM2->valeur : 0;
-            
+
             $surface = $request->surface_m2 ?? $signalement->surface_m2 ?? 0;
             $niveau = $request->niveau ?? $signalement->niveau ?? 1;
 
