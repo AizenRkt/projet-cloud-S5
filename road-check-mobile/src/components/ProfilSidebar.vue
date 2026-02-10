@@ -39,7 +39,7 @@
             </div>
             <div class="menu-item-content">
               <span class="menu-item-title">Mon profil</span>
-              <span class="menu-item-subtitle">Modifier mes informations</span>
+              <span class="menu-item-subtitle">mes informations</span>
             </div>
             <div class="menu-item-arrow">
               <ion-icon :icon="chevronForwardOutline" class="arrow-icon"></ion-icon>
