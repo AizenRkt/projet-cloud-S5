@@ -21,6 +21,8 @@ let confirmCallback = null;
 let searchText = '';
 let dateStart = '';
 let dateEnd = '';
+let photoModalUrls = [];
+let photoModalIndex = 0;
 
 function showToast(message, type = 'info', duration = 4000) {
     const container = document.getElementById('toastContainer');
@@ -223,29 +225,31 @@ function renderMarkers() {
                 }
                 return `/storage/${path}`;
             };
+            const escapeJsString = (value) =>
+                String(value)
+                    .replace(/\\/g, '\\\\')
+                    .replace(/'/g, "\\'")
+                    .replace(/\n/g, '\\n')
+                    .replace(/\r/g, '\\r');
             const escapeHtmlAttribute = (value) =>
                 String(value)
                     .replace(/&/g, '&amp;')
                     .replace(/"/g, '&quot;')
                     .replace(/</g, '&lt;')
                     .replace(/>/g, '&gt;');
-            const primaryPhotoUrl = photoUrls.length > 0 ? resolvePhotoUrl(photoUrls[0]) : '';
+            const resolvedPhotoUrls = photoUrls.map((path) => resolvePhotoUrl(path));
+            const photoListLiteral = resolvedPhotoUrls.map((url) => `'${escapeJsString(url)}'`).join(',');
+            const primaryPhotoUrl = resolvedPhotoUrls.length > 0 ? resolvedPhotoUrls[0] : '';
             const photoHtml =
-                photoUrls.length > 0
-                    ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">
-                        ${photoUrls
-                            .slice(0, 3)
-                            .map(
-                                (path) =>
-                                    `<img src="${resolvePhotoUrl(path)}" alt="Photo signalement" style="width:80px;height:60px;object-fit:cover;border-radius:6px;border:1px solid #ccc;" />`
-                            )
-                            .join('')}
-                        ${photoUrls.length > 3 ? `<span style="font-size:0.75rem;color:#8b949e;align-self:center;">+${photoUrls.length - 3}</span>` : ''}
+                resolvedPhotoUrls.length > 0
+                    ? `<div class="photo-thumb-wrap">
+                        <img src="${primaryPhotoUrl}" alt="Photo signalement" class="photo-thumb" />
+                        ${resolvedPhotoUrls.length > 1 ? `<button type="button" class="photo-more-overlay" onclick="openPhotoModal([${photoListLiteral}], 0); return false;">Voir plus (${resolvedPhotoUrls.length})</button>` : ''}
                     </div>`
                     : '';
             const photoLinkHtml =
                 primaryPhotoUrl
-                    ? `<div style="margin-top:6px;"><a href="#" data-url="${escapeHtmlAttribute(primaryPhotoUrl)}" onclick="openPhotoModal(this.dataset.url); return false;" style="font-size:0.8rem;color:#1f6feb;">Cliquer ici pour voir l'image</a></div>`
+                    ? `<div style="margin-top:6px;"><a href="#" data-url="${escapeHtmlAttribute(primaryPhotoUrl)}" onclick="openPhotoModal([${photoListLiteral}], 0); return false;" style="font-size:0.8rem;color:#1f6feb;">Cliquer ici pour voir l'image</a></div>`
                     : '';
             const marker = L.circleMarker([lat, lng], {
                 radius: 10,
@@ -508,11 +512,24 @@ function openUsersModal() {
     renderUsersTable();
 }
 
-function openPhotoModal(photoUrl) {
-    const modal = document.getElementById('photoModal');
+function updatePhotoModal() {
     const image = document.getElementById('photoModalImage');
-    if (!modal || !image || !photoUrl) return;
-    image.src = photoUrl;
+    const counter = document.getElementById('photoModalCounter');
+    const prevBtn = document.getElementById('photoModalPrev');
+    const nextBtn = document.getElementById('photoModalNext');
+    if (!image || photoModalUrls.length === 0) return;
+    image.src = photoModalUrls[photoModalIndex];
+    if (counter) counter.textContent = `${photoModalIndex + 1} / ${photoModalUrls.length}`;
+    if (prevBtn) prevBtn.disabled = photoModalUrls.length <= 1;
+    if (nextBtn) nextBtn.disabled = photoModalUrls.length <= 1;
+}
+
+function openPhotoModal(photoUrls, startIndex = 0) {
+    const modal = document.getElementById('photoModal');
+    if (!modal || !Array.isArray(photoUrls) || photoUrls.length === 0) return;
+    photoModalUrls = photoUrls;
+    photoModalIndex = Math.min(Math.max(startIndex, 0), photoUrls.length - 1);
+    updatePhotoModal();
     modal.classList.add('open');
 }
 
@@ -521,6 +538,20 @@ function closePhotoModal() {
     const image = document.getElementById('photoModalImage');
     if (modal) modal.classList.remove('open');
     if (image) image.src = '';
+    photoModalUrls = [];
+    photoModalIndex = 0;
+}
+
+function nextPhotoModal() {
+    if (photoModalUrls.length <= 1) return;
+    photoModalIndex = (photoModalIndex + 1) % photoModalUrls.length;
+    updatePhotoModal();
+}
+
+function prevPhotoModal() {
+    if (photoModalUrls.length <= 1) return;
+    photoModalIndex = (photoModalIndex - 1 + photoModalUrls.length) % photoModalUrls.length;
+    updatePhotoModal();
 }
 
 function closeUsersModal() {
@@ -586,7 +617,19 @@ async function unblockUser(id) {
 
 function openCreateUserForm() {
     closeUsersModal();
-    document.getElementById('newUserRole').innerHTML = roles.map((r) => `<option value="${r.id_role}">${r.nom}</option>`).join('');
+    const roleSelect = document.getElementById('newUserRole');
+    const userRole = roles.find((r) => String(r.nom || '').toLowerCase() === 'utilisateur');
+    if (roleSelect) {
+        if (userRole) {
+            roleSelect.innerHTML = `<option value="${userRole.id_role}">${userRole.nom}</option>`;
+            roleSelect.value = userRole.id_role;
+            roleSelect.disabled = true;
+        } else {
+            roleSelect.innerHTML = '<option value="">Utilisateur</option>';
+            roleSelect.value = '';
+            roleSelect.disabled = true;
+        }
+    }
     document.getElementById('createUserModal').classList.add('open');
 }
 
@@ -801,6 +844,8 @@ async function logout() {
 }
 
 function MapApp() {
+    const docsUrl = document.getElementById('map-app')?.dataset?.docsUrl || '/api/documentation';
+
     useEffect(() => {
         initMap();
         loadAllData();
@@ -815,6 +860,8 @@ function MapApp() {
         window.closeUsersModal = closeUsersModal;
         window.openPhotoModal = openPhotoModal;
         window.closePhotoModal = closePhotoModal;
+        window.nextPhotoModal = nextPhotoModal;
+        window.prevPhotoModal = prevPhotoModal;
         window.openCreateUserForm = openCreateUserForm;
         window.closeCreateUserModal = closeCreateUserModal;
         window.createUser = createUser;
@@ -843,6 +890,8 @@ function MapApp() {
             delete window.closeUsersModal;
             delete window.openPhotoModal;
             delete window.closePhotoModal;
+            delete window.nextPhotoModal;
+            delete window.prevPhotoModal;
             delete window.openCreateUserForm;
             delete window.closeCreateUserModal;
             delete window.createUser;
@@ -864,6 +913,7 @@ function MapApp() {
     return (
         <div>
             <MapNavbar
+                docsUrl={docsUrl}
                 onOpenUsers={openUsersModal}
                 onOpenStats={openStatsModal}
                 onOpenSync={openSyncModal}
@@ -881,6 +931,8 @@ function MapApp() {
                 onCloseUsers={closeUsersModal}
                 onOpenCreateUser={openCreateUserForm}
                 onClosePhoto={closePhotoModal}
+                onPrevPhoto={prevPhotoModal}
+                onNextPhoto={nextPhotoModal}
                 onCloseSync={closeSyncModal}
                 onCloseStats={closeStatsModal}
                 onCloseCreateUser={closeCreateUserModal}

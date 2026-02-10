@@ -5,6 +5,8 @@ function MapModals({
     onCloseUsers,
     onOpenCreateUser,
     onClosePhoto,
+    onPrevPhoto,
+    onNextPhoto,
     onCloseSync,
     onCloseStats,
     onCloseCreateUser,
@@ -30,6 +32,11 @@ function MapModals({
                     <div className="modal-header"><h3>Photo</h3><button className="close-btn" type="button" onClick={onClosePhoto}>&times;</button></div>
                     <div className="modal-body" id="photoModalBody" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                         <img id="photoModalImage" alt="Photo signalement" style={{ width: '100%', height: 'auto', maxHeight: '70vh', objectFit: 'contain', background: '#0d1117' }} />
+                        <div className="photo-modal-nav">
+                            <button id="photoModalPrev" className="photo-modal-btn" type="button" onClick={onPrevPhoto}>&lt;</button>
+                            <span id="photoModalCounter" className="photo-modal-counter">0 / 0</span>
+                            <button id="photoModalNext" className="photo-modal-btn" type="button" onClick={onNextPhoto}>&gt;</button>
+                        </div>
                     </div>
                 </div>
             </div>

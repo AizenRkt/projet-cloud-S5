@@ -115,7 +115,8 @@ class FirebaseWebController extends Controller
         if ($passwordMatch) {
             // Stocker en session sans JWT
             session([
-                'utilisateur' => $utilisateur
+                'utilisateur' => $utilisateur,
+                'is_logged_in' => true
             ]);
             $tentativeSucces = true;
         }
@@ -187,7 +188,9 @@ class FirebaseWebController extends Controller
     public function logout(Request $request)
     {
         // Clear session
-        session()->forget(['utilisateur']);
+        session()->forget(['utilisateur', 'is_logged_in']);
+        session()->invalidate();
+        session()->regenerateToken();
 
         return redirect()->route('login.form')->with('success', 'Déconnecté');
     }

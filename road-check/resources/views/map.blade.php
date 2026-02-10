@@ -93,6 +93,14 @@
         .modal-header { padding: 15px 20px; background: var(--rc-panel-strong); border-bottom: 1px solid var(--rc-border); display: flex; justify-content: space-between; }
         .modal-header h3 { color: var(--rc-accent); }
         .modal-body { padding: 20px; overflow-y: auto; }
+        .photo-thumb-wrap { position: relative; width: 80px; height: 60px; margin-top: 6px; }
+        .photo-thumb { width: 100%; height: 100%; object-fit: cover; border-radius: 6px; border: 1px solid #ccc; display: block; }
+        .photo-more-overlay { position: absolute; inset: 0; border-radius: 6px; border: 1px solid #30363d; background: rgba(13, 17, 23, 0.65); color: #e6edf3; font-size: 0.72rem; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; backdrop-filter: blur(6px); }
+        .photo-more-overlay:hover { border-color: var(--rc-accent); color: var(--rc-accent); }
+        .photo-modal-nav { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; background: rgba(13, 17, 23, 0.75); padding: 6px 12px; border-radius: 999px; border: 1px solid #30363d; }
+        .photo-modal-btn { background: transparent; color: var(--rc-text); border: 1px solid #30363d; border-radius: 999px; width: 32px; height: 32px; cursor: pointer; }
+        .photo-modal-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .photo-modal-counter { font-size: 0.8rem; color: #8b949e; }
         .modal-footer { padding: 15px 20px; background: var(--rc-panel-strong); border-top: 1px solid var(--rc-border); display: flex; justify-content: flex-end; gap: 10px; }
         .data-table { width: 100%; border-collapse: collapse; }
         .data-table th, .data-table td { padding: 10px; text-align: left; border-bottom: 1px solid #30363d; }
@@ -229,7 +237,7 @@
     </style>
 </head>
 <body>
-    <div id="map-app" data-success='@json(session('success'))'></div>
+    <div id="map-app" data-success='@json(session('success'))' data-docs-url="{{ url('/api/documentation') }}"></div>
 
     <script src="{{ asset('leaflet/leaflet.js') }}"></script>
 </body>
