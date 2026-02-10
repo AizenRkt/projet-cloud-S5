@@ -127,18 +127,14 @@ CREATE TABLE modification_signalement (
     date_modification TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- ==================== Données de test ====================
 
--- Insertion des rôles par défaut
 INSERT INTO role (nom) VALUES ('Manager'), ('Visiteur'), ('Utilisateur');
 
--- Création d'un manager par défaut (password: manager123)
 INSERT INTO utilisateur (email, password, firebase_uid, nom, prenom, id_role)
-VALUES ('admin@gmail.com', 'password123', 'manager-default-uid', 'Admin', 'Manager', 1);
+VALUES ('admin@gmail.com', '$2y$10$4YeQZaCc3vVvhoyZRbxGMuk9ouUNSWns7DrIpT9RsjRS4F56lhEaC', 'manager-default-uid', 'Admin', 'Manager', 1);
 
--- Création d'un visiteur par défaut (password: visiteur123)
 INSERT INTO utilisateur (email, password, firebase_uid, nom, prenom, id_role)
-VALUES ('visiteur@example.com', 'visiteur123', 'visiteur-default-uid', 'Visiteur', 'Test', 2);
+VALUES ('visiteur@example.com', '$2y$10$yQaFNooJHj0D7rmCeyTkFexHWpMShMeqJlOom1.T/r.bsaL5M7RL.', 'visiteur-default-uid', 'Visiteur', 'Test', 2);
 
 -- Insertion d'entreprises de test
 INSERT INTO entreprise (nom) VALUES
@@ -182,5 +178,4 @@ INSERT INTO signalement_status (id_signalement, id_signalement_type_status) VALU
     (3, (SELECT id_signalement_type_status FROM signalement_type_status WHERE code = 'en_cours')),
     (4, (SELECT id_signalement_type_status FROM signalement_type_status WHERE code = 'en_cours')),
     (5, (SELECT id_signalement_type_status FROM signalement_type_status WHERE code = 'en_cours'));
-
 
