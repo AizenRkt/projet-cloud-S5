@@ -55,6 +55,7 @@ services:
     build:
       context: ./firestore-sync-service
     container_name: firestore-sync-service
+    working_dir: /app
     ports:
       - "4000:4000"
     volumes:
@@ -64,11 +65,13 @@ services:
     restart: unless-stopped
     environment:
       - NODE_ENV=production
+    command: sh -c "npm install --production; npm run start"
 
   firestore-visitor:
     build:
       context: ./firestore-sync-service
     container_name: firestore-visitor-service
+    working_dir: /app
     ports:
       - "4001:4001"
     volumes:
@@ -78,7 +81,7 @@ services:
     restart: unless-stopped
     environment:
       - NODE_ENV=production
-    command: ["node", "visitor-api.js"]
+    command: sh -c "npm install --production; node visitor-api.js"
 
   swagger-ui:
     image: swaggerapi/swagger-ui
