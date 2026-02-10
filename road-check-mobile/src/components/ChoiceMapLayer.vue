@@ -45,7 +45,7 @@
               :class="{ 'active': selectedTypes.includes(type.id) }"
               @click="toggleTypeFilter(type.id)"
             >
-              {{ type.icon || '' }} {{ type.nom }}
+              {{ type.nom }}
             </button>
           </div>
         </div>

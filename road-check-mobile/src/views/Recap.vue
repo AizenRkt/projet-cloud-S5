@@ -3,6 +3,15 @@
     <ion-header :translucent="true">
       <ion-toolbar class="header-toolbar">
         <ion-title>Dashboard</ion-title>
+        <ion-buttons slot="end">
+          <ion-button @click="refreshData" :disabled="isRefreshing" fill="clear">
+            <ion-icon 
+              :icon="refreshOutline" 
+              :class="{ 'spinning': isRefreshing }"
+              slot="icon-only"
+            ></ion-icon>
+          </ion-button>
+        </ion-buttons>
       </ion-toolbar>
     </ion-header>
 
@@ -161,13 +170,16 @@ import {
   IonSegment,
   IonSegmentButton,
   IonLabel,
-  IonSpinner
+  IonSpinner,
+  IonButtons,
+  IonButton
 } from '@ionic/vue';
 import { 
   alertCircleOutline, 
   cashOutline, 
   expandOutline,
-  checkmarkDoneOutline
+  checkmarkDoneOutline,
+  refreshOutline
 } from 'ionicons/icons';
 import Chart from 'chart.js/auto';
 import { SignalementService } from '@/services/signalement/SignalementService';
@@ -182,6 +194,7 @@ const isLoading = ref(true);
 const selectedFilter = ref<'tous' | 'moi'>('tous');
 const chartCanvas = ref<HTMLCanvasElement>();
 const chartInstance = ref<Chart | null>(null);
+const isRefreshing = ref(false);
 
 // Données
 const signalements = ref<any[]>([]);
@@ -249,10 +262,10 @@ const chartData = computed(() => {
     '#87CEEB'  // Bleu ciel
   ];
 
-  return Object.entries(typesCounts).map(([type, count], index) => ({
+  return Object.entries(typesCounts).map(([type, count]) => ({
     label: type,
-    value: count,
-    color: colors[index % colors.length]
+    value: count as number,
+    color: colors[Math.floor(Math.random() * colors.length)]
   }));
 });
 
@@ -276,6 +289,21 @@ const formatSurface = (surface: number): string => {
 const onFilterChange = async () => {
   await loadSignalements();
   await updateChart();
+};
+
+const refreshData = async () => {
+  if (isRefreshing.value) return;
+  
+  isRefreshing.value = true;
+  try {
+    await loadSignalements();
+    await updateChart();
+    console.log('Données du dashboard actualisées');
+  } catch (error) {
+    console.error('Erreur lors du rafraîchissement des données:', error);
+  } finally {
+    isRefreshing.value = false;
+  }
 };
 
 const loadSignalements = async () => {
@@ -669,6 +697,11 @@ ion-content {
   }
 }
 
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 .metric-card,
 .chart-card,
 .stats-card {
@@ -678,6 +711,11 @@ ion-content {
 .metric-card:nth-child(1) { animation-delay: 0.1s; }
 .metric-card:nth-child(2) { animation-delay: 0.2s; }
 .metric-card:nth-child(3) { animation-delay: 0.3s; }
+
+/* Animation du bouton refresh */
+.spinning {
+  animation: spin 1s linear infinite;
+}
 
 /* ========== Mode sombre ========== */
 @media (prefers-color-scheme: dark) {

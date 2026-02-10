@@ -74,7 +74,7 @@
                   :key="type.id"
                   :value="type.id"
                 >
-                  {{ type.icon || '📋' }} {{ type.nom }}
+                 {{ type.nom }}
                 </ion-select-option>
               </ion-select>
             </div>
@@ -94,38 +94,21 @@
             <div class="char-count">{{ form.description.length }} / 500</div>
           </div>
 
-          <!-- Surface et Budget en grid -->
-          <div class="form-row">
-            <div class="form-group half" :class="{ 'has-value': form.surface, 'has-error': errors.surface }">
-              <label class="form-label required">
-                <ion-icon :icon="square" class="label-icon"></ion-icon>
-                Surface (m²)
-              </label>
-              <ion-input
-                type="number"
-                min="0"
-                step="0.1"
-                v-model.number="form.surface"
-                placeholder="0.0"
-                class="custom-input"
-              ></ion-input>
-              <span v-if="errors.surface" class="error-message">Ce champ est requis</span>
-            </div>
-
-            <div class="form-group half" :class="{ 'has-value': form.budget, 'has-error': errors.budget }">
-              <label class="form-label required">
-                <ion-icon :icon="time" class="label-icon"></ion-icon>
-                Budget (Ar)
-              </label>
-              <ion-input
-                type="number"
-                min="0"
-                v-model.number="form.budget"
-                placeholder="0"
-                class="custom-input"
-              ></ion-input>
-              <span v-if="errors.budget" class="error-message">Ce champ est requis</span>
-            </div>
+          <!-- Surface -->
+          <div class="form-group" :class="{ 'has-value': form.surface, 'has-error': errors.surface }">
+            <label class="form-label required">
+              <ion-icon :icon="square" class="label-icon"></ion-icon>
+              Surface (m²)
+            </label>
+            <ion-input
+              type="number"
+              min="0"
+              step="0.1"
+              v-model.number="form.surface"
+              placeholder="0.0"
+              class="custom-input"
+            ></ion-input>
+            <span v-if="errors.surface" class="error-message">Ce champ est requis</span>
           </div>
 
           <!-- Entreprise (obligatoire) -->
@@ -431,14 +414,12 @@ const form = ref({
   entrepriseId: null as number | null,
   description: "",
   surface: null as number | null,
-  budget: null as number | null,
   photos: [] as File[],
 });
 
 const errors = ref({
   typeSignalementId: false,
   surface: false,
-  budget: false,
   entrepriseId: false
 });
 
@@ -485,9 +466,9 @@ const loadData = async () => {
     console.error("Erreur lors du chargement des données:", error);
     // Fallback vers des données par défaut en cas d'erreur
     typesSignalement.value = [
-      { id: 1, code: "fallback-nid", nom: "Trou / Nid de poule", icon: "🕳️" },
-      { id: 2, code: "fallback-route", nom: "Route dégradée", icon: "⚠️" },
-      { id: 3, code: "fallback-autre", nom: "Autre", icon: "📋" }
+      { id: 1, code: "fallback-nid", nom: "Trou / Nid de poule", icon: "" },
+      { id: 2, code: "fallback-route", nom: "Route dégradée", icon: "" },
+      { id: 3, code: "fallback-autre", nom: "Autre", icon: "" }
     ];
     entreprises.value = [
       { id: 1, code: "fallback-ent", nom: "Entreprise par défaut", logo: "" }
@@ -719,11 +700,6 @@ const submitForm = async () => {
     hasErrors = true;
   }
   
-  if (!form.value.budget || form.value.budget <= 0) {
-    errors.value.budget = true;
-    hasErrors = true;
-  }
-  
   if (!form.value.entrepriseId) {
     errors.value.entrepriseId = true;
     hasErrors = true;
@@ -763,12 +739,12 @@ const submitForm = async () => {
       entrepriseNom: selectedEntreprise?.nom,
       description: form.value.description,
       surface: form.value.surface,
-      budget: form.value.budget,
       latitude: props.latitude,
       longitude: props.longitude,
       utilisateurId: userUid.value,
       utilisateurEmail: userEmail.value,
-      photos: [...form.value.photos]
+      photos: [...form.value.photos],
+      budget: 0
     };
 
     console.log("Données à envoyer:", signalementData);
@@ -831,12 +807,10 @@ const resetForm = () => {
     entrepriseId: null,
     description: "",
     surface: null,
-    budget: null,
     photos: [],
   };
   errors.value.typeSignalementId = false;
   errors.value.surface = false;
-  errors.value.budget = false;
   errors.value.entrepriseId = false;
   currentState.value = 'peek';
   showSuccessModal.value = false;

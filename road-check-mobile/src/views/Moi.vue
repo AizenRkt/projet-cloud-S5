@@ -164,8 +164,15 @@
             @click="openSignalementDetail(signalement)"
             class="signalement-item"
           >
-            <div class="item-icon">
-              <ion-icon :icon="getTypeIcon(signalement.typeSignalementNom)" class="type-icon"></ion-icon>
+            <div 
+              class="item-icon"
+              :style="{ backgroundColor: getSignalementColor(signalement.typeSignalementNom) }"
+            >
+              <div 
+                class="type-icon" 
+                v-html="getTypeIcon(signalement.typeSignalementNom)"
+                role="img"
+              ></div>
             </div>
             
             <div class="item-content">
@@ -299,6 +306,7 @@ import {
 } from 'ionicons/icons';
 
 import { signalementService, typeSignalementService, entrepriseService } from '@/services/signalement';
+import { TypeSignalementService } from '@/services/signalement/TypeSignalementService';
 import { auth } from '@/firebase';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import type { Signalement, TypeSignalement, Entreprise } from '@/services/signalement/types';
@@ -335,6 +343,9 @@ const filterDate = ref<string>(''); // 'recent', 'week', 'month', 'all'
 const allTypes = ref<TypeSignalement[]>([]);
 const allEntreprises = ref<Entreprise[]>([]);
 const isLoadingFilters = ref(true);
+
+// Types de signalement avec leurs couleurs et icônes
+const typesSignalement = ref<any[]>([]);
 
 // Computed
 const recentSignalements = computed(() => {
@@ -410,13 +421,47 @@ const entrepriseOptions = computed(() => {
 });
 
 // Fonctions utilitaires
-const getTypeIcon = (typeName?: string) => {
-  if (!typeName) return alertCircleOutline;
+// Fonction pour obtenir la couleur d'un type de signalement
+const getSignalementColor = (typeSignalementNom?: string): string => {
+  if (!typeSignalementNom) return '#FF4444'; // Rouge par défaut
   
-  const type = typeName.toLowerCase();
-  if (type.includes('nid') || type.includes('trou')) return warningOutline;
-  if (type.includes('route') || type.includes('chaussée')) return constructOutline;
-  return alertCircleOutline;
+  // Chercher la couleur dans les types chargés depuis Firestore
+  const typeData = typesSignalement.value.find(t => t.nom === typeSignalementNom);
+  return typeData?.couleur || '#FF4444'; // Rouge si pas de couleur définie
+};
+
+// Fonction pour obtenir l'icône d'un type de signalement
+const getSignalementIcon = (typeSignalementNom?: string): string => {
+  if (!typeSignalementNom) return 'alert-circle-outline'; // Icône par défaut
+  
+  // Chercher l'icône dans les types chargés depuis Firestore
+  const typeData = typesSignalement.value.find(t => t.nom === typeSignalementNom);
+  return typeData?.icon || 'alert-circle-outline'; // Icône par défaut si pas d'icône définie
+};
+
+// Fonction pour créer l'HTML SVG d'une icône Ionic
+const createIconSVG = (iconName: string): string => {
+  // Map des icônes Ionic en SVG (version simplifiée)
+  const iconSVGs: Record<string, string> = {
+    'ellipse-outline': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="none" stroke="currentColor" stroke-miterlimit="10" stroke-width="32" d="M448,256c0-106-86-192-192-192S64,150,64,256s86,192,192,192S448,362,448,256Z"/></svg>',
+    'remove-outline': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="m368,368,0-224-224,0,0,224"/></svg>',
+    'trending-down-outline': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><polyline points="352,368 464,368 464,256" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"/><path d="m48,144,169.37,169.37a32,32,0,0,0,45.26,0l50.74-50.74a32,32,0,0,1,45.26,0L448,352" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"/></svg>',
+    'water-outline': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path d="M400,320c0,88.37-55.63,144-144,144s-144-55.63-144-144c0-94.83,103.23-222.85,134.89-259.88a12,12,0,0,1,18.22,0C296.77,97.15,400,225.17,400,320Z" fill="none" stroke="currentColor" stroke-miterlimit="10" stroke-width="32"/></svg>',
+    'alert-circle-outline': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path d="M448,256c0-106-86-192-192-192S64,150,64,256s86,192,192,192S448,362,448,256Z" fill="none" stroke="currentColor" stroke-miterlimit="10" stroke-width="32"/><path d="m250.26,166.05,5.74,122,5.73-122a6,6,0,0,0-6-6.44h0A6,6,0,0,0,250.26,166.05Z" fill="currentColor"/><circle cx="256" cy="340" r="10" fill="currentColor"/></svg>',
+    'swap-vertical-outline': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><polyline points="464,208 352,96 240,208" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"/><line x1="352" y1="113.13" x2="352" y2="416" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"/><polyline points="48,304 160,416 272,304" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"/><line x1="160" y1="398.87" x2="160" y2="96" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"/></svg>',
+    'man-outline': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><circle cx="256" cy="56" r="56" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"/><path d="M304,128H208c-26.51,0-48,21.49-48,48V320c0,26.51,21.49,48,48,48h96c26.51,0,48-21.49,48-48V176C352,149.49,330.51,128,304,128Z" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"/><line x1="208" y1="368" x2="208" y2="464" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"/><line x1="304" y1="368" x2="304" y2="464" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"/></svg>',
+    'warning-outline': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path d="M85.57,446.25H426.43a32,32,0,0,0,28.17-47.17L284.18,82.58c-12.09-22.44-44.27-22.44-56.36,0L57.4,399.08A32,32,0,0,0,85.57,446.25Z" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"/><path d="m250.26,195.39,5.74,122,5.73-122a6,6,0,0,0-6-6.44h0A6,6,0,0,0,250.26,195.39Z" fill="currentColor"/><circle cx="256" cy="397.25" r="10" fill="currentColor"/></svg>',
+    'car-crash-outline': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path d="M32,192l64,32,112-64,112,64,64-32" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"/><rect x="144" y="256" width="224" height="160" rx="16" ry="16" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="32"/><circle cx="336" cy="352" r="16" fill="currentColor"/><circle cx="176" cy="352" r="16" fill="currentColor"/><path d="m144,256-30-64H70.62a8,8,0,0,0-7.91,9.7L80,256" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"/><path d="m368,256,30-64h43.38a8,8,0,0,1,7.91,9.7L432,256" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"/></svg>',
+    'trash-outline': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path d="M112,112l20,320c.95,18.49,14.4,32,32,32H348c17.67,0,30.87-13.51,32-32l20-320" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"/><path stroke="currentColor" stroke-linecap="round" stroke-miterlimit="10" stroke-width="32" d="M80,112H432"/><path d="M192,112V72h0a23.93,23.93,0,0,1,24-24h80a23.93,23.93,0,0,1,24,24h0v40" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"/><line x1="256" y1="176" x2="256" y2="400" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"/><line x1="184" y1="176" x2="192" y2="400" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"/><line x1="328" y1="176" x2="320" y2="400" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32"/></svg>'
+  };
+  
+  return iconSVGs[iconName] || iconSVGs['alert-circle-outline'];
+};
+
+// Icônes selon le type (version SVG)
+const getTypeIcon = (typeName?: string) => {
+  const iconName = getSignalementIcon(typeName);
+  return createIconSVG(iconName);
 };
 
 // Formater les coordonnées (gère les chaînes et les nombres)
@@ -556,9 +601,17 @@ const getDateFilterLabel = (value: string) => {
 };
 
 // Lifecycle
-onMounted(() => {
+onMounted(async () => {
   // Charger les données des filtres au démarrage
   loadFilterData();
+  
+  // Charger les types de signalement pour les icônes
+  try {
+    const typeSignalementServiceInstance = new TypeSignalementService();
+    typesSignalement.value = await typeSignalementServiceInstance.getAll();
+  } catch (error) {
+    console.error('Erreur lors du chargement des types de signalement:', error);
+  }
   
   // Écouter les changements d'authentification
   onAuthStateChanged(auth, (user) => {
@@ -953,14 +1006,20 @@ ion-action-sheet .action-sheet-button {
   justify-content: center;
   width: 44px;
   height: 44px;
-  background: linear-gradient(135deg, #FF6B6B 0%, #EE5A5A 100%);
   border-radius: 12px;
   flex-shrink: 0;
 }
 
 .type-icon {
+  width: 22px;
+  height: 22px;
   font-size: 22px;
-  color: white;
+}
+
+.type-icon svg {
+  width: 100%;
+  height: 100%;
+  color: currentColor;
 }
 
 .item-content {
