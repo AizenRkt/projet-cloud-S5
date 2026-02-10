@@ -124,7 +124,7 @@ CREATE TABLE prix_m2 (
 
 -- ==================== Données de test ====================
 
-/*-- Insertion des rôles par défaut
+-- Insertion des rôles par défaut
 INSERT INTO role (nom) VALUES ('Manager'), ('Visiteur'), ('Utilisateur');
 
 INSERT INTO utilisateur (email, password, firebase_uid, nom, prenom, id_role)
@@ -188,6 +188,6 @@ INSERT INTO signalement_status (id_signalement, id_signalement_type_status) VALU
     (2, (SELECT id_signalement_type_status FROM signalement_type_status WHERE code = 'en_cours')),
     (3, (SELECT id_signalement_type_status FROM signalement_type_status WHERE code = 'en_cours')),
     (4, (SELECT id_signalement_type_status FROM signalement_type_status WHERE code = 'en_cours')),
-    (5, (SELECT id_signalement_type_status FROM signalement_type_status WHERE code = 'en_cours'));*/
+    (5, (SELECT id_signalement_type_status FROM signalement_type_status WHERE code = 'en_cours'));
 
 

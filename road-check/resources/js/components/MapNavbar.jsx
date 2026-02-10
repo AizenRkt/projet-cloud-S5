@@ -1,6 +1,6 @@
 import React from 'react';
 
-function MapNavbar({ onOpenUsers, onOpenStats, onOpenSync, onOpenPrice, onLogout }) {
+function MapNavbar({ docsUrl, onOpenCredits, onOpenUsers, onOpenStats, onOpenSync, onOpenPrice, onLogout }) {
     return (
         <nav className="navbar">
             <div className="navbar-brand">
