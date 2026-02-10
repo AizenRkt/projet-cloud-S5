@@ -4,6 +4,7 @@ services:
   app:
     build: .
     container_name: laravel_app
+    command: sh -c "cd /var/www/html/road-check && composer install --no-dev --optimize-autoloader && php-fpm"
     volumes:
       - ./:/var/www/html
     networks:
