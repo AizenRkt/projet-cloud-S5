@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import ReactDOM from 'react-dom/client';
 import L from 'leaflet';
-import MapNavbar from './components/MapNavbar.jsx';
+import VisitorNavbar from './components/VisitorNavbar.jsx';
 import Sidebar from './components/Sidebar.jsx';
 import StatsBar from './components/StatsBar.jsx';
 import DetailPanel from './components/DetailPanel.jsx';
@@ -406,7 +406,7 @@ function VisitorApp() {
 
     return (
         <div>
-            <MapNavbar isVisitor={true} />
+            <VisitorNavbar />
             <div className="main-container">
                 <Sidebar onFilter={filterBy} onSearch={handleSearch} onDateChange={handleDateChange} />
                 <div className="map-container">
