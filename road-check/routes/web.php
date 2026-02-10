@@ -38,6 +38,15 @@ if (app()->environment('local')) {
 Route::post('/api/sync/resync/{id}', [SignalementController::class, 'markForResync']);
 Route::get('/api/sync/status', [SignalementController::class, 'getSyncStatus']);
 
+// ==================== Page Visiteur (publique, sans auth) ====================
+Route::get('/visiteur', function () {
+    return redirect()->route('visiteur');
+});
+
+Route::get('/visiteur/map', function () {
+    return view('visiteur');
+})->name('visiteur');
+
 // ==================== Vue principale (Manager Dashboard) ====================
 Route::middleware('firebase.auth')->group(function () {
     Route::get('/map', function () {

@@ -10,3 +10,15 @@ services:
       - NODE_ENV=production
     volumes:
       - .:/app
+
+  firestore-visitor:
+    build: .
+    container_name: firestore-visitor-service
+    ports:
+      - "4001:4001"
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+    volumes:
+      - .:/app
+    command: ["node", "visitor-api.js"]

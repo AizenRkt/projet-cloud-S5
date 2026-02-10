@@ -527,7 +527,8 @@ class SignalementController extends Controller
                 ->map(function ($s) use ($sessionUser) {
                     $email = $s->utilisateur ? $s->utilisateur->email : ($sessionUser ? $sessionUser->email : null);
                     $uid = $s->utilisateur ? $s->utilisateur->firebase_uid : ($sessionUser ? $sessionUser->firebase_uid : null);
-                    $budgetValue = is_numeric($s->budget) ? (int) $s->budget : 0;
+9+                    $budgetValue = is_numeric($s->budget) ? (float) $s->budget : 0.0;
+                    $surfaceValue = is_numeric($s->surface_m2) ? (float) $s->surface_m2 : 0.0;
                     return [
                         'local_id' => $s->id_signalement,
                         'firebase_id' => $s->firebase_id,
@@ -541,7 +542,7 @@ class SignalementController extends Controller
                         'longitude' => $s->longitude,
                         'photos' => $s->photos ? $s->photos->pluck('path')->toArray() : [],
                         'statut' => $s->dernierStatut && $s->dernierStatut->typeStatus ? $s->dernierStatut->typeStatus->code : 'nouveau',
-                        'surface_m2' => $s->surface_m2,
+                        'surface_m2' => $surfaceValue,
                         'id_type_signalement' => $s->id_type_signalement,
                         'type_signalement' => $s->typeSignalement ? $s->typeSignalement->nom : null,
                         'utilisateur_email' => $email,
@@ -814,13 +815,15 @@ class SignalementController extends Controller
                             }
                         }
 
-                        $budgetValue = isset($doc['budget']) && is_numeric($doc['budget']) ? (int) $doc['budget'] : 0;
+                        $budgetValue = isset($doc['budget']) && is_numeric($doc['budget']) ? (float) $doc['budget'] : 0.0;
+                        $surfaceRaw = $doc['surface'] ?? $doc['surface_m2'] ?? 0;
+                        $surfaceValue = is_numeric($surfaceRaw) ? (float) $surfaceRaw : 0.0;
                         $signalementData = [
                             'id_type_signalement' => $typeSignalementId,
                             'id_entreprise' => $entrepriseId,
                             'latitude' => $doc['latitude'] ?? 0, 'longitude' => $doc['longitude'] ?? 0,
                             'description' => $doc['description'] ?? '',
-                            'surface_m2' => $doc['surface'] ?? $doc['surface_m2'] ?? 0,
+                            'surface_m2' => $surfaceValue,
                             'budget' => $budgetValue,
                             'date_signalement' => isset($doc['dateSignalement']) ? date('Y-m-d H:i:s', strtotime($doc['dateSignalement'])) : now(),
                             'synced_to_firebase' => true, 'firebase_id' => $firestoreId,

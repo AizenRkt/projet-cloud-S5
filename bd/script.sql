@@ -136,6 +136,10 @@ INSERT INTO role (nom) VALUES ('Manager'), ('Visiteur'), ('Utilisateur');
 INSERT INTO utilisateur (email, password, firebase_uid, nom, prenom, id_role)
 VALUES ('admin@gmail.com', 'password123', 'manager-default-uid', 'Admin', 'Manager', 1);
 
+-- Création d'un visiteur par défaut (password: visiteur123)
+INSERT INTO utilisateur (email, password, firebase_uid, nom, prenom, id_role)
+VALUES ('visiteur@example.com', 'visiteur123', 'visiteur-default-uid', 'Visiteur', 'Test', 2);
+
 -- Insertion d'entreprises de test
 INSERT INTO entreprise (nom) VALUES
     ('COLAS Madagascar'),
@@ -157,9 +161,11 @@ INSERT INTO type_signalement (nom, icon) VALUES
 
 -- Insertion des types de statut
 INSERT INTO signalement_type_status (code, libelle, pourcentage) VALUES
+    ('en_attente', 'En attente', 0),
     ('nouveau', 'Nouveau', 0),
     ('en_cours', 'En cours', 50),
-    ('termine', 'Terminé', 100);
+    ('termine', 'Terminé', 100),
+    ('annule', 'Annulé', 0);
 
 -- Insertion de signalements de test à Antananarivo
 INSERT INTO signalement (id_type_signalement, latitude, longitude, description, surface_m2, budget, id_entreprise) VALUES
@@ -171,6 +177,10 @@ INSERT INTO signalement (id_type_signalement, latitude, longitude, description, 
 
 -- Insertion des statuts initiaux
 INSERT INTO signalement_status (id_signalement, id_signalement_type_status) VALUES
-    (1, 1), (2, 1), (3, 1), (4, 1), (5, 1);
+    (1, (SELECT id_signalement_type_status FROM signalement_type_status WHERE code = 'en_cours')),
+    (2, (SELECT id_signalement_type_status FROM signalement_type_status WHERE code = 'en_cours')),
+    (3, (SELECT id_signalement_type_status FROM signalement_type_status WHERE code = 'en_cours')),
+    (4, (SELECT id_signalement_type_status FROM signalement_type_status WHERE code = 'en_cours')),
+    (5, (SELECT id_signalement_type_status FROM signalement_type_status WHERE code = 'en_cours'));
 
 
