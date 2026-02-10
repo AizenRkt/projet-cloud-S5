@@ -100,8 +100,19 @@ class FirebaseWebController extends Controller
         $tentativeSucces = false;
         $jwtToken = null;
 
-        // Vérification locale uniquement
-        if ($utilisateur && !$utilisateur->bloque && !empty($utilisateur->password) && $data['password'] === $utilisateur->password) {
+        // Vérification locale uniquement (supporte mot de passe haché ou en clair)
+        $passwordMatch = false;
+        if ($utilisateur && !$utilisateur->bloque && !empty($utilisateur->password)) {
+            // Essayer d'abord avec Hash::check (mot de passe haché)
+            if (Hash::check($data['password'], $utilisateur->password)) {
+                $passwordMatch = true;
+            }
+            // Sinon comparer en clair (fallback)
+            elseif ($data['password'] === $utilisateur->password) {
+                $passwordMatch = true;
+            }
+        }
+        if ($passwordMatch) {
             // Stocker en session sans JWT
             session([
                 'utilisateur' => $utilisateur
