@@ -1,0 +1,168 @@
+============================================================
+         REQUÊTES POSTMAN - Road Check API
+         Base URL : http://localhost:8000
+============================================================
+
+==================== AUTH (api.php) ====================
+
+1. LOGIN (Firebase)
+   POST http://localhost:8000/api/login
+   Headers: Content-Type: application/json
+   Body (raw, JSON):
+   {
+     "email": "admin@gmail.com",
+     "password": "password123"
+   }
+
+2. REGISTER (Firebase)
+   POST http://localhost:8000/api/register
+   Headers: Content-Type: application/json
+   Body (raw, JSON):
+   {
+     "email": "nouveau@gmail.com",
+     "password": "motdepasse123",
+     "nom": "Dupont",
+     "prenom": "Jean"
+   }
+
+3. UNBLOCK (api.php)
+   POST http://localhost:8000/api/unblock
+   Headers: Content-Type: application/json
+   Body (raw, JSON):
+   {
+     "email": "admin@gmail.com"
+   }
+
+4. SWAGGER TEST
+   GET http://localhost:8000/api/swagger-test
+   (pas de body)
+
+==================== SIGNALEMENTS (web.php /api/) ====================
+
+5. LISTE DES SIGNALEMENTS
+   GET http://localhost:8000/api/signalements
+   (pas de body)
+
+6. HISTORIQUE D'UN SIGNALEMENT
+   GET http://localhost:8000/api/signalements/{id}/history
+   Exemple: http://localhost:8000/api/signalements/1/history
+   (pas de body)
+
+7. MODIFIER UN SIGNALEMENT
+   PUT http://localhost:8000/api/signalements/{id}
+   Exemple: http://localhost:8000/api/signalements/1
+   Headers: Content-Type: application/json
+   Body (raw, JSON):
+   {
+     "description": "Nid de poule réparé partiellement",
+     "surface_m2": 20.0,
+     "budget": 3000000,
+     "id_entreprise": 1,
+     "id_type_signalement": 1,
+     "statut": "en_cours"
+   }
+
+8. STATISTIQUES SIGNALEMENTS
+   GET http://localhost:8000/api/signalements/stats
+   (pas de body)
+   Filtres optionnels: ?start_date=2025-01-01&end_date=2026-12-31
+
+9. STATISTIQUES DÉTAILLÉES
+   GET http://localhost:8000/api/stats/detailed
+   (pas de body)
+   Filtres optionnels: ?start_date=2025-01-01&end_date=2026-12-31
+
+==================== DONNÉES RÉFÉRENTIELLES (web.php /api/) ====================
+
+10. LISTE DES ENTREPRISES
+    GET http://localhost:8000/api/entreprises
+    (pas de body)
+
+11. LISTE DES TYPES DE SIGNALEMENT
+    GET http://localhost:8000/api/type-signalements
+    (pas de body)
+
+12. LISTE DES TYPES DE STATUT
+    GET http://localhost:8000/api/type-statuts
+    (pas de body)
+
+13. LISTE DES RÔLES
+    GET http://localhost:8000/api/roles
+    (pas de body)
+
+==================== UTILISATEURS (web.php /api/) ====================
+
+14. LISTE DES UTILISATEURS
+    GET http://localhost:8000/api/utilisateurs
+    (pas de body)
+
+15. CRÉER UN UTILISATEUR
+    POST http://localhost:8000/api/utilisateurs
+    Headers: Content-Type: application/json
+    Body (raw, JSON):
+    {
+      "email": "user@example.com",
+      "password": "motdepasse123",
+      "nom": "Rakoto",
+      "prenom": "Hery",
+      "id_role": 3
+    }
+
+16. MODIFIER UN UTILISATEUR
+    PUT http://localhost:8000/api/utilisateurs/{id}
+    Exemple: http://localhost:8000/api/utilisateurs/1
+    Headers: Content-Type: application/json
+    Body (raw, JSON):
+    {
+      "nom": "Rakoto",
+      "prenom": "Hery",
+      "id_role": 2,
+      "bloque": false
+    }
+
+17. DÉBLOQUER UN UTILISATEUR (par ID)
+    POST http://localhost:8000/api/utilisateurs/{id}/unblock
+    Exemple: http://localhost:8000/api/utilisateurs/1/unblock
+    (pas de body)
+
+18. DÉBLOQUER UN UTILISATEUR (par email)
+    POST http://localhost:8000/api/utilisateurs/unblock-by-email
+    Headers: Content-Type: application/json
+    Body (raw, JSON):
+    {
+      "email": "admin@gmail.com"
+    }
+
+19. SYNCHRONISER UTILISATEURS VERS FIREBASE
+    POST http://localhost:8000/api/sync-users
+    (pas de body)
+
+==================== SYNCHRONISATION (web.php /api/) ====================
+
+20. SYNCHRONISATION BIDIRECTIONNELLE PG <-> FIRESTORE
+    POST http://localhost:8000/api/sync/bidirectional
+    (pas de body)
+
+21. MARQUER UN SIGNALEMENT POUR RE-SYNC
+    POST http://localhost:8000/api/sync/resync/{id}
+    Exemple: http://localhost:8000/api/sync/resync/1
+    (pas de body)
+
+22. STATUT DE SYNCHRONISATION
+    GET http://localhost:8000/api/sync/status
+    (pas de body)
+
+23. TEST SYNC (environnement local uniquement)
+    GET http://localhost:8000/api/test-sync
+    (pas de body)
+
+==================== SWAGGER UI ====================
+
+24. SWAGGER UI (Docker)
+    http://localhost:8082
+    (ouvrir dans le navigateur)
+
+============================================================
+   Rôles disponibles: 1=Manager, 2=Visiteur, 3=Utilisateur
+   Statuts: en_attente, nouveau, en_cours, termine, annule
+============================================================

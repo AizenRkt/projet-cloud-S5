@@ -1,143 +1,117 @@
 openapi: 3.0.0
 info:
-  title: Road Reports API
+  title: Road Check API
   version: 1.0.0
-  description: API de gestion des signalements routiers avec Auth JWT (fallback offline), synchro Firebase ↔ Postgres, et gestion utilisateurs.
+  description: API de gestion des signalements routiers avec Auth Firebase, synchro Firebase ↔ Postgres, gestion utilisateurs et données référentielles.
 servers:
-  - url: http://localhost/api
-    description: Dev server
+  - url: http://localhost:8000
+    description: Dev server (Docker)
 
 tags:
   - name: Auth
-    description: Authentification JWT (online Firebase + fallback offline)
+    description: Authentification (Firebase + local)
+  - name: Signalements
+    description: Signalements routiers (CRUD, stats, historique)
+  - name: Référentiels
+    description: Données référentielles (entreprises, types, statuts, rôles)
+  - name: Utilisateurs
+    description: Gestion des utilisateurs (CRUD, blocage/déblocage)
   - name: Sync
     description: Synchronisation Firebase ↔ Postgres
-  - name: Users
-    description: Gestion utilisateurs (déblocage, reset)
-  - name: Reports
-    description: Signalements routiers
 
 paths:
-  /auth/login:
+
+  # ==================== AUTH ====================
+
+  /api/login:
     post:
       tags: [Auth]
-      summary: Login (online Firebase, fallback offline si pas de réseau)
+      summary: Login via Firebase
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/LoginRequest' }
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email, example: "admin@gmail.com" }
+                password: { type: string, example: "password123" }
       responses:
         '200':
-          description: Token JWT (Firebase ou local)
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/AuthResponse' }
-              examples:
-                online:
-                  summary: Succès online (Firebase)
-                  value:
-                    accessToken: eyJhbGciOiJSUzI1NiIsIn...
-                    refreshToken: <firebaseRefresh>
-                    mode: online
-                offline:
-                  summary: Succès offline (JWT local)
-                  value:
-                    accessToken: eyJhbGciOiJIUzI1NiIsIn...
-                    refreshToken: null
-                    mode: offline
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '500': { $ref: '#/components/responses/ServerError' }
-
-  /auth/refresh:
-    post:
-      tags: [Auth]
-      summary: Rafraîchir le token (si mode online)
-      security: [{ bearerAuth: [] }]
-      responses:
-        '200':
-          description: Nouveau token
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/AuthResponse' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-
-  /auth/logout:
-    post:
-      tags: [Auth]
-      summary: Invalider la session (online et/ou offline)
-      security: [{ bearerAuth: [] }]
-      responses:
-        '200': { description: Déconnexion effectuée }
-
-  /sync/push:
-    post:
-      tags: [Sync]
-      summary: Pousser les données locales vers Firebase/Postgres
-      security: [{ bearerAuth: [] }]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/SyncPayload' }
-      responses:
-        '200': { description: Données synchronisées }
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-
-  /sync/pull:
-    get:
-      tags: [Sync]
-      summary: Récupérer les données distantes pour mise à jour locale
-      security: [{ bearerAuth: [] }]
-      responses:
-        '200':
-          description: Données récupérées
+          description: Connexion réussie
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  reports:
-                    type: array
-                    items: { $ref: '#/components/schemas/Report' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
+                  idToken: { type: string }
+                  refreshToken: { type: string }
+                  user: { $ref: '#/components/schemas/User' }
+        '401': { description: Email ou mot de passe incorrect }
+        '423': { description: Compte bloqué }
 
-  /users/{userId}/unblock:
+  /api/register:
     post:
-      tags: [Users]
-      summary: Débloquer un utilisateur
-      security: [{ bearerAuth: [] }]
-      parameters:
-        - in: path
-          name: userId
-          required: true
-          schema: { type: string }
+      tags: [Auth]
+      summary: Inscription via Firebase
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password, nom, prenom]
+              properties:
+                email: { type: string, format: email, example: "nouveau@gmail.com" }
+                password: { type: string, example: "motdepasse123" }
+                nom: { type: string, example: "Dupont" }
+                prenom: { type: string, example: "Jean" }
+      responses:
+        '201':
+          description: Utilisateur créé
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '400': { description: Erreur Firebase ou validation }
+
+  /api/unblock:
+    post:
+      tags: [Auth]
+      summary: Débloquer un utilisateur par email (API)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email, example: "admin@gmail.com" }
       responses:
         '200': { description: Utilisateur débloqué }
-        '404': { description: Utilisateur introuvable }
-        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Utilisateur non trouvé }
 
-  /users/{userId}/reset-password:
-    post:
-      tags: [Users]
-      summary: Réinitialiser le mot de passe (reset local + trigger Firebase si online)
-      security: [{ bearerAuth: [] }]
-      parameters:
-        - in: path
-          name: userId
-          required: true
-          schema: { type: string }
-      responses:
-        '200': { description: Mot de passe réinitialisé (voir email ou token) }
-        '404': { description: Utilisateur introuvable }
-
-  /reports:
+  /api/swagger-test:
     get:
-      tags: [Reports]
-      summary: Lister les signalements
-      security: [{ bearerAuth: [] }]
+      tags: [Auth]
+      summary: Test Swagger (endpoint de vérification)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean, example: true }
+
+  # ==================== SIGNALEMENTS ====================
+
+  /api/signalements:
+    get:
+      tags: [Signalements]
+      summary: Lister tous les signalements
       responses:
         '200':
           description: Liste des signalements
@@ -145,156 +119,431 @@ paths:
             application/json:
               schema:
                 type: array
-                items: { $ref: '#/components/schemas/Report' }
-    post:
-      tags: [Reports]
-      summary: Créer un signalement
-      security: [{ bearerAuth: [] }]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/ReportCreate' }
-      responses:
-        '201':
-          description: Signalement créé
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/Report' }
-        '400': { $ref: '#/components/responses/BadRequest' }
+                items: { $ref: '#/components/schemas/Signalement' }
 
-  /reports/{id}:
-    get:
-      tags: [Reports]
-      summary: Détail d’un signalement
-      security: [{ bearerAuth: [] }]
+  /api/signalements/{id}:
+    put:
+      tags: [Signalements]
+      summary: Modifier un signalement
       parameters:
         - in: path
           name: id
           required: true
-          schema: { type: string }
+          schema: { type: integer }
+          example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                description: { type: string, example: "Nid de poule réparé partiellement" }
+                surface_m2: { type: number, format: double, example: 20.0 }
+                budget: { type: number, format: double, example: 3000000 }
+                id_entreprise: { type: integer, example: 1 }
+                id_type_signalement: { type: integer, example: 1 }
+                statut: { type: string, enum: [en_attente, nouveau, en_cours, termine, annule], example: "en_cours" }
       responses:
         '200':
-          description: Signalement
+          description: Signalement mis à jour
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Report' }
-        '404': { description: Introuvable }
-    put:
-      tags: [Reports]
-      summary: Mettre à jour un signalement
-      security: [{ bearerAuth: [] }]
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+                  data: { $ref: '#/components/schemas/Signalement' }
+        '404': { description: Signalement introuvable }
+
+  /api/signalements/{id}/history:
+    get:
+      tags: [Signalements]
+      summary: Historique des statuts d'un signalement
       parameters:
         - in: path
           name: id
           required: true
-          schema: { type: string }
+          schema: { type: integer }
+          example: 1
+      responses:
+        '200':
+          description: Historique des statuts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id_signalement_status: { type: integer }
+                    code: { type: string }
+                    libelle: { type: string }
+                    pourcentage: { type: number }
+                    date: { type: string, format: date-time }
+
+  /api/signalements/stats:
+    get:
+      tags: [Signalements]
+      summary: Statistiques des signalements
+      parameters:
+        - in: query
+          name: start_date
+          schema: { type: string, format: date }
+          example: "2025-01-01"
+        - in: query
+          name: end_date
+          schema: { type: string, format: date }
+          example: "2026-12-31"
+      responses:
+        '200':
+          description: Statistiques
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total: { type: integer }
+                  nouveau: { type: integer }
+                  en_attente: { type: integer }
+                  en_cours: { type: integer }
+                  termine: { type: integer }
+                  annule: { type: integer }
+                  total_surface: { type: number }
+                  total_budget: { type: number }
+                  avancement: { type: number }
+
+  /api/stats/detailed:
+    get:
+      tags: [Signalements]
+      summary: Statistiques détaillées (JSON)
+      parameters:
+        - in: query
+          name: start_date
+          schema: { type: string, format: date }
+        - in: query
+          name: end_date
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: Statistiques détaillées
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total: { type: integer }
+                  nouveau: { type: integer }
+                  en_cours: { type: integer }
+                  termine: { type: integer }
+                  total_surface: { type: number }
+                  total_budget: { type: number }
+                  avancement: { type: number }
+                  average_processing_time: { type: number }
+                  completed_count: { type: integer }
+
+  # ==================== RÉFÉRENTIELS ====================
+
+  /api/entreprises:
+    get:
+      tags: [Référentiels]
+      summary: Lister les entreprises
+      responses:
+        '200':
+          description: Liste des entreprises
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Entreprise' }
+
+  /api/type-signalements:
+    get:
+      tags: [Référentiels]
+      summary: Lister les types de signalement
+      responses:
+        '200':
+          description: Liste des types de signalement
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/TypeSignalement' }
+
+  /api/type-statuts:
+    get:
+      tags: [Référentiels]
+      summary: Lister les types de statut
+      responses:
+        '200':
+          description: Liste des types de statut
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/SignalementTypeStatus' }
+
+  /api/roles:
+    get:
+      tags: [Référentiels]
+      summary: Lister les rôles
+      responses:
+        '200':
+          description: Liste des rôles
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Role' }
+
+  # ==================== UTILISATEURS ====================
+
+  /api/utilisateurs:
+    get:
+      tags: [Utilisateurs]
+      summary: Lister les utilisateurs
+      responses:
+        '200':
+          description: Liste des utilisateurs
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/User' }
+    post:
+      tags: [Utilisateurs]
+      summary: Créer un utilisateur (Manager)
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/ReportUpdate' }
+            schema:
+              type: object
+              required: [email, password, nom, prenom, id_role]
+              properties:
+                email: { type: string, format: email, example: "user@example.com" }
+                password: { type: string, example: "motdepasse123" }
+                nom: { type: string, example: "Rakoto" }
+                prenom: { type: string, example: "Hery" }
+                id_role: { type: integer, example: 3 }
       responses:
-        '200': { description: Mis à jour }
-        '404': { description: Introuvable }
-    delete:
-      tags: [Reports]
-      summary: Supprimer un signalement
-      security: [{ bearerAuth: [] }]
+        '201':
+          description: Utilisateur créé
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+                  data: { $ref: '#/components/schemas/User' }
+        '422': { description: Erreur de validation }
+
+  /api/utilisateurs/{id}:
+    put:
+      tags: [Utilisateurs]
+      summary: Modifier un utilisateur
       parameters:
         - in: path
           name: id
           required: true
-          schema: { type: string }
+          schema: { type: integer }
+          example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nom: { type: string, example: "Rakoto" }
+                prenom: { type: string, example: "Hery" }
+                id_role: { type: integer, example: 2 }
+                bloque: { type: boolean, example: false }
       responses:
-        '204': { description: Supprimé }
-        '404': { description: Introuvable }
+        '200':
+          description: Utilisateur mis à jour
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+                  data: { $ref: '#/components/schemas/User' }
+        '404': { description: Utilisateur introuvable }
+
+  /api/utilisateurs/{id}/unblock:
+    post:
+      tags: [Utilisateurs]
+      summary: Débloquer un utilisateur par ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+          example: 1
+      responses:
+        '200': { description: Utilisateur débloqué }
+        '404': { description: Utilisateur introuvable }
+
+  /api/utilisateurs/unblock-by-email:
+    post:
+      tags: [Utilisateurs]
+      summary: Débloquer un utilisateur par email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email, example: "admin@gmail.com" }
+      responses:
+        '200': { description: Utilisateur débloqué }
+        '404': { description: Utilisateur introuvable }
+
+  # ==================== SYNCHRONISATION ====================
+
+  /api/sync-users:
+    post:
+      tags: [Sync]
+      summary: Synchroniser les utilisateurs locaux vers Firebase
+      responses:
+        '200':
+          description: Résultat de la synchronisation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+        '500': { description: Erreur serveur }
+
+  /api/sync/bidirectional:
+    post:
+      tags: [Sync]
+      summary: Synchronisation bidirectionnelle PostgreSQL ↔ Firestore
+      responses:
+        '200':
+          description: Résultat de la synchronisation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+                  pg_to_firestore: { type: object }
+                  firestore_to_pg: { type: object }
+                  timestamp: { type: string, format: date-time }
+        '500': { description: Erreur serveur }
+
+  /api/sync/resync/{id}:
+    post:
+      tags: [Sync]
+      summary: Marquer un signalement pour re-synchronisation
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+          example: 1
+      responses:
+        '200':
+          description: Signalement marqué pour re-sync
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+        '404': { description: Signalement introuvable }
+
+  /api/sync/status:
+    get:
+      tags: [Sync]
+      summary: Statut de synchronisation des signalements
+      responses:
+        '200':
+          description: Statut de synchronisation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total: { type: integer }
+                  synced: { type: integer }
+                  pending: { type: integer }
+                  with_errors: { type: integer }
+                  sync_percentage: { type: number }
+
+  /api/test-sync:
+    get:
+      tags: [Sync]
+      summary: Test de synchronisation bidirectionnelle (local uniquement)
+      responses:
+        '200':
+          description: Résultat du test de sync
+          content:
+            application/json:
+              schema:
+                type: object
 
 components:
-  securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-
-  responses:
-    BadRequest:
-      description: Requête invalide
-      content:
-        application/json:
-          schema:
-            type: object
-            properties:
-              error: { type: string, example: "Invalid payload" }
-    Unauthorized:
-      description: Non autorisé (token manquant ou invalide)
-      content:
-        application/json:
-          schema:
-            type: object
-            properties:
-              error: { type: string, example: "Unauthorized" }
-    ServerError:
-      description: Erreur serveur
-      content:
-        application/json:
-          schema:
-            type: object
-            properties:
-              error: { type: string, example: "Internal server error" }
-
   schemas:
     User:
       type: object
       properties:
-        id: { type: string }
+        id_utilisateur: { type: integer }
         email: { type: string, format: email }
-        role: { type: string, enum: [admin, moderator, user] }
-        blocked: { type: boolean }
-        createdAt: { type: string, format: date-time }
-    Report:
+        firebase_uid: { type: string }
+        nom: { type: string }
+        prenom: { type: string }
+        id_role: { type: integer }
+        role: { type: string }
+        bloque: { type: boolean }
+        date_creation: { type: string, format: date-time }
+
+    Signalement:
       type: object
       properties:
-        id: { type: string }
-        userId: { type: string }
+        id_signalement: { type: integer }
+        id_type_signalement: { type: integer }
+        id_entreprise: { type: integer, nullable: true }
+        id_utilisateur: { type: integer, nullable: true }
         latitude: { type: number, format: double }
         longitude: { type: number, format: double }
-        status: { type: string, enum: [nouveau, en_cours, termine] }
+        description: { type: string }
         surface_m2: { type: number, format: double }
         budget: { type: number, format: double }
-        createdAt: { type: string, format: date-time }
-    ReportCreate:
-      type: object
-      required: [latitude, longitude, status]
-      properties:
-        latitude: { type: number, format: double, example: 48.8566 }
-        longitude: { type: number, format: double, example: 2.3522 }
-        status: { type: string, enum: [nouveau, en_cours, termine], example: nouveau }
-        surface_m2: { type: number, format: double, example: 120.5 }
-        budget: { type: number, format: double, example: 15000 }
-    ReportUpdate:
-      allOf:
-        - $ref: '#/components/schemas/ReportCreate'
-      required: []
-    SyncPayload:
-      type: object
-      properties:
-        lastSync: { type: string, format: date-time, example: "2026-02-02T12:00:00Z" }
-        reports:
-          type: array
-          items: { $ref: '#/components/schemas/Report' }
-    LoginRequest:
-      type: object
-      required: [email, password]
-      properties:
-        email: { type: string, format: email }
-        password: { type: string, format: password }
-    AuthResponse:
-      type: object
-      properties:
-        accessToken: { type: string }
-        refreshToken: { type: string, nullable: true }
-        mode: { type: string, enum: [online, offline] }
+        date_signalement: { type: string, format: date-time }
+        synced_to_firebase: { type: boolean }
+        firebase_id: { type: string, nullable: true }
 
-security:
-  - bearerAuth: []
+    Entreprise:
+      type: object
+      properties:
+        id_entreprise: { type: integer }
+        nom: { type: string }
+        logo: { type: string, nullable: true }
+
+    TypeSignalement:
+      type: object
+      properties:
+        id_type_signalement: { type: integer }
+        nom: { type: string }
+        icon: { type: string }
+
+    SignalementTypeStatus:
+      type: object
+      properties:
+        id_signalement_type_status: { type: integer }
+        code: { type: string, enum: [en_attente, nouveau, en_cours, termine, annule] }
+        libelle: { type: string }
+        pourcentage: { type: number }
+
+    Role:
+      type: object
+      properties:
+        id_role: { type: integer }
+        nom: { type: string, enum: [Manager, Visiteur, Utilisateur] }

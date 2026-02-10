@@ -1,0 +1,536 @@
+{
+  "info": {
+    "_postman_id": "05c8d502-3f37-434b-bbaf-aabda2950b42",
+    "name": "CloudS5",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Login",
+      "id": "7db30b50-75e0-4b17-9c86-74423f1a9608",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    \"email\": \"rohy@gmail.com\",\r\n    \"password\": \"rohy123\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://localhost:8000/login",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8000",
+          "path": [
+            "login"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Unblock par email",
+      "id": "05948252-4df4-4067-a6c7-d3e208261e86",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    \"email\": \"admin@gmail.com\",\r\n    \"password\": \"password123\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://localhost:8000/api/unblock",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8000",
+          "path": [
+            "api",
+            "unblock"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Register",
+      "id": "c8051d01-a8b0-4c64-8a9b-495eb5ab39e6",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://{{url}}:{{port}}/api/register",
+          "protocol": "http",
+          "host": [
+            "{{url}}"
+          ],
+          "port": "{{port}}",
+          "path": [
+            "api",
+            "register"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "index",
+      "id": "a0077d27-6589-4622-b84e-e23874346e88",
+      "request": {
+        "method": "GET",
+        "header": []
+      },
+      "response": []
+    },
+    {
+      "name": "signalements",
+      "id": "f01d7670-6b37-4810-9d28-88be9bd913da",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://{{url}}:{{port}}/api/signalements",
+          "protocol": "http",
+          "host": [
+            "{{url}}"
+          ],
+          "port": "{{port}}",
+          "path": [
+            "api",
+            "signalements"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "historique signalement",
+      "id": "04b47079-9698-4b06-9009-5fa1e634931e",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://{{url}}:{{port}}/api/signalements/1/history",
+          "protocol": "http",
+          "host": [
+            "{{url}}"
+          ],
+          "port": "{{port}}",
+          "path": [
+            "api",
+            "signalements",
+            "1",
+            "history"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "modification signalement",
+      "id": "08ce96d6-a850-429e-b5e0-f95904d58083",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n     \"description\": \"Nid de poule réparé partiellement\",\r\n     \"surface_m2\": 20.0,\r\n     \"budget\": 3000000,\r\n     \"id_entreprise\": 1,\r\n     \"id_type_signalement\": 1,\r\n     \"statut\": \"en_cours\"\r\n   }",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://{{url}}:{{port}}/api/signalements/1",
+          "protocol": "http",
+          "host": [
+            "{{url}}"
+          ],
+          "port": "{{port}}",
+          "path": [
+            "api",
+            "signalements",
+            "1"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "stats signalement",
+      "id": "31b4fff5-de32-45fe-8024-4934ee110a06",
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      },
+      "request": {
+        "method": "GET",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n     \"description\": \"Nid de poule réparé partiellement\",\r\n     \"surface_m2\": 20.0,\r\n     \"budget\": 3000000,\r\n     \"id_entreprise\": 1,\r\n     \"id_type_signalement\": 1,\r\n     \"statut\": \"en_cours\"\r\n   }"
+        },
+        "url": {
+          "raw": "http://{{url}}:{{port}}/api/signalements/stats",
+          "protocol": "http",
+          "host": [
+            "{{url}}"
+          ],
+          "port": "{{port}}",
+          "path": [
+            "api",
+            "signalements",
+            "stats"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "stats signalement detail",
+      "id": "e8c24e8b-993f-4cf1-9289-e2cc1b2a7f2a",
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      },
+      "request": {
+        "method": "GET",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n     \"description\": \"Nid de poule réparé partiellement\",\r\n     \"surface_m2\": 20.0,\r\n     \"budget\": 3000000,\r\n     \"id_entreprise\": 1,\r\n     \"id_type_signalement\": 1,\r\n     \"statut\": \"en_cours\"\r\n   }"
+        },
+        "url": {
+          "raw": "http://{{url}}:{{port}}/api/stats/detailed",
+          "protocol": "http",
+          "host": [
+            "{{url}}"
+          ],
+          "port": "{{port}}",
+          "path": [
+            "api",
+            "stats",
+            "detailed"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "entreprises",
+      "id": "1558b58e-128f-4673-b48f-48bf08ec7c30",
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      },
+      "request": {
+        "method": "GET",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n     \"description\": \"Nid de poule réparé partiellement\",\r\n     \"surface_m2\": 20.0,\r\n     \"budget\": 3000000,\r\n     \"id_entreprise\": 1,\r\n     \"id_type_signalement\": 1,\r\n     \"statut\": \"en_cours\"\r\n   }"
+        },
+        "url": {
+          "raw": "http://{{url}}:{{port}}/api/entreprises",
+          "protocol": "http",
+          "host": [
+            "{{url}}"
+          ],
+          "port": "{{port}}",
+          "path": [
+            "api",
+            "entreprises"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "type signalements",
+      "id": "e78c3d8d-488a-4f67-8b7e-b9349df57722",
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      },
+      "request": {
+        "method": "GET",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n     \"description\": \"Nid de poule réparé partiellement\",\r\n     \"surface_m2\": 20.0,\r\n     \"budget\": 3000000,\r\n     \"id_entreprise\": 1,\r\n     \"id_type_signalement\": 1,\r\n     \"statut\": \"en_cours\"\r\n   }"
+        },
+        "url": {
+          "raw": "http://{{url}}:{{port}}/api/type-signalements",
+          "protocol": "http",
+          "host": [
+            "{{url}}"
+          ],
+          "port": "{{port}}",
+          "path": [
+            "api",
+            "type-signalements"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "type status",
+      "id": "e6d4a472-f230-47f9-bf7e-41413bdc5862",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://{{url}}:{{port}}/api/type-statuts",
+          "protocol": "http",
+          "host": [
+            "{{url}}"
+          ],
+          "port": "{{port}}",
+          "path": [
+            "api",
+            "type-statuts"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "roles",
+      "id": "4f0c72b6-cb16-406a-b15a-32a9d9d8cc5b",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://{{url}}:{{port}}/api/roles",
+          "protocol": "http",
+          "host": [
+            "{{url}}"
+          ],
+          "port": "{{port}}",
+          "path": [
+            "api",
+            "roles"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "utilisateurs",
+      "id": "53de441a-ebcc-47e1-b1f2-e28ec4a6f057",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://{{url}}:{{port}}/api/utilisateurs",
+          "protocol": "http",
+          "host": [
+            "{{url}}"
+          ],
+          "port": "{{port}}",
+          "path": [
+            "api",
+            "utilisateurs"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "modif utilisateur",
+      "id": "cab9735b-be7a-486e-88dc-fc1b10cbd368",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n      \"nom\": \"Rakoto\",\r\n      \"prenom\": \"Hery\",\r\n      \"id_role\": 2,\r\n      \"bloque\": false\r\n    }\r\n"
+        },
+        "url": {
+          "raw": "http://{{url}}:{{port}}/api/utilisateurs/1",
+          "protocol": "http",
+          "host": [
+            "{{url}}"
+          ],
+          "port": "{{port}}",
+          "path": [
+            "api",
+            "utilisateurs",
+            "1"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Unblock par id",
+      "id": "83b96e27-45fd-4bc4-86af-88a4b3b773c1",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n     \"description\": \"Nid de poule réparé partiellement\",\r\n     \"surface_m2\": 20.0,\r\n     \"budget\": 3000000,\r\n     \"id_entreprise\": 1,\r\n     \"id_type_signalement\": 1,\r\n     \"statut\": \"en_cours\"\r\n   }"
+        },
+        "url": {
+          "raw": "http://{{url}}:{{port}}/api/utilisateurs/1/unblock",
+          "protocol": "http",
+          "host": [
+            "{{url}}"
+          ],
+          "port": "{{port}}",
+          "path": [
+            "api",
+            "utilisateurs",
+            "1",
+            "unblock"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "sync utilisateur firebase",
+      "id": "b2e08a3c-d0f9-44a0-b49c-ef3cc4682276",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n     \"description\": \"Nid de poule réparé partiellement\",\r\n     \"surface_m2\": 20.0,\r\n     \"budget\": 3000000,\r\n     \"id_entreprise\": 1,\r\n     \"id_type_signalement\": 1,\r\n     \"statut\": \"en_cours\"\r\n   }"
+        },
+        "url": {
+          "raw": "http://{{url}}:{{port}}/api/sync-users",
+          "protocol": "http",
+          "host": [
+            "{{url}}"
+          ],
+          "port": "{{port}}",
+          "path": [
+            "api",
+            "sync-users"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "sync postgre firestore",
+      "id": "fd535b63-bd3b-4086-9cd2-16007e5f4c0f",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n     \"description\": \"Nid de poule réparé partiellement\",\r\n     \"surface_m2\": 20.0,\r\n     \"budget\": 3000000,\r\n     \"id_entreprise\": 1,\r\n     \"id_type_signalement\": 1,\r\n     \"statut\": \"en_cours\"\r\n   }"
+        },
+        "url": {
+          "raw": "http://{{url}}:{{port}}/api/sync/bidirectional",
+          "protocol": "http",
+          "host": [
+            "{{url}}"
+          ],
+          "port": "{{port}}",
+          "path": [
+            "api",
+            "sync",
+            "bidirectional"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "re sync signalement by id",
+      "id": "fcb98a42-6ac8-4af4-8510-605615b8cfc6",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n     \"description\": \"Nid de poule réparé partiellement\",\r\n     \"surface_m2\": 20.0,\r\n     \"budget\": 3000000,\r\n     \"id_entreprise\": 1,\r\n     \"id_type_signalement\": 1,\r\n     \"statut\": \"en_cours\"\r\n   }"
+        },
+        "url": {
+          "raw": "http://{{url}}:{{port}}/api/sync/resync/1",
+          "protocol": "http",
+          "host": [
+            "{{url}}"
+          ],
+          "port": "{{port}}",
+          "path": [
+            "api",
+            "sync",
+            "resync",
+            "1"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "status sync",
+      "id": "e3c3a6ba-900e-41cc-a7d2-6ee0ccead92a",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://{{url}}:{{port}}/api/sync/status",
+          "protocol": "http",
+          "host": [
+            "{{url}}"
+          ],
+          "port": "{{port}}",
+          "path": [
+            "api",
+            "sync",
+            "status"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "swagger ui",
+      "id": "567e80ce-6b76-4f9e-a19c-363d1bc77050",
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      },
+      "request": {
+        "method": "GET",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n     \"description\": \"Nid de poule réparé partiellement\",\r\n     \"surface_m2\": 20.0,\r\n     \"budget\": 3000000,\r\n     \"id_entreprise\": 1,\r\n     \"id_type_signalement\": 1,\r\n     \"statut\": \"en_cours\"\r\n   }"
+        },
+        "url": {
+          "raw": "http://{{url}}:8082",
+          "protocol": "http",
+          "host": [
+            "{{url}}"
+          ],
+          "port": "8082"
+        }
+      },
+      "response": []
+    }
+  ]
+}
