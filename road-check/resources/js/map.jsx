@@ -508,8 +508,8 @@ function openDetail() {
     }
 
     const niveauField = isEnAttente ?
-        `<div class="form-group"><label>Niveau</label><input type="number" id="editNiveau" value="${s.niveau || '1'}" oninput="calculateBudget()"></div>`
-        : `<div class="form-group"><label>Niveau</label><input type="number" value="${s.niveau || '1'}" readonly style="background:#f0f0f0;"></div>`;
+        `<div class="form-group"><label>Niveau</label><input type="number" id="editNiveau" value="${s.niveau || '1'}" oninput="calculateBudget()" style="background:#1a2230;color:#e6edf3;border:1px solid #293241;"></div>`
+        : `<div class="form-group"><label>Niveau</label><input type="number" value="${s.niveau || '1'}" readonly style="background:#1a2230;color:#e6edf3;border:1px solid #293241;"></div>`;
 
     // Logic for auto-calculating budget display on load if needed, but usually we just show estimated.
     // We add a note that budget is estimated.
@@ -547,7 +547,7 @@ function openDetail() {
         (s.surface_m2 || '') +
         '" oninput="calculateBudget()"></div>' + niveauField + '<div class="form-group"><label>Budget (Estimé)</label><input type="number" id="editBudget" value="' +
         (s.budget || '') +
-        '" readonly style="background:#f0f0f0;cursor:not-allowed;"></div></div><div class="form-group"><label>Entreprise</label><select id="editEntreprise"><option value="">--</option>' +
+        '" readonly style="background:#1a2230;color:#e6edf3;border:1px solid #293241;cursor:not-allowed;"></div></div><div class="form-group"><label>Entreprise</label><select id="editEntreprise"><option value="">--</option>' +
         entreprises
             .map(
                 (e) =>
