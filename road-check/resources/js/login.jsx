@@ -75,7 +75,7 @@ function LoginApp({ data }) {
                 </a>
             </p>*/}
             <p className="text-center mt-2">
-                <a href={data.docsUrl} className="text-decoration-none rc-link" target="_blank" rel="noreferrer">
+                <a href="http://localhost:8000/visiteur" className="text-decoration-none rc-link" target="_blank" rel="noreferrer">
                     <i className="bi bi-file-earmark-text me-1"></i>Je suis un visiteur
                 </a>
             </p>
