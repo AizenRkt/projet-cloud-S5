@@ -11,12 +11,24 @@ class FirebaseAuthMiddleware
     public function handle(Request $request, Closure $next)
     {
         // 1️⃣ Vérifier si l'utilisateur est déjà authentifié via Laravel Auth (pour login local)
-        if (auth()->check()) {
+        if (auth()->check() && auth()->user()) {
             $request->attributes->set('firebase_uid', auth()->id());
             return $next($request);
         }
 
-        // 1️⃣ Récupération robuste du token (header ou session)
+        // 1️⃣bis Vérifier si l'utilisateur est connecté via session locale (login sans JWT)
+        if (session()->get('is_logged_in') === true && session()->has('utilisateur')) {
+            $utilisateur = session('utilisateur');
+            $request->attributes->set('firebase_uid', $utilisateur->firebase_uid ?? $utilisateur->id_utilisateur ?? null);
+            return $next($request);
+        }
+
+        // 2️⃣ Pour les pages web, exiger une session locale valide
+        if (! $request->expectsJson()) {
+            return redirect()->route('login.form');
+        }
+
+        // 3️⃣ Récupération robuste du token (header ou session)
         $authHeader =
             $request->header('Authorization')
             ?? $request->server('HTTP_AUTHORIZATION')
@@ -34,7 +46,7 @@ class FirebaseAuthMiddleware
             return redirect()->route('login.form');
         }
 
-        // 2️⃣ Détection du type de token (Firebase ou local)
+        // 4️⃣ Détection du type de token (Firebase ou local)
         $isFirebaseToken = false;
         if (is_string($token) && strlen($token) > 100 && strpos($token, '.') !== false) {
             // On suppose que les tokens Firebase sont plus longs et contiennent des claims spécifiques

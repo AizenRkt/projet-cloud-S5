@@ -30,10 +30,22 @@ class FirebaseWebController extends Controller
         return view('firebase.register');
     }
 
-    // 🔹 Afficher formulaire de login
+    // 🔹 Afficher formulaire de login avec test Firestore (Kreait)
     public function showLoginForm()
     {
-        return view('firebase.login');
+        $firestoreStatus = null;
+        try {
+            $factory = (new \Kreait\Firebase\Factory())
+                ->withServiceAccount(config('services.firebase.credentials'))
+                ->withDatabaseUri('https://road-check-a6a4a-default-rtdb.europe-west1.firebasedatabase.app');
+            $database = $factory->createDatabase();
+            // Test simple : lire une clé bidon (Firestore RTDB, pas Firestore v2)
+            $snapshot = $database->getReference('test-connexion')->getSnapshot();
+            $firestoreStatus = $snapshot->exists() ? 'Connexion Firestore RTDB OK' : 'Connexion Firestore RTDB vide';
+        } catch (\Throwable $e) {
+            $firestoreStatus = 'Erreur Firestore (Kreait) : ' . $e->getMessage();
+        }
+        return view('firebase.login', compact('firestoreStatus'));
     }
 
     // 🔹 INSCRIPTION
@@ -88,11 +100,23 @@ class FirebaseWebController extends Controller
         $tentativeSucces = false;
         $jwtToken = null;
 
-        // Vérification locale uniquement
-        if ($utilisateur && !$utilisateur->bloque && !empty($utilisateur->password) && $data['password'] === $utilisateur->password) {
+        // Vérification locale uniquement (supporte mot de passe haché ou en clair)
+        $passwordMatch = false;
+        if ($utilisateur && !$utilisateur->bloque && !empty($utilisateur->password)) {
+            // Essayer d'abord avec Hash::check (mot de passe haché)
+            if (Hash::check($data['password'], $utilisateur->password)) {
+                $passwordMatch = true;
+            }
+            // Sinon comparer en clair (fallback)
+            elseif ($data['password'] === $utilisateur->password) {
+                $passwordMatch = true;
+            }
+        }
+        if ($passwordMatch) {
             // Stocker en session sans JWT
             session([
-                'utilisateur' => $utilisateur
+                'utilisateur' => $utilisateur,
+                'is_logged_in' => true
             ]);
             $tentativeSucces = true;
         }
@@ -127,7 +151,7 @@ class FirebaseWebController extends Controller
         if ($tentativeSucces) {
             return redirect('/map')->with('success', 'Connecté localement');
         } else {
-            return back()->withErrors(['error' => 'Email ou mot de passe invalide']);
+            return redirect()->route('login.form')->withErrors(['error' => 'Email ou mot de passe invalide']);
         }
     }
 
@@ -164,7 +188,9 @@ class FirebaseWebController extends Controller
     public function logout(Request $request)
     {
         // Clear session
-        session()->forget(['utilisateur']);
+        session()->forget(['utilisateur', 'is_logged_in']);
+        session()->invalidate();
+        session()->regenerateToken();
 
         return redirect()->route('login.form')->with('success', 'Déconnecté');
     }

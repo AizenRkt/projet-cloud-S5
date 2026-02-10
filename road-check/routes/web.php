@@ -12,12 +12,15 @@ Route::get('/api/signalements', [SignalementController::class, 'index']);
 Route::get('/api/signalements/{id}/history', [SignalementController::class, 'getHistory']);
 Route::put('/api/signalements/{id}', [SignalementController::class, 'update']);
 Route::get('/api/signalements/stats', [SignalementController::class, 'stats']);
+Route::get('/api/stats/detailed', [SignalementController::class, 'detailedStatsJson']);
 
 // Données référentielles
 Route::get('/api/entreprises', [SignalementController::class, 'getEntreprises']);
 Route::get('/api/type-signalements', [SignalementController::class, 'getTypeSignalements']);
 Route::get('/api/type-statuts', [SignalementController::class, 'getTypeStatuts']);
 Route::get('/api/roles', [SignalementController::class, 'getRoles']);
+Route::get('/api/prix-m2', [SignalementController::class, 'getPrixM2']);
+Route::post('/api/prix-m2', [SignalementController::class, 'storePrixM2']);
 
 // Utilisateurs (gestion par le Manager)
 Route::get('/api/utilisateurs', [SignalementController::class, 'getUtilisateurs']);
@@ -27,32 +30,41 @@ Route::post('/api/utilisateurs/{id}/unblock', [SignalementController::class, 'un
 Route::post('/api/utilisateurs/unblock-by-email', [SignalementController::class, 'unblockByEmail']);
 Route::post('/api/sync-users', [SignalementController::class, 'syncUsersToFirebase']);
 
-// Synchronisation signalements vers Firebase
+// Synchronisation bidirectionnelle PostgreSQL <-> Firestore
 if (app()->environment('local')) {
-    Route::post('/api/sync/to-firebase', [SignalementController::class, 'syncSignalementsToFirebase'])->withoutMiddleware(['csrf']);
-    Route::get('/api/test-sync', [SignalementController::class, 'testSyncSignalementsToFirebase']);
+    Route::post('/api/sync/bidirectional', [SignalementController::class, 'syncBidirectional'])->withoutMiddleware(['csrf']);
+    Route::get('/api/test-sync', [SignalementController::class, 'testSyncBidirectional']);
 } else {
-    Route::post('/api/sync/to-firebase', [SignalementController::class, 'syncSignalementsToFirebase']);
+    Route::post('/api/sync/bidirectional', [SignalementController::class, 'syncBidirectional']);
 }
 Route::post('/api/sync/resync/{id}', [SignalementController::class, 'markForResync']);
 Route::get('/api/sync/status', [SignalementController::class, 'getSyncStatus']);
+
+// ==================== Page Visiteur (publique, sans auth) ====================
+Route::get('/visiteur', function () {
+    return redirect()->route('visiteur');
+});
+
+Route::get('/visiteur/map', function () {
+    return view('visiteur');
+})->name('visiteur');
 
 // ==================== Vue principale (Manager Dashboard) ====================
 Route::middleware('firebase.auth')->group(function () {
     Route::get('/map', function () {
         return view('map');
     })->name('map');
-});
 
-Route::get('/', function () {
-    return view('welcome');
+    Route::get('/statistiques', function () {
+        return redirect()->route('map');
+    })->name('stats');
 });
 
 // ==================== Auth Firebase Web ====================
 Route::get('/register', [FirebaseWebController::class, 'showRegisterForm'])->name('register.form');
 Route::post('/register', [FirebaseWebController::class, 'register'])->name('register.submit');
 
-Route::get('/login', [FirebaseWebController::class, 'showLoginForm'])->name('login.form');
+Route::get('/', [FirebaseWebController::class, 'showLoginForm'])->name('login.form');
 Route::post('/login', [FirebaseWebController::class, 'login'])->name('login.submit');
 
 Route::middleware('firebase.auth')->group(function () {

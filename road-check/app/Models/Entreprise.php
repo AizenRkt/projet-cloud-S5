@@ -9,5 +9,5 @@ class Entreprise extends Model
     protected $table = 'entreprise';
     protected $primaryKey = 'id_entreprise';
     public $timestamps = false;
-    protected $fillable = ['nom'];
+    protected $fillable = ['nom', 'logo'];
 }

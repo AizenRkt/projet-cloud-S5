@@ -1,2 +1,4 @@
 import './bootstrap';
-import './map';
+import './map.jsx';
+import './login.jsx';
+import './register.jsx';

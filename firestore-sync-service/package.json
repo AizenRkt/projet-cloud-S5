@@ -1,0 +1,14 @@
+{
+  "name": "firestore-sync-service",
+  "version": "1.0.0",
+  "description": "Microservice Node.js pour synchroniser les signalements dans Firestore depuis Laravel",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "firebase-admin": "^11.10.1",
+    "cors": "^2.8.5"
+  }
+}

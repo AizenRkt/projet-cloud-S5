@@ -1,0 +1,24 @@
+version: '3.8'
+services:
+  firestore-sync:
+    build: .
+    container_name: firestore-sync-service
+    ports:
+      - "4000:4000"
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+    volumes:
+      - .:/app
+
+  firestore-visitor:
+    build: .
+    container_name: firestore-visitor-service
+    ports:
+      - "4001:4001"
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+    volumes:
+      - .:/app
+    command: ["node", "visitor-api.js"]

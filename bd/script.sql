@@ -45,6 +45,7 @@ CREATE TABLE tentative_connexion (
     succes BOOLEAN NOT NULL
 );
 
+-- Module Web / Mobile
 -- ==================== Module Web / Mobile ====================
 
 CREATE TABLE entreprise (
@@ -64,31 +65,28 @@ CREATE TABLE signalement (
     id_type_signalement INT NOT NULL REFERENCES type_signalement(id_type_signalement),
     id_entreprise INT NULL REFERENCES entreprise(id_entreprise),
     id_utilisateur INT NULL REFERENCES utilisateur(id_utilisateur),
-
     latitude DOUBLE PRECISION NOT NULL,
     longitude DOUBLE PRECISION NOT NULL,
-
     description TEXT,
     surface_m2 DOUBLE PRECISION,
     budget DOUBLE PRECISION,
-
     date_signalement TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     synced_to_firebase BOOLEAN DEFAULT FALSE,
     firebase_id VARCHAR(128) NULL,
     last_sync_attempt TIMESTAMP NULL,
-    sync_error TEXT NULL
+    sync_error TEXT NULL,
+    niveau INT CHECK (niveau BETWEEN 1 AND 10) NULL
 );
 
-
-CREATE INDEX idx_signalement_position ON signalement (latitude, longitude);
+CREATE INDEX idx_signalement_position
+ON signalement (latitude, longitude);
 
 CREATE TABLE signalement_type_status (
     id_signalement_type_status SERIAL PRIMARY KEY,
     code VARCHAR(20) NOT NULL UNIQUE,
-    libelle VARCHAR(50) NOT NULL,
-    pourcentage INT DEFAULT 0
+    libelle VARCHAR(20) NOT NULL,
+    pourcentage DECIMAL(5,2) NOT NULL
 );
-
 
 CREATE TABLE signalement_status (
     id_signalement_status SERIAL PRIMARY KEY,
@@ -100,8 +98,7 @@ CREATE TABLE signalement_status (
 CREATE TABLE photo_signalement (
     id_photo SERIAL PRIMARY KEY,
     id_signalement INT NOT NULL REFERENCES signalement(id_signalement),
-    path VARCHAR(255) NOT NULL,
-    date_upload TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    path TEXT NOT NULL
 );
 
 CREATE TABLE modification_signalement (
@@ -116,14 +113,25 @@ CREATE TABLE modification_signalement (
     date_modification TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+
+CREATE TABLE prix_m2 (
+    id_prix_m2 SERIAL PRIMARY KEY,
+    date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    valeur DOUBLE PRECISION
+);
+
+
+
 -- ==================== Données de test ====================
 
 -- Insertion des rôles par défaut
 INSERT INTO role (nom) VALUES ('Manager'), ('Visiteur'), ('Utilisateur');
 
--- Création d'un manager par défaut (password: manager123)
 INSERT INTO utilisateur (email, password, firebase_uid, nom, prenom, id_role)
-VALUES ('admin@gmail.com', 'password123', 'manager-default-uid', 'Admin', 'Manager', 1);
+VALUES ('admin@gmail.com', '$2y$10$4YeQZaCc3vVvhoyZRbxGMuk9ouUNSWns7DrIpT9RsjRS4F56lhEaC', 'manager-default-uid', 'Admin', 'Manager', 1);
+
+INSERT INTO utilisateur (email, password, firebase_uid, nom, prenom, id_role)
+VALUES ('visiteur@example.com', '$2y$10$yQaFNooJHj0D7rmCeyTkFexHWpMShMeqJlOom1.T/r.bsaL5M7RL.', 'visiteur-default-uid', 'Visiteur', 'Test', 2);
 
 -- Insertion d'entreprises de test
 INSERT INTO entreprise (nom) VALUES
@@ -132,51 +140,54 @@ INSERT INTO entreprise (nom) VALUES
     ('RAVINALA Roads'),
     ('Travaux Publics SA');
 
--- Insertion des types de signalement
 INSERT INTO type_signalement (nom, icon) VALUES
-    ('Nid de poule', 'pothole'),
-    ('Fissure', 'crack'),
-    ('Affaissement', 'sinkhole'),
-    ('Route inondée', 'flood'),
-    ('Obstacle', 'obstacle');
+    ('Nid de poule', 'ellipse-outline'),
+    ('Fissure', 'remove-outline'),
+    ('Affaissement de chaussée', 'trending-down-outline'),
+    ('Route inondée', 'water-outline'),
+    ('Obstacle sur la chaussée', 'alert-circle-outline'),
+    ('Déformation de la chaussée', 'swap-vertical-outline'),
+    ('Trou d''homme non couvert', 'man-outline'),
+    ('Signalisation manquante', 'warning-outline'),
+    ('Accident de la route', 'car-crash-outline'),
+    ('Débris sur la route', 'trash-outline');
 
 -- Insertion des types de statut
 INSERT INTO signalement_type_status (code, libelle, pourcentage) VALUES
-    ('nouveau', 'Validé', 0),
-    ('en_cours', 'En cours de traitement', 50),
-    ('termine', 'Terminé', 100),
     ('en_attente', 'En attente', 0),
+    ('nouveau', 'Nouveau', 0),
+    ('en_cours', 'En cours', 50),
+    ('termine', 'Terminé', 100),
     ('annule', 'Annulé', 0);
 
--- Insertion de signalements de test (Status variés et dates différentes)
+-- Insertion de signalements de test à Antananarivo
+--INSERT INTO signalement (id_type_signalement, latitude, longitude, description, surface_m2, budget, id_entreprise) VALUES
+--    (1, -18.9137, 47.5361, 'Nid de poule important avenue de l''Indépendance', 15.5, 2500000, 1),
+--    (2, -18.9100, 47.5250, 'Fissure sur la route d''Ambohijatovo', 8.2, 1200000, 2),
+--    (1, -18.9200, 47.5400, 'Plusieurs nids de poule à Analakely', 25.0, 4500000, NULL),
+--    (3, -18.9050, 47.5300, 'Affaissement près du lac Anosy', 12.0, 8000000, 3),
+--    (4, -18.9180, 47.5280, 'Route inondée à Isotry', 50.0, 15000000, 1);
+--
+---- Insertion des statuts initiaux
+--INSERT INTO signalement_status (id_signalement, id_signalement_type_status) VALUES
+--    (1, (SELECT id_signalement_type_status FROM signalement_type_status WHERE code = 'en_cours')),
+--    (2, (SELECT id_signalement_type_status FROM signalement_type_status WHERE code = 'en_cours')),
+--    (3, (SELECT id_signalement_type_status FROM signalement_type_status WHERE code = 'en_cours')),
+--    (4, (SELECT id_signalement_type_status FROM signalement_type_status WHERE code = 'en_cours')),
+--    (5, (SELECT id_signalement_type_status FROM signalement_type_status WHERE code = 'en_cours'));
+INSERT INTO signalement (id_type_signalement, latitude, longitude, description, surface_m2, budget, id_entreprise) VALUES
+    (1, -18.9137, 47.5361, 'Nid de poule important avenue de l''Indépendance', 15.5, 2500000, 1),
+    (2, -18.9100, 47.5250, 'Fissure sur la route d''Ambohijatovo', 8.2, 1200000, 2),
+    (1, -18.9200, 47.5400, 'Plusieurs nids de poule à Analakely', 25.0, 4500000, NULL),
+    (3, -18.9050, 47.5300, 'Affaissement près du lac Anosy', 12.0, 8000000, 3),
+    (4, -18.9180, 47.5280, 'Route inondée à Isotry', 50.0, 15000000, 1);
 
--- 1. Nid de poule - En cours (Colas)
-INSERT INTO signalement (id_type_signalement, latitude, longitude, description, surface_m2, budget, id_entreprise, statut, date_signalement) VALUES
-(1, -18.9137, 47.5361, 'Nid de poule important avenue de l''Indépendance', 15.5, 2500000, 1, 'en_cours', '2024-01-15 10:00:00');
-
--- 2. Fissure - Terminé (Sogea)
-INSERT INTO signalement (id_type_signalement, latitude, longitude, description, surface_m2, budget, id_entreprise, statut, date_signalement) VALUES
-(2, -18.9100, 47.5250, 'Fissure sur la route d''Ambohijatovo réparée', 8.2, 1200000, 2, 'termine', '2023-12-10 09:30:00');
-
--- 3. Nid de poule - Nouveau
-INSERT INTO signalement (id_type_signalement, latitude, longitude, description, surface_m2, budget, id_entreprise, statut, date_signalement) VALUES
-(1, -18.9200, 47.5400, 'Plusieurs nids de poule à Analakely', 25.0, 4500000, NULL, 'nouveau', '2024-02-01 14:15:00');
-
--- 4. Affaissement - En cours (Ravinala)
-INSERT INTO signalement (id_type_signalement, latitude, longitude, description, surface_m2, budget, id_entreprise, statut, date_signalement) VALUES
-(3, -18.9050, 47.5300, 'Affaissement près du lac Anosy', 12.0, 8000000, 3, 'en_cours', '2024-01-20 08:00:00');
-
--- 5. Route inondée - En attente
-INSERT INTO signalement (id_type_signalement, latitude, longitude, description, surface_m2, budget, id_entreprise, statut, date_signalement) VALUES
-(4, -18.9180, 47.5280, 'Route inondée à Isotry, nécessite drainage', 50.0, 15000000, NULL, 'en_attente', '2024-02-05 16:45:00');
-
--- 6. Obstacle - Annulé
-INSERT INTO signalement (id_type_signalement, latitude, longitude, description, surface_m2, budget, id_entreprise, statut, date_signalement) VALUES
-(5, -18.9300, 47.5100, 'Arbre tombé (déjà enlevé)', NULL, 0, NULL, 'annule', '2024-01-05 07:00:00');
-
--- 7. Nid de poule - Terminé
-INSERT INTO signalement (id_type_signalement, latitude, longitude, description, surface_m2, budget, id_entreprise, statut, date_signalement) VALUES
-(1, -18.9150, 47.5350, 'Réfection rue Pasteur', 30.0, 5000000, 1, 'termine', '2024-01-10 11:20:00');
--- statut possible firebase code : en_attente, nouveau, en_cours, termine, annule
+-- Insertion des statuts initiaux
+INSERT INTO signalement_status (id_signalement, id_signalement_type_status) VALUES
+    (1, (SELECT id_signalement_type_status FROM signalement_type_status WHERE code = 'en_cours')),
+    (2, (SELECT id_signalement_type_status FROM signalement_type_status WHERE code = 'en_cours')),
+    (3, (SELECT id_signalement_type_status FROM signalement_type_status WHERE code = 'en_cours')),
+    (4, (SELECT id_signalement_type_status FROM signalement_type_status WHERE code = 'en_cours')),
+    (5, (SELECT id_signalement_type_status FROM signalement_type_status WHERE code = 'en_cours'));
 
 
