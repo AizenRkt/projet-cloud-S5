@@ -80,6 +80,19 @@ services:
       - NODE_ENV=production
     command: ["node", "visitor-api.js"]
 
+  swagger-ui:
+    image: swaggerapi/swagger-ui
+    container_name: laravel_swagger_ui
+    ports:
+      - "8082:8080"
+    environment:
+      SWAGGER_JSON: /docs/swagger.yaml
+    volumes:
+      - ./road-check/swagger.yaml:/docs/swagger.yaml
+    networks:
+      - laravel
+    restart: unless-stopped
+
   vite:
     image: node:20-alpine
     container_name: laravel_vite
