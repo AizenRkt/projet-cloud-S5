@@ -75,6 +75,15 @@
         </div>
       </div>
 
+      <!-- Bouton de rafraîchissement -->
+      <div class="refresh-button-container" 
+           v-if="!isSearchActive && !showSignalementForm && !showSignalementDetail"
+           :class="{ 'refresh-hidden': showSignalementForm || showSignalementDetail }">
+        <button class="refresh-btn" @click="refreshMap" :disabled="isRefreshing">
+          <ion-icon :icon="refreshOutline" :class="{ 'spinning': isRefreshing }"></ion-icon>
+        </button>
+      </div>
+
       <!-- Filtres de signalements -->
       <div class="filters-container" 
            v-if="!isSearchActive && !showSignalementForm && !showSignalementDetail"
@@ -102,6 +111,15 @@
         </div>
       </div>
 
+      <!-- Bouton de couches de carte -->
+      <div class="layer-button-container"
+           v-if="!isSearchActive && !showSignalementForm && !showSignalementDetail"
+           :class="{ 'layer-hidden': showSignalementForm || showSignalementDetail }">
+        <button class="layer-toggle-btn" @click="showLayerChoice = true">
+          <ion-icon :icon="layersOutline"></ion-icon>
+        </button>
+      </div>
+
       <!-- Carte -->
       <div id="map"></div>
 
@@ -118,8 +136,13 @@
         :latitude="formPosition[0]" 
         :longitude="formPosition[1]"
         :is-open="showSignalementForm"
+        :is-submitting="isSubmittingSignalement"
+        :submission-success="submissionSuccess"
+        :submission-error="submissionError"
         @close="closeForm"
         @submit="handleSubmitSignalement"
+        @success="handleSubmissionSuccess"
+        @error="handleSubmissionError"
       />
 
       <!-- Détails du signalement en bottom sheet -->
@@ -128,6 +151,20 @@
         :signalement="selectedSignalement"
         :is-open="showSignalementDetail"
         @close="closeSignalementDetail"
+      />
+
+      <!-- Choix des couches de carte en bottom sheet -->
+      <ChoiceMapLayer 
+        :is-open="showLayerChoice"
+        :current-layer="currentLayer"
+        :signalement-types="typesSignalement"
+        :selected-types="selectedSignalementTypes"
+        :selected-statuses="selectedSignalementStatuses"
+        @close="showLayerChoice = false"
+        @layer-change="handleLayerChange"
+        @type-filter-change="handleTypeFilterChange"
+        @status-filter-change="handleStatusFilterChange"
+        @reset-filters="handleResetFilters"
       />
     </ion-content>
   </ion-page>
@@ -140,12 +177,15 @@ import * as L from "leaflet";
 import GeolocalisationService from "@/services/geolocalisation";
 import GeoSearchService, { type SearchLocation } from "@/services/geosearch";
 import { signalementService } from "@/services/signalement";
+import { photoService } from "@/services/signalement/PhotoService";
+import { TypeSignalementService } from "@/services/signalement/TypeSignalementService";
 import { onIonViewDidEnter } from "@ionic/vue";
 
 // **Vrai import corrigé**
 import SignalementForm from "@/components/signalement/FormulaireSignalement.vue";
 import TooltipSignalement from "@/components/signalement/TooltipSignalement.vue";
 import DetailSignalement from "@/components/signalement/DetailSignalement.vue";
+import ChoiceMapLayer from "@/components/ChoiceMapLayer.vue";
 
 import type { Signalement } from "@/services/signalement/types";
 
@@ -166,13 +206,29 @@ import {
   refreshOutline, 
   alertCircleOutline,
   globeOutline,
-  personOutline
+  personOutline,
+  layersOutline
 } from "ionicons/icons";
 
 import { auth } from '@/firebase';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 
 const router = useRouter();
+
+// Instance des services
+const typeSignalementService = new TypeSignalementService();
+
+// Types de signalement avec leurs couleurs
+const typesSignalement = ref<any[]>([]);
+
+// Fonction pour obtenir la couleur d'un type de signalement
+const getSignalementColor = (typeSignalementNom?: string): string => {
+  if (!typeSignalementNom) return '#FF4444'; // Rouge par défaut
+  
+  // Chercher la couleur dans les types chargés depuis Firestore
+  const typeData = typesSignalement.value.find(t => t.nom === typeSignalementNom);
+  return typeData?.couleur || '#FF4444'; // Rouge si pas de couleur définie
+};
 
 /* Fix icônes Leaflet */
 import { Icon } from "leaflet";
@@ -189,14 +245,26 @@ let signalementMarker: L.CircleMarker | null = null;
 let signalementMarkers: L.CircleMarker[] = [];
 let tooltipPopup: L.Popup | null = null;
 
+// Couches de carte
+let baseLayers: { [key: string]: L.TileLayer } = {};
+let currentLayer = ref<'default' | 'satellite' | 'terrain'>('default');
+
 // État pour le formulaire de signalement
 const showSignalementForm = ref(false);
 const formPosition = ref<[number, number] | null>(null);
+const isSubmittingSignalement = ref(false);
+const submissionSuccess = ref(false);
+const submissionError = ref<string | null>(null);
 
 // État pour les signalements existants
 const signalements = ref<Signalement[]>([]);
 const selectedSignalement = ref<Signalement | null>(null);
 const showSignalementDetail = ref(false);
+
+// État pour le choix des couches et filtres
+const showLayerChoice = ref(false);
+const selectedSignalementTypes = ref<number[]>([]);
+const selectedSignalementStatuses = ref<string[]>([]);
 
 // État pour la recherche géographique
 const searchQuery = ref('');
@@ -210,6 +278,7 @@ let searchTimeout: NodeJS.Timeout | null = null;
 // État pour les filtres de signalements
 const currentFilter = ref<'all' | 'mine'>('all');
 const currentUser = ref<User | null>(null);
+const isRefreshing = ref(false);
 const allSignalementsCount = ref(0);
 const mySignalementsCount = ref(0);
 const allSignalements = ref<Signalement[]>([]);
@@ -222,15 +291,22 @@ const initMap = async () => {
   }
   map = L.map("map", { zoomControl: false }).setView([-18.8792, 47.5079], 13);
 
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    attribution: "© OpenStreetMap contributors"
-  }).addTo(map);
+  // Créer les différentes couches de base
+  baseLayers = {
+    default: L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "© OpenStreetMap contributors"
+    }),
+    satellite: L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
+      attribution: "© Esri World Imagery"
+    }),
+    terrain: L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", {
+      attribution: "© OpenTopoMap contributors"
+    })
+  };
 
-  // Marqueur Antananarivo
-  L.marker([-18.8792, 47.5079])
-    .addTo(map)
-    .bindPopup("Antananarivo")
-    .openPopup();
+  // Ajouter la couche par défaut à la carte
+  baseLayers.default.addTo(map);
+
 
   // Essayer de récupérer la position actuelle
   const pos = await GeolocalisationService.getCurrentPosition();
@@ -254,6 +330,9 @@ const initMap = async () => {
     console.warn("Permission localisation non accordée ou position indisponible");
   }
 
+  // Charger les types de signalement pour les couleurs
+  await loadTypesSignalement();
+  
   // Charger les signalements existants
   await loadSignalements();
 
@@ -365,6 +444,87 @@ const closeForm = () => {
   }
 };
 
+// Changer de couche de carte
+const setMapLayer = (layer: 'default' | 'satellite' | 'terrain') => {
+  if (!map || !baseLayers[layer]) return;
+  
+  // Retirer toutes les couches actuelles
+  Object.values(baseLayers).forEach(layer => {
+    if (map!.hasLayer(layer)) {
+      map!.removeLayer(layer);
+    }
+  });
+  
+  // Ajouter la nouvelle couche
+  baseLayers[layer].addTo(map);
+  currentLayer.value = layer;
+};
+
+// Gérer le changement de couche depuis le composant
+const handleLayerChange = (layer: 'default' | 'satellite' | 'terrain') => {
+  setMapLayer(layer);
+};
+
+// Gérer les filtres par type de signalement
+const handleTypeFilterChange = (types: number[]) => {
+  selectedSignalementTypes.value = types;
+  applyFilters();
+};
+
+// Gérer les filtres par statut
+const handleStatusFilterChange = (statuses: string[]) => {
+  selectedSignalementStatuses.value = statuses;
+  applyFilters();
+};
+
+// Réinitialiser tous les filtres
+const handleResetFilters = () => {
+  selectedSignalementTypes.value = [];
+  selectedSignalementStatuses.value = [];
+  applyFilters();
+};
+
+// Appliquer tous les filtres (existants + nouveaux)
+const applyFilters = () => {
+  let filteredSignalements = [];
+  
+  // Commencer par le filtre de base (tous/mes signalements)
+  if (currentFilter.value === 'all') {
+    filteredSignalements = [...allSignalements.value];
+  } else {
+    filteredSignalements = [...mySignalements.value];
+  }
+  
+  // Appliquer le filtre par type si des types sont sélectionnés
+  if (selectedSignalementTypes.value.length > 0) {
+    filteredSignalements = filteredSignalements.filter(signalement => 
+      selectedSignalementTypes.value.includes(signalement.typeSignalementId)
+    );
+  }
+  
+  // Appliquer le filtre par statut si des statuts sont sélectionnés
+  if (selectedSignalementStatuses.value.length > 0) {
+    filteredSignalements = filteredSignalements.filter(signalement => 
+      selectedSignalementStatuses.value.includes(signalement.status || 'en_attente')
+    );
+  }
+  
+  signalements.value = filteredSignalements;
+  displaySignalementsOnMap();
+};
+
+// Charger les types de signalement
+const loadTypesSignalement = async () => {
+  try {
+    const types = await typeSignalementService.getAll();
+    typesSignalement.value = types;
+    console.log('Types de signalement chargés:', types);
+  } catch (error) {
+    console.error('Erreur lors du chargement des types de signalement:', error);
+    // Les couleurs de fallback seront utilisées
+  }
+};
+
 // Charger tous les signalements existants
 const loadSignalements = async () => {
   try {
@@ -376,6 +536,21 @@ const loadSignalements = async () => {
     applyCurrentFilter();
   } catch (error) {
     console.error("Erreur lors du chargement des signalements:", error);
+  }
+};
+
+// Rafraîchir la carte et recharger les signalements
+const refreshMap = async () => {
+  if (isRefreshing.value) return;
+  
+  isRefreshing.value = true;
+  try {
+    await loadSignalements();
+    console.log('Carte rafraîchie avec succès');
+  } catch (error) {
+    console.error('Erreur lors du rafraîchissement de la carte:', error);
+  } finally {
+    isRefreshing.value = false;
   }
 };
 
@@ -408,14 +583,9 @@ const setFilter = (filter: 'all' | 'mine') => {
   applyCurrentFilter();
 };
 
-// Appliquer le filtre actuel
+// Appliquer le filtre actuel (modifié pour utiliser la nouvelle fonction)
 const applyCurrentFilter = () => {
-  if (currentFilter.value === 'all') {
-    signalements.value = allSignalements.value;
-  } else {
-    signalements.value = mySignalements.value;
-  }
-  displaySignalementsOnMap();
+  applyFilters(); // Utiliser la nouvelle fonction qui gère tous les filtres
 };
 
 // Afficher les signalements sur la carte
@@ -428,9 +598,11 @@ const displaySignalementsOnMap = () => {
 
   // Ajouter les nouveaux markers
   signalements.value.forEach(signalement => {
+    const markerColor = getSignalementColor(signalement.typeSignalementNom);
+    
     const marker = L.circleMarker([signalement.latitude, signalement.longitude], {
       radius: 8,
-      fillColor: '#FF4444',
+      fillColor: markerColor,
       color: '#ffffff',
       weight: 2,
       opacity: 1,
@@ -498,9 +670,17 @@ const displaySignalementsOnMap = () => {
 // Gérer la soumission du signalement
 const handleSubmitSignalement = async (data: any) => {
   try {
+    // Réinitialiser les états
+    submissionSuccess.value = false;
+    submissionError.value = null;
+    isSubmittingSignalement.value = true;
+    
     console.log("Données reçues du formulaire:", data);
     
-    // Préparer les données pour Firebase
+    // Extraire les photos du data
+    const photos: File[] = data.photos || [];
+    
+    // Préparer les données pour Firebase (sans les photos File)
     const signalementData = {
       typeSignalementId: data.typeSignalementId,
       typeSignalementNom: data.typeSignalementNom,
@@ -522,7 +702,18 @@ const handleSubmitSignalement = async (data: any) => {
     const signalementId = await signalementService.create(signalementData);
     
     console.log("Signalement créé avec ID:", signalementId);
-    alert("Signalement enregistré avec succès !");
+
+    // Upload des photos vers Supabase Storage si présentes
+    if (photos.length > 0) {
+      console.log(`Upload de ${photos.length} photo(s) vers Supabase...`);
+      const photoUrls = await photoService.uploadPhotos(signalementId, photos);
+      
+      if (photoUrls.length > 0) {
+        // Mettre à jour le signalement Firebase avec les URLs des photos
+        await signalementService.update(signalementId, { photos: photoUrls });
+        console.log(`${photoUrls.length} photo(s) uploadée(s) et sauvegardée(s)`);
+      }
+    }
     
     // Recharger les signalements pour afficher le nouveau
     await loadSignalements();
@@ -532,12 +723,30 @@ const handleSubmitSignalement = async (data: any) => {
       await loadMySignalements();
     }
     
-    // Fermer le formulaire et supprimer le marqueur
-    closeForm();
+    // Marquer le succès
+    isSubmittingSignalement.value = false;
+    submissionSuccess.value = true;
+    
   } catch (error) {
     console.error("Erreur lors de l'enregistrement:", error);
-    alert("Erreur lors de l'enregistrement du signalement");
+    isSubmittingSignalement.value = false;
+    submissionError.value = "Erreur lors de l'enregistrement du signalement";
   }
+};
+
+// Gérer le succès de soumission
+const handleSubmissionSuccess = () => {
+  console.log("Signalement soumis avec succès");
+  // Le formulaire se fermera automatiquement après un délai
+  setTimeout(() => {
+    closeForm();
+  }, 3000); // Fermer après 3 secondes
+};
+
+// Gérer les erreurs de soumission
+const handleSubmissionError = (message: string) => {
+  console.error("Erreur de soumission:", message);
+  submissionError.value = message;
 };
 
 // Fermer les détails du signalement
@@ -758,7 +967,7 @@ ion-page {
   position: absolute;
   top: 80px;
   left: 0;
-  right: 0;
+  right: 0; /* Retirer la marge à droite car le bouton est maintenant en dessous */
   z-index: 999;
   padding: 0 16px 12px;
   transition: all 0.3s ease;
@@ -841,6 +1050,113 @@ ion-page {
 .filter-chip.active .chip-count {
   background: rgba(255, 255, 255, 0.2);
   color: white;
+}
+
+/* Bouton de rafraîchissement */
+.refresh-button-container {
+  position: absolute;
+  top: 130px; /* En dessous des filtres */
+  left: 16px;
+  z-index: 999;
+  transition: all 0.3s ease;
+}
+
+.refresh-button-container.refresh-hidden {
+  opacity: 0;
+  transform: translateX(20px);
+  pointer-events: none;
+}
+
+.refresh-btn {
+  width: 30px;
+  height: 30px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  border: none;
+  border-radius: 50%;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #333;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.refresh-btn:hover:not(:disabled) {
+  background: #ffffff;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+}
+
+.refresh-btn:active:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.refresh-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.refresh-btn ion-icon {
+  font-size: 16px;
+  transition: transform 0.3s ease;
+}
+
+.refresh-btn ion-icon.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Bouton rond pour les couches */
+.layer-button-container {
+  position: absolute;
+  top: 140px; /* Déplacé en dessous des filtres */
+  right: 16px;
+  z-index: 999;
+  transition: all 0.3s ease;
+}
+
+.layer-button-container.layer-hidden {
+  opacity: 0;
+  transform: translateX(20px);
+  pointer-events: none;
+}
+
+.layer-toggle-btn {
+  width: 48px;
+  height: 48px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  border: none;
+  border-radius: 50%;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #333;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.layer-toggle-btn:hover {
+  background: #ffffff;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+}
+
+.layer-toggle-btn:active {
+  transform: translateY(-1px);
+}
+
+.layer-toggle-btn ion-icon {
+  font-size: 24px;
 }
 
 .search-bar {

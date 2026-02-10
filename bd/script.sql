@@ -89,6 +89,7 @@ CREATE TABLE signalement_type_status (
     pourcentage INT DEFAULT 0
 );
 
+
 CREATE TABLE signalement_status (
     id_signalement_status SERIAL PRIMARY KEY,
     id_signalement INT NOT NULL REFERENCES signalement(id_signalement),
@@ -176,4 +177,6 @@ INSERT INTO signalement (id_type_signalement, latitude, longitude, description, 
 -- 7. Nid de poule - Terminé
 INSERT INTO signalement (id_type_signalement, latitude, longitude, description, surface_m2, budget, id_entreprise, statut, date_signalement) VALUES
 (1, -18.9150, 47.5350, 'Réfection rue Pasteur', 30.0, 5000000, 1, 'termine', '2024-01-10 11:20:00');
+-- statut possible firebase code : en_attente, nouveau, en_cours, termine, annule
+
 

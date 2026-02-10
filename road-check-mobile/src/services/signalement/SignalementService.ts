@@ -15,7 +15,8 @@ import { db } from '@/firebase';
 import { 
   SignalementData, 
   Signalement, 
-  FirebaseSignalementData 
+  FirebaseSignalementData,
+  SignalementStatus
 } from './types';
 
 export class SignalementService {
@@ -38,7 +39,9 @@ export class SignalementService {
         description: data.description || '',
         surface: data.surface || null,
         budget: data.budget || null,
-        dateSignalement: Timestamp.fromDate(data.dateSignalement || new Date())
+        dateSignalement: Timestamp.fromDate(data.dateSignalement || new Date()),
+        status: SignalementStatus.EN_ATTENTE, // Statut par défaut lors de la création
+        dateStatus: Timestamp.fromDate(new Date()) // Date du statut initial
       };
 
       const docRef = await addDoc(collection(db, this.collectionName), signalementData);
@@ -63,7 +66,10 @@ export class SignalementService {
         return {
           id: docSnap.id,
           ...data,
-          dateSignalement: data.dateSignalement.toDate()
+          dateSignalement: data.dateSignalement.toDate(),
+          status: data.status || SignalementStatus.EN_ATTENTE,
+          dateStatus: data.dateStatus ? data.dateStatus.toDate() : data.dateSignalement.toDate(),
+          photos: data.photos || []
         } as Signalement;
       }
       return null;
@@ -100,7 +106,10 @@ export class SignalementService {
           description: data.description,
           surface: data.surface,
           budget: data.budget,
-          dateSignalement: data.dateSignalement.toDate()
+          dateSignalement: data.dateSignalement.toDate(),
+          status: data.status || SignalementStatus.EN_ATTENTE,
+          dateStatus: data.dateStatus ? data.dateStatus.toDate() : data.dateSignalement.toDate(),
+          photos: data.photos || []
         } as Signalement;
       });
     } catch (error) {
@@ -151,6 +160,8 @@ export class SignalementService {
    */
   async getByUser(utilisateurId: string): Promise<Signalement[]> {
     try {
+      console.log('SignalementService.getByUser - Recherche pour:', utilisateurId);
+      
       const q = query(
         collection(db, this.collectionName),
         where('utilisateurId', '==', utilisateurId),
@@ -158,15 +169,34 @@ export class SignalementService {
       );
       
       const querySnapshot = await getDocs(q);
+      console.log('SignalementService.getByUser - Documents trouvés:', querySnapshot.size);
       
-      return querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        dateSignalement: doc.data().dateSignalement.toDate()
-      } as Signalement));
-    } catch (error) {
+      return querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          dateSignalement: data.dateSignalement.toDate(),
+          status: data.status || SignalementStatus.EN_ATTENTE,
+          dateStatus: data.dateStatus ? data.dateStatus.toDate() : data.dateSignalement.toDate(),
+          photos: data.photos || []
+        } as Signalement;
+      });
+    } catch (error: any) {
       console.error('Erreur lors de la récupération par utilisateur:', error);
-      throw new Error('Impossible de récupérer les signalements de l\'utilisateur');
+      
+      // Si c'est une erreur d'index manquant, afficher des instructions claires
+      if (error?.code === 'failed-precondition' || error?.message?.includes('index')) {
+        console.error('========================================');
+        console.error('INDEX FIRESTORE MANQUANT!');
+        console.error('Créez un index composite dans la console Firebase:');
+        console.error('Collection: signalements');
+        console.error('Champs: utilisateurId (Ascending) + dateSignalement (Descending)');
+        console.error('Ou cliquez sur le lien dans le message d\'erreur ci-dessus');
+        console.error('========================================');
+      }
+      
+      throw error;
     }
   }
 

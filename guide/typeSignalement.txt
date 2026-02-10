@@ -1,0 +1,18 @@
+1) État de la route
+Nid-de-poule 
+fissure
+Chaussée glissante
+Inondation
+Route barrée
+
+2)Signalisation & équipements
+Panneau manquant/endommagé
+Marquage au sol effacé
+
+🚗 Trafic & circulation
+Accident de circulation
+Véhicule en panne sur la route
+
+🚶 Usagers & obstacles
+Obstacle sur la route (arbre, pierre, objet)
+Travaux 

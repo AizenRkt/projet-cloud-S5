@@ -21,11 +21,11 @@ const routes: Array<RouteRecordRaw> = [
         component: () => import('@/views/Carte.vue')
       },
       {
-        path: 'tab2',
-        component: () => import('@/views/Tab2Page.vue')
+        path: 'recap',
+        component: () => import('@/views/Recap.vue')
       },
       {
-        path: 'tab3',
+        path: 'moi',
         component: () => import('@/views/Moi.vue')
       }
     ]

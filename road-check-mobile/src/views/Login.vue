@@ -13,8 +13,6 @@
         </div>
       </div>
 
-
-
       <!-- Main card -->
       <div class="login-container">
         <div class="login-card">
@@ -133,6 +131,83 @@
         </div>
       </div>
     </ion-content>
+
+    <!-- error Dialog -->
+    <TransitionRoot appear :show="showErrorDialog" as="template">
+      <Dialog as="div" @close="showErrorDialog = false" class="error-dialog">
+        <!-- Backdrop with transition -->
+        <TransitionChild
+          as="template"
+          enter="backdrop-enter"
+          enter-from="backdrop-enter-from"
+          enter-to="backdrop-enter-to"
+          leave="backdrop-leave"
+          leave-from="backdrop-leave-from"
+          leave-to="backdrop-leave-to"
+        >
+          <div class="dialog-backdrop" aria-hidden="true" />
+        </TransitionChild>
+
+        <div class="dialog-container">
+          <!-- Panel with transition -->
+          <TransitionChild
+            as="template"
+            enter="panel-enter"
+            enter-from="panel-enter-from"
+            enter-to="panel-enter-to"
+            leave="panel-leave"
+            leave-from="panel-leave-from"
+            leave-to="panel-leave-to"
+          >
+            <DialogPanel class="dialog-panel">
+              <!-- Close button -->
+              <div class="dialog-header">
+                <div class="dialog-icon-container">
+                  <ion-icon :icon="alertCircleOutline" class="dialog-icon"></ion-icon>
+                </div>
+                <button
+                  type="button"
+                  class="dialog-close"
+                  @click="showErrorDialog = false"
+                >
+                  <ion-icon :icon="closeOutline"></ion-icon>
+                </button>
+              </div>
+
+              <!-- Content -->
+              <div class="dialog-body">
+                <DialogTitle class="dialog-title">
+                  Erreur de connexion
+                </DialogTitle>
+                <div class="dialog-content">
+                  <p class="dialog-message">
+                    Vérifiez vos identifiants et votre connexion internet, puis réessayez.
+                  </p>
+                </div>
+              </div>
+
+              <!-- Actions -->
+              <div class="dialog-actions">
+                <button
+                  type="button"
+                  class="dialog-button dialog-button-secondary"
+                  @click="showErrorDialog = false"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  class="dialog-button dialog-button-primary"
+                  @click="showErrorDialog = false"
+                >
+                  Réessayer
+                </button>
+              </div>
+            </DialogPanel>
+          </TransitionChild>
+        </div>
+      </Dialog>
+    </TransitionRoot>
   </ion-page>
 </template>
 
@@ -140,7 +215,6 @@
 import { ref } from "vue";
 import { useRouter } from "vue-router";
 import { login, register } from "@/services/auth";
-import { isBlocked, handleLoginAttempt } from "@/services/loginAttempts";
 import {
   IonPage,
   IonContent,
@@ -149,6 +223,7 @@ import {
   IonIcon,
   IonSpinner
 } from "@ionic/vue";
+import { Dialog, DialogPanel, DialogTitle, TransitionRoot, TransitionChild } from "@headlessui/vue";
 import {
   mailOutline,
   lockClosedOutline,
@@ -159,7 +234,8 @@ import {
   navigateOutline,
   mapOutline,
   alertCircleOutline,
-  peopleOutline
+  peopleOutline,
+  closeOutline
 } from "ionicons/icons";
 
 const router = useRouter();
@@ -167,25 +243,16 @@ const email = ref("");
 const password = ref("");
 const showPassword = ref(false);
 const isLoading = ref(false);
+const showErrorDialog = ref(false);
 
 const handleSubmit = async () => {
-  if (isBlocked(email.value)) {
-    alert("Compte bloqué temporairement. Réessayez plus tard.");
-    return;
-  }
   try {
     isLoading.value = true;
     await login(email.value, password.value);
-    handleLoginAttempt(email.value, true);
     router.push("/tabs/carte");
   } catch (err) {
-    handleLoginAttempt(email.value, false);
-    if (isBlocked(email.value)) {
-      alert("Compte bloqué après plusieurs tentatives. Réessayez dans quelques minutes.");
-    } else {
-      alert("Erreur de connexion");
-    }
     console.error("Erreur:", err);
+    showErrorDialog.value = true;
   } finally {
     isLoading.value = false;
   }
@@ -636,6 +703,227 @@ const handleSubmit = async () => {
   }
   50% {
     transform: translateY(-5px);
+  }
+}
+
+/* Enhanced Error Dialog Styles */
+.error-dialog {
+  position: relative;
+  z-index: 50;
+}
+
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+}
+
+.dialog-container {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.dialog-panel {
+  position: relative;
+  margin: auto;
+  max-width: 28rem;
+  width: 100%;
+  background: linear-gradient(145deg, #1f2937, #111827);
+  border: 2px solid rgba(239, 68, 68, 0.3);
+  border-radius: 1rem;
+  padding: 0;
+  box-shadow: 
+    0 25px 50px -12px rgba(0, 0, 0, 0.8),
+    0 0 0 1px rgba(255, 255, 255, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+
+.dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 1.5rem 1.5rem 0 1.5rem;
+}
+
+.dialog-icon-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  border-radius: 50%;
+  box-shadow: 0 8px 16px rgba(239, 68, 68, 0.3);
+  animation: pulse-error 2s ease-in-out infinite;
+}
+
+.dialog-icon {
+  font-size: 1.5rem;
+  color: white;
+}
+
+.dialog-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  border-radius: 0.5rem;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.dialog-close:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  transform: scale(1.1);
+}
+
+.dialog-body {
+  padding: 1rem 1.5rem;
+}
+
+.dialog-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.5;
+  color: white;
+  margin-bottom: 0.75rem;
+}
+
+.dialog-content {
+  margin-bottom: 1.5rem;
+}
+
+.dialog-message {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.8);
+  line-height: 1.6;
+}
+
+.dialog-actions {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0 1.5rem 1.5rem 1.5rem;
+  justify-content: flex-end;
+}
+
+.dialog-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 5rem;
+}
+
+.dialog-button-secondary {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.dialog-button-secondary:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+  transform: translateY(-1px);
+}
+
+.dialog-button-primary {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  border: 1px solid transparent;
+  color: white;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+}
+
+.dialog-button-primary:hover {
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.6);
+}
+
+.dialog-button:focus {
+  outline: 2px solid #ef4444;
+  outline-offset: 2px;
+}
+
+/* Transition Animations */
+.backdrop-enter {
+  transition-duration: 300ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.backdrop-enter-from {
+  opacity: 0;
+}
+
+.backdrop-enter-to {
+  opacity: 1;
+}
+
+.backdrop-leave {
+  transition-duration: 200ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.backdrop-leave-from {
+  opacity: 1;
+}
+
+.backdrop-leave-to {
+  opacity: 0;
+}
+
+.panel-enter {
+  transition-duration: 300ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.panel-enter-from {
+  opacity: 0;
+  transform: scale(0.95) translateY(-20px);
+}
+
+.panel-enter-to {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+}
+
+.panel-leave {
+  transition-duration: 200ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.panel-leave-from {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+}
+
+.panel-leave-to {
+  opacity: 0;
+  transform: scale(0.95) translateY(20px);
+}
+
+/* Additional Animations */
+@keyframes pulse-error {
+  0%, 100% {
+    box-shadow: 0 8px 16px rgba(239, 68, 68, 0.3);
+  }
+  50% {
+    box-shadow: 0 8px 20px rgba(239, 68, 68, 0.5);
   }
 }
 </style>
