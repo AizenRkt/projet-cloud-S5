@@ -121,6 +121,10 @@ function StatsPanel() {
                     <div className="stat-label">Avancement Global</div>
                 </div>
                 <div className="stat-card">
+                    <div className="stat-value" style={{ color: '#d73a49' }}>{stats.average_processing_time} jours</div>
+                    <div className="stat-label">Delai Moyen</div>
+                </div>
+                <div className="stat-card">
                     <div className="stat-value stats-accent">{Number(stats.total_budget || 0).toLocaleString('fr-FR')}</div>
                     <div className="stat-label">Budget total (Ar)</div>
                 </div>

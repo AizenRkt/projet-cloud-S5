@@ -19,6 +19,8 @@ Route::get('/api/entreprises', [SignalementController::class, 'getEntreprises'])
 Route::get('/api/type-signalements', [SignalementController::class, 'getTypeSignalements']);
 Route::get('/api/type-statuts', [SignalementController::class, 'getTypeStatuts']);
 Route::get('/api/roles', [SignalementController::class, 'getRoles']);
+Route::get('/api/prix-m2', [SignalementController::class, 'getPrixM2']);
+Route::post('/api/prix-m2', [SignalementController::class, 'storePrixM2']);
 
 // Utilisateurs (gestion par le Manager)
 Route::get('/api/utilisateurs', [SignalementController::class, 'getUtilisateurs']);

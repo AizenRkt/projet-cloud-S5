@@ -12,6 +12,7 @@ function Sidebar({ onFilter, onSearch, onDateChange }) {
                     <button className="filter-tab" type="button" onClick={(e) => onFilter('en_cours', e.currentTarget)}> En cours</button>
                     <button className="filter-tab" type="button" onClick={(e) => onFilter('termine', e.currentTarget)}> Termine</button>
                     <button className="filter-tab" type="button" onClick={(e) => onFilter('annule', e.currentTarget)}> Annule</button>
+                    <button className="filter-tab" type="button" onClick={(e) => onFilter('annule', e.currentTarget)}> Annule</button>
                 </div>
             </div>
             <div className="search-container">

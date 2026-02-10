@@ -65,19 +65,17 @@ CREATE TABLE signalement (
     id_type_signalement INT NOT NULL REFERENCES type_signalement(id_type_signalement),
     id_entreprise INT NULL REFERENCES entreprise(id_entreprise),
     id_utilisateur INT NULL REFERENCES utilisateur(id_utilisateur),
-
     latitude DOUBLE PRECISION NOT NULL,
     longitude DOUBLE PRECISION NOT NULL,
-
     description TEXT,
     surface_m2 DOUBLE PRECISION,
     budget DOUBLE PRECISION,
-
     date_signalement TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     synced_to_firebase BOOLEAN DEFAULT FALSE,
     firebase_id VARCHAR(128) NULL,
     last_sync_attempt TIMESTAMP NULL,
-    sync_error TEXT NULL
+    sync_error TEXT NULL,
+    niveau INT CHECK (niveau BETWEEN 1 AND 10) NULL
 );
 
 CREATE INDEX idx_signalement_position
@@ -116,6 +114,17 @@ CREATE TABLE modification_signalement (
 );
 
 
+CREATE TABLE prix_m2 (
+    id_prix_m2 SERIAL PRIMARY KEY,
+    date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    valeur DOUBLE PRECISION
+);
+
+
+
+-- ==================== Données de test ====================
+
+/*-- Insertion des rôles par défaut
 INSERT INTO role (nom) VALUES ('Manager'), ('Visiteur'), ('Utilisateur');
 
 INSERT INTO utilisateur (email, password, firebase_uid, nom, prenom, id_role)
@@ -166,4 +175,19 @@ INSERT INTO signalement_type_status (code, libelle, pourcentage) VALUES
 --    (3, (SELECT id_signalement_type_status FROM signalement_type_status WHERE code = 'en_cours')),
 --    (4, (SELECT id_signalement_type_status FROM signalement_type_status WHERE code = 'en_cours')),
 --    (5, (SELECT id_signalement_type_status FROM signalement_type_status WHERE code = 'en_cours'));
+INSERT INTO signalement (id_type_signalement, latitude, longitude, description, surface_m2, budget, id_entreprise) VALUES
+    (1, -18.9137, 47.5361, 'Nid de poule important avenue de l''Indépendance', 15.5, 2500000, 1),
+    (2, -18.9100, 47.5250, 'Fissure sur la route d''Ambohijatovo', 8.2, 1200000, 2),
+    (1, -18.9200, 47.5400, 'Plusieurs nids de poule à Analakely', 25.0, 4500000, NULL),
+    (3, -18.9050, 47.5300, 'Affaissement près du lac Anosy', 12.0, 8000000, 3),
+    (4, -18.9180, 47.5280, 'Route inondée à Isotry', 50.0, 15000000, 1);
+
+-- Insertion des statuts initiaux
+INSERT INTO signalement_status (id_signalement, id_signalement_type_status) VALUES
+    (1, (SELECT id_signalement_type_status FROM signalement_type_status WHERE code = 'en_cours')),
+    (2, (SELECT id_signalement_type_status FROM signalement_type_status WHERE code = 'en_cours')),
+    (3, (SELECT id_signalement_type_status FROM signalement_type_status WHERE code = 'en_cours')),
+    (4, (SELECT id_signalement_type_status FROM signalement_type_status WHERE code = 'en_cours')),
+    (5, (SELECT id_signalement_type_status FROM signalement_type_status WHERE code = 'en_cours'));*/
+
 
