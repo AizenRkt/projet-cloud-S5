@@ -115,7 +115,7 @@
         data-csrf-token="{{ csrf_token() }}"
         data-login-action="{{ route('login.submit') }}"
         data-register-url="{{ route('register.form') }}"
-        data-docs-url="{{ url('/api/documentation') }}"
+        data-docs-url="http://localhost:8082/"
         data-default-email="admin@gmail.com"
         data-default-password="password123"
         data-success='@json(session('success'))'

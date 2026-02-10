@@ -237,7 +237,7 @@
     </style>
 </head>
 <body>
-    <div id="map-app" data-success='@json(session('success'))' data-docs-url="{{ url('/api/documentation') }}"></div>
+    <div id="map-app" data-success='@json(session('success'))' data-docs-url="http://localhost:8082/"></div>
 
     <script src="{{ asset('leaflet/leaflet.js') }}"></script>
 </body>

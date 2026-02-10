@@ -1,15 +1,3 @@
-DELETE FROM modification_signalement;
-DELETE FROM photo_signalement;
-DELETE FROM signalement_status;
-DELETE FROM signalement;
-DELETE FROM signalement_type_status;
-DELETE FROM type_signalement;
-DELETE FROM entreprise;
-DELETE FROM tentative_connexion;
-DELETE FROM session;
-DELETE FROM utilisateur;
-DELETE FROM role;
-
 -- Réinitialisation des tables (ordre dépendances)
 DROP TABLE IF EXISTS modification_signalement;
 DROP TABLE IF EXISTS photo_signalement;
@@ -164,18 +152,18 @@ INSERT INTO signalement_type_status (code, libelle, pourcentage) VALUES
     ('annule', 'Annulé', 0);
 
 -- Insertion de signalements de test à Antananarivo
-INSERT INTO signalement (id_type_signalement, latitude, longitude, description, surface_m2, budget, id_entreprise) VALUES
-    (1, -18.9137, 47.5361, 'Nid de poule important avenue de l''Indépendance', 15.5, 2500000, 1),
-    (2, -18.9100, 47.5250, 'Fissure sur la route d''Ambohijatovo', 8.2, 1200000, 2),
-    (1, -18.9200, 47.5400, 'Plusieurs nids de poule à Analakely', 25.0, 4500000, NULL),
-    (3, -18.9050, 47.5300, 'Affaissement près du lac Anosy', 12.0, 8000000, 3),
-    (4, -18.9180, 47.5280, 'Route inondée à Isotry', 50.0, 15000000, 1);
-
--- Insertion des statuts initiaux
-INSERT INTO signalement_status (id_signalement, id_signalement_type_status) VALUES
-    (1, (SELECT id_signalement_type_status FROM signalement_type_status WHERE code = 'en_cours')),
-    (2, (SELECT id_signalement_type_status FROM signalement_type_status WHERE code = 'en_cours')),
-    (3, (SELECT id_signalement_type_status FROM signalement_type_status WHERE code = 'en_cours')),
-    (4, (SELECT id_signalement_type_status FROM signalement_type_status WHERE code = 'en_cours')),
-    (5, (SELECT id_signalement_type_status FROM signalement_type_status WHERE code = 'en_cours'));
+--INSERT INTO signalement (id_type_signalement, latitude, longitude, description, surface_m2, budget, id_entreprise) VALUES
+--    (1, -18.9137, 47.5361, 'Nid de poule important avenue de l''Indépendance', 15.5, 2500000, 1),
+--    (2, -18.9100, 47.5250, 'Fissure sur la route d''Ambohijatovo', 8.2, 1200000, 2),
+--    (1, -18.9200, 47.5400, 'Plusieurs nids de poule à Analakely', 25.0, 4500000, NULL),
+--    (3, -18.9050, 47.5300, 'Affaissement près du lac Anosy', 12.0, 8000000, 3),
+--    (4, -18.9180, 47.5280, 'Route inondée à Isotry', 50.0, 15000000, 1);
+--
+---- Insertion des statuts initiaux
+--INSERT INTO signalement_status (id_signalement, id_signalement_type_status) VALUES
+--    (1, (SELECT id_signalement_type_status FROM signalement_type_status WHERE code = 'en_cours')),
+--    (2, (SELECT id_signalement_type_status FROM signalement_type_status WHERE code = 'en_cours')),
+--    (3, (SELECT id_signalement_type_status FROM signalement_type_status WHERE code = 'en_cours')),
+--    (4, (SELECT id_signalement_type_status FROM signalement_type_status WHERE code = 'en_cours')),
+--    (5, (SELECT id_signalement_type_status FROM signalement_type_status WHERE code = 'en_cours'));
 

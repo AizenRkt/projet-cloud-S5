@@ -23,6 +23,36 @@ let dateStart = '';
 let dateEnd = '';
 let photoModalUrls = [];
 let photoModalIndex = 0;
+const creditsData = [
+    {
+        fullName: 'Rakotoariso Andy Patrick',
+        email: 'andypatrickpro@gmail.com / andypatrick3131@gmail.com',
+        number: 'ETU3658',
+        gitName: 'AizenRkt',
+        phone: '+261 34 83 664 14'
+    },
+    {
+        fullName: 'Rakotoarivony Fenitra Luca',
+        email: 'fenitra00@gmail.com',
+        number: 'ETU3660',
+        gitName: 'Fenitra12',
+        phone: '+261 34 24 558 95'
+    },
+    {
+        fullName: 'Rajaonarivelo Rohy Amboara Fifaliana',
+        email: 'rohyamboara@gmail.com',
+        number: 'ETU3295',
+        gitName: 'icecoldfinishing',
+        phone: '+261 34 10 121 44'
+    },
+    {
+        fullName: 'Andrianaivoson Hary Sabda',
+        email: 'andrianaivosonsanda@gmail.com',
+        number: 'ETU3246',
+        gitName: 'AHsanda2005',
+        phone: '+261 38 85 197 09'
+    },
+];
 
 function showToast(message, type = 'info', duration = 4000) {
     const container = document.getElementById('toastContainer');
@@ -592,6 +622,38 @@ function renderUsersTable() {
         '</tbody></table>';
 }
 
+function renderCreditsTable() {
+    const body = document.getElementById('creditsModalBody');
+    if (!body) return;
+    body.innerHTML =
+        '<table class="data-table"><thead><tr><th>Nom</th><th>Email</th><th>Numero</th><th>Nom Git</th><th>Telephone</th></tr></thead><tbody>' +
+        creditsData
+            .map((c) =>
+                '<tr><td>' +
+                c.fullName +
+                '</td><td>' +
+                c.email +
+                '</td><td>' +
+                c.number +
+                '</td><td>' +
+                c.gitName +
+                '</td><td>' +
+                c.phone +
+                '</td></tr>'
+            )
+            .join('') +
+        '</tbody></table>';
+}
+
+function openCreditsModal() {
+    document.getElementById('creditsModal').classList.add('open');
+    renderCreditsTable();
+}
+
+function closeCreditsModal() {
+    document.getElementById('creditsModal').classList.remove('open');
+}
+
 async function unblockUser(id) {
     const confirmed = await showConfirm('Voulez-vous debloquer cet utilisateur ?');
     if (!confirmed) return;
@@ -914,6 +976,7 @@ function MapApp() {
         <div>
             <MapNavbar
                 docsUrl={docsUrl}
+                onOpenCredits={openCreditsModal}
                 onOpenUsers={openUsersModal}
                 onOpenStats={openStatsModal}
                 onOpenSync={openSyncModal}
@@ -928,6 +991,7 @@ function MapApp() {
             </div>
             <DetailPanel onClose={closeDetail} />
             <MapModals
+                onCloseCredits={closeCreditsModal}
                 onCloseUsers={closeUsersModal}
                 onOpenCreateUser={openCreateUserForm}
                 onClosePhoto={closePhotoModal}

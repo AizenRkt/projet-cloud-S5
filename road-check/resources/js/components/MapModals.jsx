@@ -2,6 +2,7 @@ import React from 'react';
 import StatsPanel from '../stats.jsx';
 
 function MapModals({
+    onCloseCredits,
     onCloseUsers,
     onOpenCreateUser,
     onClosePhoto,
@@ -20,6 +21,12 @@ function MapModals({
 }) {
     return (
         <>
+            <div className="modal-overlay" id="creditsModal">
+                <div className="modal" style={{ maxWidth: '900px', maxHeight: '85vh' }}>
+                    <div className="modal-header"><h3>Crédit</h3><button className="close-btn" type="button" onClick={onCloseCredits}>&times;</button></div>
+                    <div className="modal-body" id="creditsModalBody" style={{ overflow: 'visible' }}></div>
+                </div>
+            </div>
             <div className="modal-overlay" id="usersModal">
                 <div className="modal">
                     <div className="modal-header"><h3> Utilisateurs</h3><button className="close-btn" type="button" onClick={onCloseUsers}>&times;</button></div>
