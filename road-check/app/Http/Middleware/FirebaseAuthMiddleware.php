@@ -11,13 +11,13 @@ class FirebaseAuthMiddleware
     public function handle(Request $request, Closure $next)
     {
         // 1️⃣ Vérifier si l'utilisateur est déjà authentifié via Laravel Auth (pour login local)
-        if (auth()->check()) {
+        if (auth()->check() && auth()->user()) {
             $request->attributes->set('firebase_uid', auth()->id());
             return $next($request);
         }
 
         // 1️⃣bis Vérifier si l'utilisateur est connecté via session locale (login sans JWT)
-        if (session()->has('utilisateur')) {
+        if (session()->get('is_logged_in') === true && session()->has('utilisateur')) {
             $utilisateur = session('utilisateur');
             $request->attributes->set('firebase_uid', $utilisateur->firebase_uid ?? $utilisateur->id_utilisateur ?? null);
             return $next($request);

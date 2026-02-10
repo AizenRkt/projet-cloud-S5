@@ -8,12 +8,12 @@ function LoginApp({ data }) {
 
     return (
         <div className="login-card">
-            {firestoreStatus && (
+            {/*{firestoreStatus && (
                 <div className="alert alert-info mb-3">
                     <i className="bi bi-cloud-check me-2"></i>
                     Firestore (Kreait) : {firestoreStatus}
                 </div>
-            )}
+            )}*/}
             <div className="brand-logo">
                 <i className="bi bi-car-front-fill"></i>
             </div>
@@ -65,15 +65,15 @@ function LoginApp({ data }) {
                 </button>
             </form>
 
-            <p className="text-center text-muted mb-0">
+            {/*<p className="text-center text-muted mb-0">
                 Pas encore de compte ?{' '}
                 <a href={data.registerUrl} className="text-decoration-none rc-link">S'inscrire</a>
-            </p>
-            <p className="text-center mt-2">
+            </p>*/}
+            {/*<p className="text-center mt-2">
                 <a href={data.docsUrl} className="text-decoration-none rc-link" target="_blank" rel="noreferrer">
                     <i className="bi bi-file-earmark-text me-1"></i>Documentation API
                 </a>
-            </p>
+            </p>*/}
         </div>
     );
 }

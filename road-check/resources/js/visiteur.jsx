@@ -15,6 +15,8 @@ let selectedSig = null;
 let searchText = '';
 let dateStart = '';
 let dateEnd = '';
+let photoModalUrls = [];
+let photoModalIndex = 0;
 
 /* ───────── Toast ───────── */
 function showToast(message, type = 'info', duration = 4000) {
@@ -188,12 +190,31 @@ function renderMarkers() {
                 return `/storage/${path}`;
             };
 
+            const escapeJsString = (value) =>
+                String(value)
+                    .replace(/\\/g, '\\\\')
+                    .replace(/'/g, "\\'")
+                    .replace(/\n/g, '\\n')
+                    .replace(/\r/g, '\\r');
+            const escapeHtmlAttribute = (value) =>
+                String(value)
+                    .replace(/&/g, '&amp;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;');
+            const resolvedPhotoUrls = photoUrls.map((path) => resolvePhotoUrl(path));
+            const photoListLiteral = resolvedPhotoUrls.map((url) => `'${escapeJsString(url)}'`).join(',');
+            const primaryPhotoUrl = resolvedPhotoUrls.length > 0 ? resolvedPhotoUrls[0] : '';
             const photoHtml =
-                photoUrls.length > 0
-                    ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">
-                        ${photoUrls.slice(0, 3).map((path) => `<img src="${resolvePhotoUrl(path)}" alt="Photo" style="width:80px;height:60px;object-fit:cover;border-radius:6px;border:1px solid #ccc;" />`).join('')}
-                        ${photoUrls.length > 3 ? `<span style="font-size:0.75rem;color:#8b949e;align-self:center;">+${photoUrls.length - 3}</span>` : ''}
+                resolvedPhotoUrls.length > 0
+                    ? `<div class="photo-thumb-wrap">
+                        <img src="${primaryPhotoUrl}" alt="Photo" class="photo-thumb" />
+                        ${resolvedPhotoUrls.length > 1 ? `<button type="button" class="photo-more-overlay" onclick="openPhotoModal([${photoListLiteral}], 0); return false;">Voir plus (${resolvedPhotoUrls.length})</button>` : ''}
                     </div>`
+                    : '';
+            const photoLinkHtml =
+                primaryPhotoUrl
+                    ? `<div style="margin-top:6px;"><a href="#" data-url="${escapeHtmlAttribute(primaryPhotoUrl)}" onclick="openPhotoModal([${photoListLiteral}], 0); return false;" style="font-size:0.8rem;color:#1f6feb;">Cliquer ici pour voir l'image</a></div>`
                     : '';
 
             const marker = L.circleMarker([lat, lng], {
@@ -227,6 +248,7 @@ function renderMarkers() {
                     <small>Surface: ${s.surface_m2 || '-'} m2 | Budget: ${s.budget || '-'} Ar</small><br/>
                     <small>Entr: ${s.entreprise || '-'}</small>
                     ${photoHtml}
+                    ${photoLinkHtml}
                 </div>
             `;
             marker.bindTooltip(tooltipContent, { direction: 'top', offset: [0, -10], interactive: true, className: 'rc-tooltip' });
@@ -335,6 +357,48 @@ function closeDetail() {
     renderSignalements();
 }
 
+function updatePhotoModal() {
+    const image = document.getElementById('photoModalImage');
+    const counter = document.getElementById('photoModalCounter');
+    const prevBtn = document.getElementById('photoModalPrev');
+    const nextBtn = document.getElementById('photoModalNext');
+    if (!image || photoModalUrls.length === 0) return;
+    image.src = photoModalUrls[photoModalIndex];
+    if (counter) counter.textContent = `${photoModalIndex + 1} / ${photoModalUrls.length}`;
+    if (prevBtn) prevBtn.disabled = photoModalUrls.length <= 1;
+    if (nextBtn) nextBtn.disabled = photoModalUrls.length <= 1;
+}
+
+function openPhotoModal(photoUrls, startIndex = 0) {
+    const modal = document.getElementById('photoModal');
+    if (!modal || !Array.isArray(photoUrls) || photoUrls.length === 0) return;
+    photoModalUrls = photoUrls;
+    photoModalIndex = Math.min(Math.max(startIndex, 0), photoUrls.length - 1);
+    updatePhotoModal();
+    modal.classList.add('open');
+}
+
+function closePhotoModal() {
+    const modal = document.getElementById('photoModal');
+    const image = document.getElementById('photoModalImage');
+    if (modal) modal.classList.remove('open');
+    if (image) image.src = '';
+    photoModalUrls = [];
+    photoModalIndex = 0;
+}
+
+function nextPhotoModal() {
+    if (photoModalUrls.length <= 1) return;
+    photoModalIndex = (photoModalIndex + 1) % photoModalUrls.length;
+    updatePhotoModal();
+}
+
+function prevPhotoModal() {
+    if (photoModalUrls.length <= 1) return;
+    photoModalIndex = (photoModalIndex - 1 + photoModalUrls.length) % photoModalUrls.length;
+    updatePhotoModal();
+}
+
 /* ───────── Stats (identique a map.jsx) ───────── */
 function updateStats(filteredData = signalements) {
     const total = filteredData.length;
@@ -391,6 +455,10 @@ function VisitorApp() {
         // Expose au DOM (onclick dans le HTML genere)
         window.selectSignalementVis = selectSignalementVis;
         window.closeDetail = closeDetail;
+        window.openPhotoModal = openPhotoModal;
+        window.closePhotoModal = closePhotoModal;
+        window.nextPhotoModal = nextPhotoModal;
+        window.prevPhotoModal = prevPhotoModal;
         window.filterBy = filterBy;
         window.handleSearch = handleSearch;
         window.handleDateChange = handleDateChange;
@@ -398,6 +466,10 @@ function VisitorApp() {
         return () => {
             delete window.selectSignalementVis;
             delete window.closeDetail;
+            delete window.openPhotoModal;
+            delete window.closePhotoModal;
+            delete window.nextPhotoModal;
+            delete window.prevPhotoModal;
             delete window.filterBy;
             delete window.handleSearch;
             delete window.handleDateChange;
@@ -412,6 +484,22 @@ function VisitorApp() {
                 <div className="map-container">
                     <div id="map"></div>
                     <StatsBar />
+                </div>
+            </div>
+            <div className="modal-overlay" id="photoModal">
+                <div className="modal" style={{ maxWidth: '900px' }}>
+                    <div className="modal-header">
+                        <h3>Photo</h3>
+                        <button className="close-btn" type="button" onClick={closePhotoModal}>&times;</button>
+                    </div>
+                    <div className="modal-body" id="photoModalBody" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                        <img id="photoModalImage" alt="Photo signalement" style={{ width: '100%', height: 'auto', maxHeight: '70vh', objectFit: 'contain', background: '#0d1117' }} />
+                        <div className="photo-modal-nav">
+                            <button id="photoModalPrev" className="photo-modal-btn" type="button" onClick={prevPhotoModal}>&lt;</button>
+                            <span id="photoModalCounter" className="photo-modal-counter">0 / 0</span>
+                            <button id="photoModalNext" className="photo-modal-btn" type="button" onClick={nextPhotoModal}>&gt;</button>
+                        </div>
+                    </div>
                 </div>
             </div>
             <DetailPanel onClose={closeDetail} title="Détails" />

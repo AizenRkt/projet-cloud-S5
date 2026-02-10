@@ -105,6 +105,21 @@
         @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
         @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
 
+        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 2000; display: none; align-items: center; justify-content: center; }
+        .modal-overlay.open { display: flex; }
+        .modal { background: var(--rc-panel); border: 1px solid var(--rc-border); border-radius: 14px; width: 90%; max-width: 900px; max-height: 85vh; overflow: hidden; box-shadow: 0 22px 40px rgba(0,0,0,0.45); }
+        .modal-header { padding: 15px 20px; background: var(--rc-panel-strong); border-bottom: 1px solid var(--rc-border); display: flex; justify-content: space-between; align-items: center; }
+        .modal-header h3 { color: var(--rc-accent); }
+        .modal-body { padding: 20px; overflow-y: auto; }
+        .photo-thumb-wrap { position: relative; width: 80px; height: 60px; margin-top: 6px; }
+        .photo-thumb { width: 100%; height: 100%; object-fit: cover; border-radius: 6px; border: 1px solid #ccc; display: block; }
+        .photo-more-overlay { position: absolute; inset: 0; border-radius: 6px; border: 1px solid #30363d; background: rgba(13, 17, 23, 0.65); color: #e6edf3; font-size: 0.72rem; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; backdrop-filter: blur(6px); }
+        .photo-more-overlay:hover { border-color: var(--rc-accent); color: var(--rc-accent); }
+        .photo-modal-nav { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; background: rgba(13, 17, 23, 0.75); padding: 6px 12px; border-radius: 999px; border: 1px solid #30363d; }
+        .photo-modal-btn { background: transparent; color: var(--rc-text); border: 1px solid #30363d; border-radius: 999px; width: 32px; height: 32px; cursor: pointer; }
+        .photo-modal-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .photo-modal-counter { font-size: 0.8rem; color: #8b949e; }
+
         .rc-tooltip {
             background: rgba(18, 24, 35, 0.95) !important;
             border: 1px solid var(--rc-border) !important;
