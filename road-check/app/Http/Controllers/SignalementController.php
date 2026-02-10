@@ -12,6 +12,7 @@ use App\Models\Utilisateur;
 use App\Models\Role;
 use App\Models\TentativeConnexion;
 use App\Models\PhotoSignalement;
+use App\Models\PrixM2;
 use Kreait\Firebase\Auth as FirebaseAuth;
 use Kreait\Firebase\Firestore;
 use Kreait\Firebase\Exception\AuthException;
@@ -84,7 +85,7 @@ class SignalementController extends Controller
             ], 422);
         }
 
-        $signalementQuery = Signalement::with('dernierStatut.typeStatus');
+        $signalementQuery = Signalement::with(['dernierStatut.typeStatus', 'statuts.typeStatus']);
 
         if ($request->filled('start_date')) {
             $signalementQuery->whereDate('date_signalement', '>=', $request->start_date);
@@ -105,6 +106,7 @@ class SignalementController extends Controller
         $termine = 0;
         $annule = 0;
         $avancementTotal = 0;
+        $processingTimes = [];
 
         foreach ($signalements as $s) {
             $code = $s->dernierStatut && $s->dernierStatut->typeStatus
@@ -117,11 +119,23 @@ class SignalementController extends Controller
             if ($code === 'nouveau') $nouveau++;
             elseif ($code === 'en_attente') $enAttente++;
             elseif ($code === 'en_cours') $enCours++;
-            elseif ($code === 'termine') $termine++;
+            elseif ($code === 'termine') {
+                $termine++;
+                // Calculate processing time: from date_signalement to date_modification of 'termine' status
+                $completionStatus = $s->statuts->where('typeStatus.code', 'termine')->sortByDesc('date_modification')->first();
+                if ($completionStatus && $s->date_signalement) {
+                    $start = \Carbon\Carbon::parse($s->date_signalement);
+                    $end = \Carbon\Carbon::parse($completionStatus->date_modification);
+                    $days = $start->diffInDays($end);
+                    $processingTimes[] = $days;
+                }
+            }
             elseif ($code === 'annule') $annule++;
 
             $avancementTotal += $pourcentage;
         }
+
+        $averageProcessingTime = count($processingTimes) > 0 ? round(array_sum($processingTimes) / count($processingTimes), 1) : 0;
 
         return response()->json([
             'total' => $total,
@@ -132,7 +146,8 @@ class SignalementController extends Controller
             'annule' => $annule,
             'total_surface' => $totalSurface,
             'total_budget' => $totalBudget,
-            'avancement' => $total > 0 ? round($avancementTotal / $total, 2) : 0
+            'avancement' => $total > 0 ? round($avancementTotal / $total, 2) : 0,
+            'average_processing_time' => $averageProcessingTime
         ]);
     }
 
@@ -268,26 +283,76 @@ class SignalementController extends Controller
         ]);
     }
 
+    // Récupérer le prix au m2 actuel et l'historique
+    public function getPrixM2()
+    {
+        $prix = PrixM2::orderBy('date', 'desc')->get();
+        return response()->json($prix);
+    }
+
+    public function storePrixM2(Request $request)
+    {
+        $request->validate([
+            'valeur' => 'required|numeric'
+        ]);
+
+        $prix = new PrixM2();
+        $prix->date = now();
+        $prix->valeur = $request->valeur;
+        $prix->save();
+
+        return response()->json($prix);
+    }
+
     public function update(Request $request, $id)
     {
         $signalement = Signalement::findOrFail($id);
 
-        // Update main fields
-        $signalement->update([
+        // Fetch current status code for comparison
+        $currentStatusCode = $signalement->dernierStatut && $signalement->dernierStatut->typeStatus
+            ? $signalement->dernierStatut->typeStatus->code
+            : 'nouveau';
+
+        $data = [
+            'id_type_signalement' => $request->id_type_signalement ?? $signalement->id_type_signalement,
             'description' => $request->description ?? $signalement->description,
             'surface_m2' => $request->surface_m2 ?? $signalement->surface_m2,
             'budget' => $request->budget ?? $signalement->budget,
-            'id_entreprise' => $request->id_entreprise,
-            'id_type_signalement' => $request->id_type_signalement ?? $signalement->id_type_signalement,
+            'id_entreprise' => $request->id_entreprise ?? $signalement->id_entreprise,
+            'niveau' => $request->niveau ?? $signalement->niveau,
             'synced_to_firebase' => false, // Marquer pour re-synchronisation
+        ];
+
+        // Si on valide le signalement (passage à "nouveau"), on calcule le budget final
+        if ($request->has('statut') && $request->statut === 'nouveau' && $currentStatusCode !== 'nouveau') {
+            $prixM2 = PrixM2::orderBy('date', 'desc')->first();
+            $valeurPrix = $prixM2 ? $prixM2->valeur : 0;
+            
+            $surface = $request->surface_m2 ?? $signalement->surface_m2 ?? 0;
+            $niveau = $request->niveau ?? $signalement->niveau ?? 1;
+
+            $data['budget'] = $surface * $niveau * $valeurPrix;
+            $data['niveau'] = $niveau; // Ensure niveau is updated if it was part of the calculation
+        }
+
+        // On met à jour les champs de la table signalement
+        $signalement->update([
+            'id_type_signalement' => $data['id_type_signalement'],
+            'description' => $data['description'],
+            'surface_m2' => $data['surface_m2'],
+            'budget' => $data['budget'], // Le budget calculé ou modifié
+            'id_entreprise' => $data['id_entreprise'],
+            'niveau' => $data['niveau'],
+            // 'synced_to_firebase' => $data['synced_to_firebase'],
         ]);
 
-        // Update status if provided
-        if ($request->has('statut')) {
+        // Gestion du changement de statut (via table de liaison)
+        if ($request->has('statut') && $request->statut !== $currentStatusCode) {
+             // Récupérer l'ID du statut
             $typeStatus = SignalementTypeStatus::where('code', $request->statut)->first();
             if ($typeStatus) {
                 SignalementStatus::create([
-                    'id_signalement' => $id,
+                    'id_signalement' => $signalement->id_signalement,
                     'id_signalement_type_status' => $typeStatus->id_signalement_type_status,
                     'date_modification' => now()
                 ]);

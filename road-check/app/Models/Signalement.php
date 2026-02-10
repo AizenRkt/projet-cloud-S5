@@ -23,7 +23,8 @@ class Signalement extends Model
         'synced_to_firebase',
         'firebase_id',
         'last_sync_attempt',
-        'sync_error'
+        'sync_error',
+        'niveau'
     ];
 
     protected $casts = [

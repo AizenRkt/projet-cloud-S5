@@ -21,6 +21,8 @@ let confirmCallback = null;
 let searchText = '';
 let dateStart = '';
 let dateEnd = '';
+let currentPrixM2 = 0;
+let priceHistory = [];
 
 function showToast(message, type = 'info', duration = 4000) {
     const container = document.getElementById('toastContainer');
@@ -86,13 +88,14 @@ function initMap() {
 
 async function loadAllData() {
     try {
-        const [sigRes, entRes, typeRes, statRes, userRes, roleRes] = await Promise.all([
+        const [sigRes, entRes, typeRes, statRes, userRes, roleRes, prixRes] = await Promise.all([
             fetch('/api/signalements').then((r) => r.json()),
             fetch('/api/entreprises').then((r) => r.json()),
             fetch('/api/type-signalements').then((r) => r.json()),
             fetch('/api/type-statuts').then((r) => r.json()),
             fetch('/api/utilisateurs').then((r) => r.json()),
-            fetch('/api/roles').then((r) => r.json())
+            fetch('/api/roles').then((r) => r.json()),
+            fetch('/api/prix-m2').then((r) => r.json())
         ]);
         signalements = sigRes || [];
         entreprises = entRes || [];
@@ -100,6 +103,8 @@ async function loadAllData() {
         typeStatuts = statRes || [];
         utilisateurs = userRes || [];
         roles = roleRes || [];
+        priceHistory = Array.isArray(prixRes) ? prixRes : (prixRes ? [prixRes] : []);
+        currentPrixM2 = priceHistory.length > 0 ? parseFloat(priceHistory[0].valeur) : 5000;
         renderSignalements();
         renderMarkers();
         updateStats();
@@ -234,12 +239,12 @@ function renderMarkers() {
                 photoUrls.length > 0
                     ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">
                         ${photoUrls
-                            .slice(0, 3)
-                            .map(
-                                (path) =>
-                                    `<img src="${resolvePhotoUrl(path)}" alt="Photo signalement" style="width:80px;height:60px;object-fit:cover;border-radius:6px;border:1px solid #ccc;" />`
-                            )
-                            .join('')}
+                        .slice(0, 3)
+                        .map(
+                            (path) =>
+                                `<img src="${resolvePhotoUrl(path)}" alt="Photo signalement" style="width:80px;height:60px;object-fit:cover;border-radius:6px;border:1px solid #ccc;" />`
+                        )
+                        .join('')}
                         ${photoUrls.length > 3 ? `<span style="font-size:0.75rem;color:#8b949e;align-self:center;">+${photoUrls.length - 3}</span>` : ''}
                     </div>`
                     : '';
@@ -300,6 +305,86 @@ function renderMarkers() {
     map.on('click', () => map.closePopup());
 }
 
+window.openPriceModal = function () {
+    let overlay = document.getElementById('priceModalOverlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'priceModalOverlay';
+        overlay.className = 'modal-overlay';
+        document.body.appendChild(overlay);
+    }
+
+    const historyList = priceHistory.map((p, index) => `
+        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #30363d;color:#e6edf3;">
+            <span>${new Date(p.date).toLocaleDateString()} ${new Date(p.date).toLocaleTimeString()}</span>
+            <span style="font-weight:${index === 0 ? 'bold' : 'normal'};color:${index === 0 ? '#2ea043' : '#8b949e'};">
+                ${parseFloat(p.valeur).toLocaleString()} Ar/m² ${index === 0 ? '(Actuel)' : ''}
+            </span>
+        </div>
+    `).join('');
+
+    overlay.innerHTML = `
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Gestion du Prix par m²</h3>
+                <button class="modal-close" onclick="closePriceModal()" style="background:none;border:none;color:#8b949e;font-size:1.5rem;cursor:pointer;">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Nouveau Prix (Ar/m²)</label>
+                    <div style="display:flex;gap:10px;">
+                        <input type="number" id="newPriceValue" class="form-control" placeholder="Ex: 6000" style="flex:1;" />
+                        <button class="btn-primary" onclick="savePriceM2()" style="padding:10px 20px;background:#238636;color:white;border:none;border-radius:6px;cursor:pointer;">Ajouter</button>
+                    </div>
+                </div>
+                
+                <h4 style="margin-top:20px;margin-bottom:10px;font-size:1rem;color:#58a6ff;">Historique des prix</h4>
+                <div style="max-height:200px;overflow-y:auto;background:#0d1117;padding:10px;border-radius:4px;border:1px solid #30363d;">
+                    ${historyList.length > 0 ? historyList : '<div style="color:#8b949e;">Aucun historique</div>'}
+                </div>
+            </div>
+        </div>
+    `;
+    overlay.classList.add('open');
+};
+
+window.closePriceModal = function () {
+    const overlay = document.getElementById('priceModalOverlay');
+    if (overlay) overlay.classList.remove('open');
+};
+
+window.savePriceM2 = async function () {
+    const val = parseFloat(document.getElementById('newPriceValue').value);
+    if (!val || val <= 0) {
+        showToast('Veuillez entrer un prix valide', 'error');
+        return;
+    }
+    showLoading('Mise à jour du prix...');
+    try {
+        const res = await fetch('/api/prix-m2', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: JSON.stringify({ valeur: val })
+        });
+        hideLoading();
+        if (res.ok) {
+            const data = await res.json();
+            priceHistory.unshift(data);
+            currentPrixM2 = parseFloat(data.valeur);
+            showToast('Prix mis à jour', 'success');
+            window.openPriceModal();
+        } else {
+            showToast('Erreur lors de la mise à jour', 'error');
+        }
+    } catch (e) {
+        hideLoading();
+        showToast('Erreur de connexion', 'error');
+    }
+};
+
 function selectSignalement(id) {
     selectedSig = signalements.find((s) => s.id_signalement === id);
     if (!selectedSig) return;
@@ -310,6 +395,49 @@ function selectSignalement(id) {
     if (!isNaN(lat) && !isNaN(lng)) map.setView([lat, lng], 16);
 }
 
+function calculateBudget() {
+    const surface = parseFloat(document.getElementById('editSurface').value) || 0;
+    const niveau = parseFloat(document.getElementById('editNiveau').value) || 1;
+    if (surface > 0 && currentPrixM2 > 0) {
+        const budget = surface * niveau * currentPrixM2;
+        document.getElementById('editBudget').value = Math.round(budget);
+    }
+}
+
+
+
+window.savePriceM2 = async function () {
+    const val = parseFloat(document.getElementById('newPriceValue').value);
+    if (!val || val <= 0) {
+        showToast('Veuillez entrer un prix valide', 'error');
+        return;
+    }
+    showLoading('Mise à jour du prix...');
+    try {
+        const res = await fetch('/api/prix-m2', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: JSON.stringify({ valeur: val })
+        });
+        hideLoading();
+        if (res.ok) {
+            const data = await res.json();
+            priceHistory.unshift(data);
+            currentPrixM2 = parseFloat(data.valeur);
+            showToast('Prix mis à jour', 'success');
+            window.openPriceModal(); // Refresh modal
+        } else {
+            showToast('Erreur lors de la mise à jour', 'error');
+        }
+    } catch (e) {
+        hideLoading();
+        showToast('Erreur de connexion', 'error');
+    }
+};
+
 function openDetail() {
     const panel = document.getElementById('detailPanel');
     const s = selectedSig;
@@ -317,14 +445,16 @@ function openDetail() {
     const statusOptions =
         s.statut === 'en_attente'
             ? [
-                  { code: 'nouveau', libelle: 'Accepter' },
-                  { code: 'annule', libelle: 'Annuler' }
-              ]
+                { code: 'nouveau', libelle: 'Accepter' },
+                { code: 'annule', libelle: 'Annuler' }
+            ]
             : typeStatuts;
     const selectedStatus = s.statut === 'en_attente' ? 'nouveau' : s.statut;
+    const isEnAttente = s.statut === 'en_attente';
 
     let historyHtml = '';
     if (s.history && s.history.length > 0) {
+        // ... history code ...
         historyHtml = `
             <div class="history-section">
                 <div class="history-title">Historique des avancements</div>
@@ -342,6 +472,13 @@ function openDetail() {
             </div>
         `;
     }
+
+    const niveauField = isEnAttente ?
+        `<div class="form-group"><label>Niveau</label><input type="number" id="editNiveau" value="${s.niveau || '1'}" oninput="calculateBudget()"></div>`
+        : `<div class="form-group"><label>Niveau</label><input type="number" value="${s.niveau || '1'}" readonly style="background:#f0f0f0;"></div>`;
+
+    // Logic for auto-calculating budget display on load if needed, but usually we just show estimated.
+    // We add a note that budget is estimated.
 
     document.getElementById('detailContent').innerHTML =
         '<form onsubmit="saveSignalement(event)"><div class="form-group"><label>Type</label><select id="editType">' +
@@ -374,9 +511,9 @@ function openDetail() {
         (s.description || '') +
         '</textarea></div><div class="form-row"><div class="form-group"><label>Surface (m2)</label><input type="number" id="editSurface" value="' +
         (s.surface_m2 || '') +
-        '"></div><div class="form-group"><label>Budget</label><input type="number" id="editBudget" value="' +
+        '" oninput="calculateBudget()"></div>' + niveauField + '<div class="form-group"><label>Budget (Estimé)</label><input type="number" id="editBudget" value="' +
         (s.budget || '') +
-        '"></div></div><div class="form-group"><label>Entreprise</label><select id="editEntreprise"><option value="">--</option>' +
+        '" readonly style="background:#f0f0f0;cursor:not-allowed;"></div></div><div class="form-group"><label>Entreprise</label><select id="editEntreprise"><option value="">--</option>' +
         entreprises
             .map(
                 (e) =>
@@ -429,6 +566,7 @@ async function saveSignalement(e) {
         statut: nextStatus,
         description: document.getElementById('editDescription').value,
         surface_m2: document.getElementById('editSurface').value || null,
+        niveau: document.getElementById('editNiveau').value || 1,
         budget: document.getElementById('editBudget').value || null,
         id_entreprise: document.getElementById('editEntreprise').value || null
     };
@@ -867,6 +1005,7 @@ function MapApp() {
                 onOpenUsers={openUsersModal}
                 onOpenStats={openStatsModal}
                 onOpenSync={openSyncModal}
+                onOpenPrice={() => window.openPriceModal()}
                 onLogout={logout}
             />
             <div className="main-container">

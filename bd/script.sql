@@ -77,19 +77,17 @@ CREATE TABLE signalement (
     id_type_signalement INT NOT NULL REFERENCES type_signalement(id_type_signalement),
     id_entreprise INT NULL REFERENCES entreprise(id_entreprise),
     id_utilisateur INT NULL REFERENCES utilisateur(id_utilisateur),
-
     latitude DOUBLE PRECISION NOT NULL,
     longitude DOUBLE PRECISION NOT NULL,
-
     description TEXT,
     surface_m2 DOUBLE PRECISION,
     budget DOUBLE PRECISION,
-
     date_signalement TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     synced_to_firebase BOOLEAN DEFAULT FALSE,
     firebase_id VARCHAR(128) NULL,
     last_sync_attempt TIMESTAMP NULL,
-    sync_error TEXT NULL
+    sync_error TEXT NULL,
+    niveau INT CHECK (niveau BETWEEN 1 AND 10) NULL
 );
 
 CREATE INDEX idx_signalement_position
@@ -127,9 +125,17 @@ CREATE TABLE modification_signalement (
     date_modification TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE prix_m2 (
+    id_prix_m2 SERIAL PRIMARY KEY,
+    date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    valeur DOUBLE PRECISION
+);
+
+
+
 -- ==================== Données de test ====================
 
--- Insertion des rôles par défaut
+/*-- Insertion des rôles par défaut
 INSERT INTO role (nom) VALUES ('Manager'), ('Visiteur'), ('Utilisateur');
 
 -- Création d'un manager par défaut (password: manager123)
@@ -181,6 +187,6 @@ INSERT INTO signalement_status (id_signalement, id_signalement_type_status) VALU
     (2, (SELECT id_signalement_type_status FROM signalement_type_status WHERE code = 'en_cours')),
     (3, (SELECT id_signalement_type_status FROM signalement_type_status WHERE code = 'en_cours')),
     (4, (SELECT id_signalement_type_status FROM signalement_type_status WHERE code = 'en_cours')),
-    (5, (SELECT id_signalement_type_status FROM signalement_type_status WHERE code = 'en_cours'));
+    (5, (SELECT id_signalement_type_status FROM signalement_type_status WHERE code = 'en_cours'));*/
 
 
