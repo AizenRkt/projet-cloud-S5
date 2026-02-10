@@ -23,7 +23,12 @@ class FirebaseAuthMiddleware
             return $next($request);
         }
 
-        // 2️⃣ Récupération robuste du token (header ou session)
+        // 2️⃣ Pour les pages web, exiger une session locale valide
+        if (! $request->expectsJson()) {
+            return redirect()->route('login.form');
+        }
+
+        // 3️⃣ Récupération robuste du token (header ou session)
         $authHeader =
             $request->header('Authorization')
             ?? $request->server('HTTP_AUTHORIZATION')
@@ -41,7 +46,7 @@ class FirebaseAuthMiddleware
             return redirect()->route('login.form');
         }
 
-        // 2️⃣ Détection du type de token (Firebase ou local)
+        // 4️⃣ Détection du type de token (Firebase ou local)
         $isFirebaseToken = false;
         if (is_string($token) && strlen($token) > 100 && strpos($token, '.') !== false) {
             // On suppose que les tokens Firebase sont plus longs et contiennent des claims spécifiques
