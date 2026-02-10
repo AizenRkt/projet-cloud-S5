@@ -1,3 +1,15 @@
+DELETE FROM modification_signalement;
+DELETE FROM photo_signalement;
+DELETE FROM signalement_status;
+DELETE FROM signalement;
+DELETE FROM signalement_type_status;
+DELETE FROM type_signalement;
+DELETE FROM entreprise;
+DELETE FROM tentative_connexion;
+DELETE FROM session;
+DELETE FROM utilisateur;
+DELETE FROM role;
+
 -- Réinitialisation des tables (ordre dépendances)
 DROP TABLE IF EXISTS modification_signalement;
 DROP TABLE IF EXISTS photo_signalement;
@@ -131,13 +143,17 @@ INSERT INTO entreprise (nom) VALUES
     ('RAVINALA Roads'),
     ('Travaux Publics SA');
 
--- Insertion des types de signalement
 INSERT INTO type_signalement (nom, icon) VALUES
-    ('Nid de poule', 'pothole'),
-    ('Fissure', 'crack'),
-    ('Affaissement', 'sinkhole'),
-    ('Route inondée', 'flood'),
-    ('Obstacle', 'obstacle');
+    ('Nid de poule', 'ellipse-outline'),
+    ('Fissure', 'remove-outline'),
+    ('Affaissement de chaussée', 'trending-down-outline'),
+    ('Route inondée', 'water-outline'),
+    ('Obstacle sur la chaussée', 'alert-circle-outline'),
+    ('Déformation de la chaussée', 'swap-vertical-outline'),
+    ('Trou d''homme non couvert', 'man-outline'),
+    ('Signalisation manquante', 'warning-outline'),
+    ('Accident de la route', 'car-crash-outline'),
+    ('Débris sur la route', 'trash-outline');
 
 -- Insertion des types de statut
 INSERT INTO signalement_type_status (code, libelle, pourcentage) VALUES
