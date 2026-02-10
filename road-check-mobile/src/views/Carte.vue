@@ -195,7 +195,9 @@ import {
   IonContent,
   IonFab,
   IonFabButton,
-  IonIcon
+  IonIcon,
+  alertController,
+  toastController
 } from "@ionic/vue";
 
 import { 
@@ -337,10 +339,10 @@ const initMap = async () => {
 
 
   // Essayer de récupérer la position actuelle
-  const pos = await GeolocalisationService.getCurrentPosition();
-  if (pos) {
-    const lat = pos.coords.latitude;
-    const lng = pos.coords.longitude;
+  const geoResult = await GeolocalisationService.getCurrentPositionDetailed();
+  if (geoResult.position) {
+    const lat = geoResult.position.coords.latitude;
+    const lng = geoResult.position.coords.longitude;
     map.setView([lat, lng], 15);
 
     userMarker = L.circleMarker([lat, lng], {
@@ -354,8 +356,10 @@ const initMap = async () => {
       .addTo(map)
       .bindPopup("Vous êtes ici")
       .openPopup();
+  } else if (geoResult.error === 'location_disabled') {
+    showLocationDisabledToast();
   } else {
-    console.warn("Permission localisation non accordée ou position indisponible");
+    console.warn("Position indisponible :", geoResult.errorMessage);
   }
 
   // Charger les types de signalement pour les couleurs
@@ -426,6 +430,58 @@ onBeforeUnmount(() => {
   tooltipPopup = null;
 });
 
+// Afficher un toast quand la localisation est désactivée
+const showLocationDisabledToast = async () => {
+  const toast = await toastController.create({
+    message: 'La localisation est désactivée. Activez le GPS pour utiliser cette fonctionnalité.',
+    duration: 3000,
+    position: 'top',
+    color: 'warning',
+    icon: locateOutline,
+    buttons: [
+      {
+        text: 'OK',
+        role: 'cancel'
+      }
+    ]
+  });
+  await toast.present();
+};
+
+// Afficher une alerte détaillée pour demander d'activer la localisation
+const showLocationAlert = async (errorType: string, errorMessage: string) => {
+  let header = 'Localisation indisponible';
+  let message = errorMessage;
+  let buttons: any[] = [{ text: 'OK', role: 'cancel' }];
+
+  if (errorType === 'location_disabled') {
+    header = 'GPS désactivé';
+    message = 'Le GPS de votre appareil est désactivé. Pour utiliser la géolocalisation, veuillez l\'activer dans les paramètres de votre téléphone.';
+    buttons = [
+      { text: 'Plus tard', role: 'cancel' },
+      {
+        text: 'Réessayer',
+        handler: () => {
+          goToMyLocation();
+        }
+      }
+    ];
+  } else if (errorType === 'permission_denied') {
+    header = 'Permission refusée';
+    message = 'La permission de localisation est refusée. Veuillez l\'autoriser dans les paramètres de l\'application pour pouvoir vous localiser.';
+    buttons = [
+      { text: 'OK', role: 'cancel' }
+    ];
+  }
+
+  const alert = await alertController.create({
+    header,
+    message,
+    buttons
+  });
+  await alert.present();
+};
+
 // Fonction pour recentrer sur la position actuelle
 const goToMyLocation = async () => {
   if (!map) {
@@ -433,14 +489,19 @@ const goToMyLocation = async () => {
     if (!map) return;
   }
 
-  const pos = await GeolocalisationService.getCurrentPosition();
-  if (!pos) {
-    alert("Autorisez la localisation pour recentrer la carte");
+  const geoResult = await GeolocalisationService.getCurrentPositionDetailed();
+
+  if (!geoResult.position) {
+    // Afficher une alerte détaillée selon le type d'erreur
+    await showLocationAlert(
+      geoResult.error || 'unknown',
+      geoResult.errorMessage || 'Impossible d\'obtenir votre position.'
+    );
     return;
   }
 
-  const lat = pos.coords.latitude;
-  const lng = pos.coords.longitude;
+  const lat = geoResult.position.coords.latitude;
+  const lng = geoResult.position.coords.longitude;
   map.setView([lat, lng], 15);
 
   if (userMarker) {

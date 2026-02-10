@@ -1,7 +1,6 @@
 import { collection, query, where, onSnapshot, type Unsubscribe } from "firebase/firestore";
 import { db, auth } from "@/firebase";
 import { Capacitor } from "@capacitor/core";
-import { LocalNotifications } from "@capacitor/local-notifications";
 import { toastController } from "@ionic/vue";
 import { SignalementStatusConfig } from "@/services/signalement/types";
 
@@ -25,12 +24,16 @@ const initLocalNotifications = async () => {
   if (Capacitor.getPlatform() === "web") return;
 
   try {
+    const { LocalNotifications } = await import("@capacitor/local-notifications");
+    const check = await LocalNotifications.checkPermissions();
+    if (check.display === "granted") return;
+
     const perm = await LocalNotifications.requestPermissions();
     if (perm.display !== "granted") {
       console.log("Permission notifications locales refusée");
     }
   } catch (err) {
-    console.error("Erreur permissions notifications locales:", err);
+    console.warn("Notifications locales non disponibles:", err);
   }
 };
 
@@ -53,6 +56,7 @@ const sendLocalNotification = async (title: string, body: string, id: number) =>
   }
 
   try {
+    const { LocalNotifications } = await import("@capacitor/local-notifications");
     await LocalNotifications.schedule({
       notifications: [
         {
@@ -67,7 +71,7 @@ const sendLocalNotification = async (title: string, body: string, id: number) =>
       ],
     });
   } catch (err) {
-    console.error("Erreur envoi notification locale:", err);
+    console.warn("Erreur envoi notification locale:", err);
     // Fallback: toast
     const toast = await toastController.create({
       header: title,
