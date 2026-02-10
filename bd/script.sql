@@ -124,6 +124,10 @@ INSERT INTO role (nom) VALUES ('Manager'), ('Visiteur'), ('Utilisateur');
 INSERT INTO utilisateur (email, password, firebase_uid, nom, prenom, id_role)
 VALUES ('admin@gmail.com', 'password123', 'manager-default-uid', 'Admin', 'Manager', 1);
 
+-- Création d'un visiteur par défaut (password: visiteur123)
+INSERT INTO utilisateur (email, password, firebase_uid, nom, prenom, id_role)
+VALUES ('visiteur@example.com', 'visiteur123', 'visiteur-default-uid', 'Visiteur', 'Test', 2);
+
 -- Insertion d'entreprises de test
 INSERT INTO entreprise (nom) VALUES
     ('COLAS Madagascar'),

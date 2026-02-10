@@ -65,6 +65,21 @@ services:
     environment:
       - NODE_ENV=production
 
+  firestore-visitor:
+    build:
+      context: ./firestore-sync-service
+    container_name: firestore-visitor-service
+    ports:
+      - "4001:4001"
+    volumes:
+      - ./firestore-sync-service:/app
+    networks:
+      - laravel
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+    command: ["node", "visitor-api.js"]
+
   vite:
     image: node:20-alpine
     container_name: laravel_vite
